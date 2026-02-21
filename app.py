@@ -30,6 +30,10 @@ else:
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],
+            "Growth": [
+                st.Page("pages/lessons.py", title="Micro-Lessons", icon=":material/school:"),
+                st.Page("pages/future_self.py", title="Future Self", icon=":material/mail:"),
+            ],
             "Account": [
                 st.Page("pages/settings_page.py", title="Settings", icon=":material/settings:"),
             ],

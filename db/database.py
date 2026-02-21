@@ -18,4 +18,20 @@ def init_db():
     with open(SCHEMA_PATH, "r") as f:
         conn.executescript(f.read())
     conn.commit()
+    _migrate(conn)
     conn.close()
+
+
+def _migrate(conn):
+    """Add columns/tables that may be missing in older databases."""
+    migrations = [
+        "ALTER TABLE habits ADD COLUMN cue_behavior TEXT",
+        "ALTER TABLE habits ADD COLUMN location TEXT",
+        "ALTER TABLE habits ADD COLUMN implementation_intention TEXT",
+    ]
+    for sql in migrations:
+        try:
+            conn.execute(sql)
+        except Exception:
+            pass  # Column already exists
+    conn.commit()

@@ -2,13 +2,17 @@ from db.database import get_connection
 
 
 def create_habit(user_id: int, pillar_id: int, name: str, description: str = "",
-                 frequency: str = "daily", custom_days: str = None, target_per_day: int = 1) -> int:
+                 frequency: str = "daily", custom_days: str = None, target_per_day: int = 1,
+                 cue_behavior: str = None, location: str = None,
+                 implementation_intention: str = None) -> int:
     conn = get_connection()
     try:
         cursor = conn.execute(
-            """INSERT INTO habits (user_id, pillar_id, name, description, frequency, custom_days, target_per_day)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, pillar_id, name, description, frequency, custom_days, target_per_day),
+            """INSERT INTO habits (user_id, pillar_id, name, description, frequency, custom_days,
+               target_per_day, cue_behavior, location, implementation_intention)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, pillar_id, name, description, frequency, custom_days, target_per_day,
+             cue_behavior, location, implementation_intention),
         )
         conn.commit()
         return cursor.lastrowid

@@ -6,6 +6,7 @@ from components.wheel_chart import create_wheel_chart
 from components.metrics_row import render_metrics_row
 from services.nudge_engine import get_active_nudges
 from services.coin_service import get_coin_balance, award_daily_coins
+from db.database import get_connection
 
 user_id = st.session_state.user_id
 display_name = st.session_state.get("display_name", "there")
@@ -13,6 +14,27 @@ display_name = st.session_state.get("display_name", "there")
 # ── Header ──────────────────────────────────────────────────────────────────
 st.title(f"Welcome back, {display_name}!")
 st.markdown(f"*{random.choice(MOTIVATIONAL_QUOTES)}*")
+
+# ── Future Self Letter Delivery ─────────────────────────────────────────────
+from datetime import date as _date
+_today_str = _date.today().isoformat()
+_conn_letters = get_connection()
+try:
+    _due = _conn_letters.execute(
+        "SELECT * FROM future_self_letters WHERE user_id = ? AND delivered = 0 AND delivery_date <= ?",
+        (user_id, _today_str),
+    ).fetchall()
+    if _due:
+        for _letter in _due:
+            _l = dict(_letter)
+            st.success(f":love_letter: **A letter from your past self has arrived!** (Written {_l['created_at'][:10]})")
+            st.markdown(f"> {_l['letter_text']}")
+            _conn_letters.execute("UPDATE future_self_letters SET delivered = 1 WHERE id = ?", (_l["id"],))
+        _conn_letters.commit()
+except Exception:
+    pass
+finally:
+    _conn_letters.close()
 
 # ── Proactive Nudges ────────────────────────────────────────────────────────
 nudges = get_active_nudges(user_id)
@@ -45,7 +67,6 @@ else:
     scores = assessment["scores"]
 
     # Metrics row
-    from db.database import get_connection
     conn = get_connection()
     try:
         # Active goals count
@@ -200,3 +221,40 @@ else:
             with col_p:
                 st.progress(g["progress_pct"] / 100)
                 st.caption(f"{g['progress_pct']}% — Due: {g['target_date'][:10]}")
+
+    # ── Today's Micro-Lesson ──────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Today's Micro-Lesson")
+    conn = get_connection()
+    try:
+        # Find first uncompleted lesson
+        completed_ids = [r["lesson_id"] for r in conn.execute(
+            "SELECT lesson_id FROM user_lesson_progress WHERE user_id = ?", (user_id,)
+        ).fetchall()]
+        all_lessons = conn.execute(
+            "SELECT id, title, pillar_id, lesson_type FROM micro_lessons ORDER BY pillar_id, id"
+        ).fetchall()
+        next_lesson = None
+        for l in all_lessons:
+            if l["id"] not in completed_ids:
+                next_lesson = dict(l)
+                break
+        total_lessons = len(all_lessons)
+        done_lessons = len(completed_ids)
+    finally:
+        conn.close()
+
+    if next_lesson:
+        pillar_name = PILLARS.get(next_lesson["pillar_id"], {}).get("display_name", "")
+        ltype = {"article": "Read", "exercise": "Practice", "reflection": "Reflect"}.get(next_lesson.get("lesson_type", ""), "Learn")
+        lesson_col1, lesson_col2 = st.columns([3, 1])
+        with lesson_col1:
+            st.markdown(f":book: **{next_lesson['title']}** — *{pillar_name}* ({ltype})")
+            st.caption(f"{done_lessons}/{total_lessons} lessons completed")
+        with lesson_col2:
+            if st.button("Start Lesson", use_container_width=True, key="start_lesson_dash"):
+                st.switch_page("pages/lessons.py")
+    elif total_lessons > 0:
+        st.success(f"All {total_lessons} lessons completed! You're a lifestyle medicine expert.")
+    else:
+        st.caption("Lessons will appear once the content is loaded.")

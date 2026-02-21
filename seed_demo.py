@@ -56,10 +56,16 @@ def main():
         uid = existing["id"]
         for table in ["wheel_assessments", "stage_of_change", "goals", "goal_progress",
                        "habits", "habit_log", "daily_checkins", "weekly_reviews",
-                       "coaching_messages", "comb_assessments"]:
+                       "coaching_messages", "comb_assessments",
+                       "coin_transactions", "daily_insights", "thought_checks",
+                       "user_journey", "user_lesson_progress", "future_self_letters",
+                       "auto_weekly_reports", "habit_celebrations"]:
             conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
         conn.execute("DELETE FROM users WHERE id = ?", (uid,))
         conn.commit()
+    # Reset shared tables
+    conn.execute("DELETE FROM micro_lessons")
+    conn.commit()
     conn.close()
 
     # Create Maria's account
@@ -652,6 +658,44 @@ def main():
             (user_id, insight_date, insight_text, insight_date),
         )
 
+    # ── User Journey (progressive unlocking) ─────────────────────────────────
+    print("Creating user journey data...")
+    conn.execute(
+        "INSERT OR IGNORE INTO user_journey (user_id, max_habits, consistency_days, level) VALUES (?, ?, ?, ?)",
+        (user_id, 999, 330, 7),  # Maria is at max level — Lifestyle Master
+    )
+
+    # ── Implementation Intentions for some habits ─────────────────────────────
+    print("Adding implementation intentions to habits...")
+    ii_updates = [
+        ("Morning walk/run", "After I finish my morning coffee, I will go for a run at the park near my house"),
+        ("Morning meditation", "After I finish my run, I will meditate at my reading corner"),
+        ("Eat 5+ servings fruits/vegetables", "After I get home from the grocery store, I will prep vegetables at the kitchen counter"),
+        ("In bed by 10:30 PM", "After I finish brushing my teeth, I will get into bed at 10:30 PM"),
+        ("Call/text a friend", "After I eat lunch, I will send a message to a friend at my desk"),
+    ]
+    for habit_name, ii_text in ii_updates:
+        conn.execute(
+            "UPDATE habits SET implementation_intention = ? WHERE user_id = ? AND name = ?",
+            (ii_text, user_id, habit_name),
+        )
+
+    # ── Future Self Letters ──────────────────────────────────────────────────
+    print("Creating future self letters...")
+    letters = [
+        ("Dear Future Me,\n\nI'm writing this from the darkest place I've ever been. 105 kg. Pre-diabetic. Smoking. Drinking alone. I can barely walk up the stairs without getting winded.\n\nBut today I made a decision. I'm going to change. I don't know how yet, and I'm terrified I'll fail. But I need you to know that I tried.\n\nIf you're reading this, it means some time has passed. I hope you're lighter — not just in weight, but in spirit. I hope you can run. I hope you can breathe without that rattle in your chest.\n\nMost of all, I hope you're proud of me for starting.\n\nWith hope,\nMaria (Day 1)",
+         "2025-05-01", 1, "2025-02-01"),
+        ("Dear Future Me,\n\nThree months in and I'm writing this after my first 5K walk. My legs hurt, my feet are blistered, and I'm sitting on a park bench crying happy tears.\n\nI quit smoking 45 days ago. I lost 8 kg. I cooked a real meal for my kids last night.\n\nYou probably don't remember how impossible this felt at the beginning. So I'm telling you: it was HARD. Every single day was a battle. But you're winning.\n\nKeep going. Don't you dare stop.\n\nLove,\nMaria (Month 3)",
+         "2025-08-01", 1, "2025-05-01"),
+        ("Dear Future Me,\n\nI just ran my first 5K RACE. 32 minutes. My kids were at the finish line with a handmade sign that said 'GO MAMA GO.' I ugly-cried in front of 200 strangers and I don't care.\n\nRemember when you couldn't run for ONE minute? Remember when 10 minutes of walking made you wheeze?\n\nYou're proof that people can change. If anyone ever tells you it's too late, show them this letter.\n\nYour blood work is normal. Your doctor hugged you. You reversed the pre-diabetes.\n\nI am so, so proud of us.\n\nLove,\nMaria (Month 8, 30 kg down, 5K finisher)",
+         "2026-02-01", 1, "2025-09-15"),
+    ]
+    for text, delivery, delivered, created in letters:
+        conn.execute(
+            "INSERT INTO future_self_letters (user_id, letter_text, delivery_date, delivered, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, text, delivery, delivered, created),
+        )
+
     conn.commit()
     conn.close()
 
@@ -670,7 +714,7 @@ def main():
     print("")
     print("  Data created:")
     print("  - 13 wheel assessments (monthly)")
-    print("  - 18 habits with daily logs")
+    print("  - 18 habits with daily logs + implementation intentions")
     print("  - ~330 daily check-ins with journals")
     print("  - 11 SMART-EST goals (9 completed, 2 active)")
     print("  - 14 weekly reviews")
@@ -678,13 +722,21 @@ def main():
     print("  - Stage of Change progression per pillar")
     print("  - LifeCoin transaction history")
     print("  - 6 sample daily AI insights")
+    print("  - User journey (Level 7 — Lifestyle Master)")
+    print("  - 3 future self letters (delivered)")
     print("")
-    print("  NEW FEATURES:")
+    print("  FEATURES:")
     print("  - Proactive Nudge Engine (dashboard)")
     print("  - Post-Check-in AI Insights")
     print("  - LifeCoin Engagement System")
     print("  - CBT Thought Check (AI Coach)")
     print("  - Pillar Correlation Dashboard (Progress)")
+    print("  - Implementation Intentions (habit creation)")
+    print("  - Celebration Micro-Feedback (habit toggle)")
+    print("  - Progressive Habit Unlocking (weekly plan)")
+    print("  - Auto Weekly Reports (weekly plan)")
+    print("  - Daily Micro-Lessons (15 lessons)")
+    print("  - Future Self Letters (write & receive)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("=" * 60)

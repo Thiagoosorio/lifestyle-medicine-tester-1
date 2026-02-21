@@ -136,6 +136,10 @@ CREATE TABLE IF NOT EXISTS habits (
     target_per_day  INTEGER DEFAULT 1,
     is_active       INTEGER NOT NULL DEFAULT 1,
     sort_order      INTEGER DEFAULT 0,
+    -- Implementation Intention fields
+    cue_behavior    TEXT,
+    location        TEXT,
+    implementation_intention TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -253,3 +257,82 @@ CREATE TABLE IF NOT EXISTS thought_checks (
 );
 
 CREATE INDEX IF NOT EXISTS idx_thought_user ON thought_checks(user_id, created_at);
+
+-- ============================================================
+-- FEATURES: Implementation Intentions, Progressive Unlocking,
+--           Micro-Lessons, Future Self Letters, Auto Reports
+-- ============================================================
+
+-- Progressive Habit Unlocking: user journey state
+CREATE TABLE IF NOT EXISTS user_journey (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    max_habits      INTEGER NOT NULL DEFAULT 3,
+    consistency_days INTEGER NOT NULL DEFAULT 0,
+    level           INTEGER NOT NULL DEFAULT 1,
+    unlocked_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);
+
+-- Micro-lesson content (seeded on init)
+CREATE TABLE IF NOT EXISTS micro_lessons (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    pillar_id       INTEGER NOT NULL REFERENCES pillars(id),
+    title           TEXT NOT NULL,
+    content         TEXT NOT NULL,
+    quiz_question   TEXT,
+    quiz_options    TEXT,
+    quiz_answer     INTEGER,
+    lesson_type     TEXT NOT NULL DEFAULT 'article'
+                        CHECK (lesson_type IN ('article', 'exercise', 'reflection')),
+    difficulty      INTEGER NOT NULL DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 3),
+    sort_order      INTEGER DEFAULT 0
+);
+
+-- User lesson progress
+CREATE TABLE IF NOT EXISTS user_lesson_progress (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    lesson_id       INTEGER NOT NULL REFERENCES micro_lessons(id),
+    completed_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    quiz_score      INTEGER,
+    UNIQUE(user_id, lesson_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_lesson_progress ON user_lesson_progress(user_id, completed_at);
+
+-- Future Self Letters
+CREATE TABLE IF NOT EXISTS future_self_letters (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    letter_text     TEXT NOT NULL,
+    delivery_date   TEXT NOT NULL,
+    delivered       INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_letters_user ON future_self_letters(user_id, delivery_date);
+
+-- Auto Weekly Reports (data-driven summaries)
+CREATE TABLE IF NOT EXISTS auto_weekly_reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    week_start      TEXT NOT NULL,
+    report_text     TEXT NOT NULL,
+    stats_json      TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, week_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_auto_reports ON auto_weekly_reports(user_id, week_start);
+
+-- Habit celebration log (micro-feedback tracking)
+CREATE TABLE IF NOT EXISTS habit_celebrations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    habit_id        INTEGER NOT NULL REFERENCES habits(id),
+    celebration_type TEXT NOT NULL,
+    feeling_tag     TEXT,
+    log_date        TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
