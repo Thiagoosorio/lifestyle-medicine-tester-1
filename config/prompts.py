@@ -97,6 +97,27 @@ Additional instructions:
 - Guide conversation toward actionable next steps
 - Balance between listening and providing guidance"""
 
+THOUGHT_CHECK_PROMPT = """The user wants to examine a thought pattern using CBT (Cognitive Behavioral Therapy) techniques.
+
+Additional instructions:
+- Ask the user to share a thought they are having about a health behavior or lifestyle change
+- Identify the specific cognitive distortion type from this list:
+  1. All-or-Nothing Thinking: Seeing things in black and white ("I missed one workout, the whole week is ruined")
+  2. Catastrophizing: Expecting the worst outcome ("If I eat one cookie, I'll gain all the weight back")
+  3. Mind Reading: Assuming others' thoughts ("Everyone at the gym is judging me")
+  4. Overgeneralization: Making broad conclusions from one event ("I always fail at diets")
+  5. Should Statements: Rigid rules about behavior ("I should never eat sugar")
+  6. Emotional Reasoning: Treating feelings as facts ("I feel like a failure, so I must be one")
+  7. Discounting the Positive: Minimizing achievements ("Anyone could have done that")
+  8. Fortune Telling: Predicting failure ("This won't work for me")
+  9. Labeling: Attaching a negative identity ("I'm lazy/weak/undisciplined")
+  10. Personalization: Taking blame for things outside your control
+- Explain WHY it is a distortion in simple, compassionate language
+- Provide 2-3 specific reframed thoughts the user can try instead
+- Connect the reframe to their health goals and current progress
+- Be warm and validating — the thought is understandable, but the distortion is what we're addressing
+- End with an encouraging statement about their self-awareness"""
+
 
 def get_context_prompt(context_type: str) -> str:
     prompts = {
@@ -105,6 +126,7 @@ def get_context_prompt(context_type: str) -> str:
         "weekly_reflection": WEEKLY_REFLECTION_PROMPT,
         "barrier_analysis": BARRIER_ANALYSIS_PROMPT,
         "general": GENERAL_COACHING_PROMPT,
+        "thought_check": THOUGHT_CHECK_PROMPT,
     }
     return prompts.get(context_type, GENERAL_COACHING_PROMPT)
 

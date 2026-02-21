@@ -212,3 +212,44 @@ CREATE TABLE IF NOT EXISTS coaching_messages (
 );
 
 CREATE INDEX IF NOT EXISTS idx_coaching_user ON coaching_messages(user_id, created_at);
+
+-- ============================================================
+-- NEW FEATURES: Engagement, Insights, CBT, Nudges
+-- ============================================================
+
+-- Engagement coins (gamification / reward system)
+CREATE TABLE IF NOT EXISTS coin_transactions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    amount          INTEGER NOT NULL,
+    reason          TEXT NOT NULL,
+    ref_date        TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, reason, ref_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_coins_user ON coin_transactions(user_id, created_at);
+
+-- Daily AI insights (post-check-in feedback loop)
+CREATE TABLE IF NOT EXISTS daily_insights (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    insight_date    TEXT NOT NULL,
+    insight_text    TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, insight_date)
+);
+
+-- CBT thought checks (thought distortion journal)
+CREATE TABLE IF NOT EXISTS thought_checks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    original_thought TEXT NOT NULL,
+    distortion_type  TEXT,
+    reframe          TEXT,
+    pillar_id        INTEGER REFERENCES pillars(id),
+    ai_response      TEXT,
+    created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_thought_user ON thought_checks(user_id, created_at);

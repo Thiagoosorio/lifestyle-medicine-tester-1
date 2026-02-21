@@ -4,6 +4,8 @@ from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_s
 from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
 from components.wheel_chart import create_wheel_chart
 from components.metrics_row import render_metrics_row
+from services.nudge_engine import get_active_nudges
+from services.coin_service import get_coin_balance, award_daily_coins
 
 user_id = st.session_state.user_id
 display_name = st.session_state.get("display_name", "there")
@@ -11,6 +13,24 @@ display_name = st.session_state.get("display_name", "there")
 # ── Header ──────────────────────────────────────────────────────────────────
 st.title(f"Welcome back, {display_name}!")
 st.markdown(f"*{random.choice(MOTIVATIONAL_QUOTES)}*")
+
+# ── Proactive Nudges ────────────────────────────────────────────────────────
+nudges = get_active_nudges(user_id)
+if nudges:
+    for nudge in nudges:
+        col_msg, col_btn = st.columns([4, 1])
+        with col_msg:
+            if nudge["color"] == "warning":
+                st.warning(f"{nudge['icon']} **{nudge['title']}** — {nudge['message']}")
+            elif nudge["color"] == "error":
+                st.error(f"{nudge['icon']} **{nudge['title']}** — {nudge['message']}")
+            else:
+                st.info(f"{nudge['icon']} **{nudge['title']}** — {nudge['message']}")
+        with col_btn:
+            if nudge.get("action_label") and nudge.get("action_page"):
+                if st.button(nudge["action_label"], key=f"nudge_{nudge['type']}", use_container_width=True):
+                    st.switch_page(nudge["action_page"])
+
 st.divider()
 
 # ── Current Wheel ───────────────────────────────────────────────────────────
@@ -64,11 +84,14 @@ else:
     finally:
         conn.close()
 
+    coins = get_coin_balance(user_id)
+
     render_metrics_row([
         {"label": "Current Streak", "value": f"{streak} days", "help": "Consecutive days with a check-in"},
         {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "help": "Habits completed today"},
         {"label": "Active Goals", "value": str(active_goals)},
         {"label": "Total Wheel Score", "value": f"{get_total_score(scores)}/60"},
+        {"label": ":material/stars: LifeCoins", "value": str(coins), "help": "Earn coins by completing daily check-ins, habits, and staying consistent"},
     ])
 
     st.divider()
@@ -119,6 +142,15 @@ else:
             if today_checkin["journal_entry"]:
                 st.markdown(f"**Journal:** {today_checkin['journal_entry'][:100]}...")
         st.success("Today's check-in complete!")
+
+        # Award daily coins
+        award_daily_coins(user_id, today)
+
+        # Post-check-in AI insight
+        from services.insight_service import get_or_generate_insight
+        insight = get_or_generate_insight(user_id, today)
+        if insight:
+            st.info(f":material/psychology: **Today's Insight** — {insight}")
     else:
         st.caption("How are you feeling today?")
         with st.form("quick_checkin"):
@@ -138,6 +170,8 @@ else:
                     conn.commit()
                 finally:
                     conn.close()
+                award_daily_coins(user_id, today)
+                st.toast(":material/stars: +1 LifeCoin for checking in!")
                 st.rerun()
 
     # ── Active goals summary ────────────────────────────────────────────────

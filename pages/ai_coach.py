@@ -16,6 +16,7 @@ context_options = {
     "goal_help": "Goal Help (SMART-EST)",
     "weekly_reflection": "Weekly Reflection",
     "barrier_analysis": "Barrier Analysis (COM-B)",
+    "thought_check": "Thought Check (CBT)",
 }
 
 col_ctx, col_clear = st.columns([3, 1])
@@ -34,12 +35,20 @@ with col_clear:
 # ── Quick action buttons ───────────────────────────────────────────────────
 st.markdown("**Quick prompts:**")
 quick_cols = st.columns(4)
-quick_prompts = {
-    "What should I focus on this week?": "Based on my current data, what pillar should I prioritize this week and what's one specific action I can take?",
-    "Help me set a goal": "Help me create a SMART-EST goal for my lowest-scoring pillar. Walk me through each criterion.",
-    "Celebrate my wins": "I'd like to celebrate my progress. What patterns of improvement do you see in my data?",
-    "Overcome a barrier": "I'm struggling with one of my lifestyle medicine pillars. Help me identify what's blocking me using the COM-B model.",
-}
+if context_type == "thought_check":
+    quick_prompts = {
+        "I missed my workout, week is ruined": "I missed my workout today and now I feel like the whole week is ruined. What's the point of trying?",
+        "Everyone judges me at the gym": "I feel like everyone at the gym is looking at me and judging me. I don't belong there.",
+        "I'll never change": "I've tried so many times to eat healthy and I always fail. I'll never be able to change.",
+        "I should be further along": "I should be much further along by now. Other people seem to change so easily.",
+    }
+else:
+    quick_prompts = {
+        "What should I focus on this week?": "Based on my current data, what pillar should I prioritize this week and what's one specific action I can take?",
+        "Help me set a goal": "Help me create a SMART-EST goal for my lowest-scoring pillar. Walk me through each criterion.",
+        "Celebrate my wins": "I'd like to celebrate my progress. What patterns of improvement do you see in my data?",
+        "Overcome a barrier": "I'm struggling with one of my lifestyle medicine pillars. Help me identify what's blocking me using the COM-B model.",
+    }
 
 selected_quick = None
 for i, (label, prompt) in enumerate(quick_prompts.items()):

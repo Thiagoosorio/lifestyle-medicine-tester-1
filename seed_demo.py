@@ -596,6 +596,62 @@ def main():
             (user_id, role, content, ctx, msg_date),
         )
 
+    # ── LifeCoins (engagement reward history) ────────────────────────────────
+    print("Creating LifeCoin transaction history...")
+
+    total_days = (END_DATE - START_DATE).days
+    for day_offset in range(total_days + 1):
+        current = START_DATE + timedelta(days=day_offset)
+        t = day_offset / total_days
+        current_str = current.isoformat()
+
+        # Check-in coins (1 per day with check-in)
+        has_checkin = conn.execute(
+            "SELECT id FROM daily_checkins WHERE user_id = ? AND checkin_date = ?",
+            (user_id, current_str),
+        ).fetchone()
+        if has_checkin:
+            conn.execute(
+                "INSERT OR IGNORE INTO coin_transactions (user_id, amount, reason, ref_date, created_at) VALUES (?, ?, ?, ?, ?)",
+                (user_id, 1, "checkin", current_str, current_str),
+            )
+
+        # All-habits coins (2 per day when all habits done - more likely later in journey)
+        if t > 0.3 and random.random() < min(0.8, t):
+            conn.execute(
+                "INSERT OR IGNORE INTO coin_transactions (user_id, amount, reason, ref_date, created_at) VALUES (?, ?, ?, ?, ?)",
+                (user_id, 2, "all_habits", current_str, current_str),
+            )
+
+    # Streak milestone bonuses
+    streak_milestones = [
+        ("2025-02-08", "streak_7"), ("2025-02-15", "streak_14"), ("2025-02-22", "streak_21"),
+        ("2025-03-03", "streak_30"), ("2025-04-02", "streak_60"), ("2025-05-02", "streak_90"),
+        ("2025-08-01", "streak_180"), ("2026-02-01", "streak_365"),
+    ]
+    for milestone_date, reason in streak_milestones:
+        conn.execute(
+            "INSERT OR IGNORE INTO coin_transactions (user_id, amount, reason, ref_date, created_at) VALUES (?, ?, ?, ?, ?)",
+            (user_id, 5, reason, milestone_date, milestone_date),
+        )
+
+    # ── Daily Insights (sample cached insights) ─────────────────────────────
+    print("Creating sample daily insights...")
+
+    sample_insights = [
+        ("2025-03-15", "Your sleep rating has been climbing this week (4 -> 6). On days with better sleep, your energy averages 1.5 points higher. Keep protecting that bedtime routine!"),
+        ("2025-05-10", "Pattern spotted: on days you rate Activity 7+, your mood averages 6.8 vs 4.2 on inactive days. Movement is your mood booster!"),
+        ("2025-07-20", "You've checked in 12 of the last 14 days. Great consistency! Your Nutrition ratings jumped 2 points this week."),
+        ("2025-09-05", "Your Stress Management has been your biggest improver this month (+2.3 points). The meditation practice is paying off!"),
+        ("2025-11-01", "Sleep and Energy are strongly correlated in your data (r=0.78). Last night's 8/10 sleep is fueling today's high energy."),
+        ("2026-01-15", "All six pillars are above 7 this week. You're in the top zone across the board!"),
+    ]
+    for insight_date, insight_text in sample_insights:
+        conn.execute(
+            "INSERT OR IGNORE INTO daily_insights (user_id, insight_date, insight_text, created_at) VALUES (?, ?, ?, ?)",
+            (user_id, insight_date, insight_text, insight_date),
+        )
+
     conn.commit()
     conn.close()
 
@@ -620,6 +676,15 @@ def main():
     print("  - 14 weekly reviews")
     print("  - 8 coaching conversation messages")
     print("  - Stage of Change progression per pillar")
+    print("  - LifeCoin transaction history")
+    print("  - 6 sample daily AI insights")
+    print("")
+    print("  NEW FEATURES:")
+    print("  - Proactive Nudge Engine (dashboard)")
+    print("  - Post-Check-in AI Insights")
+    print("  - LifeCoin Engagement System")
+    print("  - CBT Thought Check (AI Coach)")
+    print("  - Pillar Correlation Dashboard (Progress)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("=" * 60)

@@ -133,6 +133,7 @@ def _fallback_response(context_type: str, user_context: str) -> str:
         "goal_help": "Great goals follow the SMART-EST framework. Make sure your goal is Specific, Measurable, Achievable, Relevant, and Time-bound. Consider what Evidence supports your approach and how you can Tailor it to your life.",
         "weekly_reflection": "Take a moment to appreciate what went well this week. What's one thing you're proud of? What's one small thing you'd like to do differently next week?",
         "barrier_analysis": "When you're stuck, ask yourself: Is it a knowledge/skill issue (Capability)? An environment/support issue (Opportunity)? Or a motivation/habit issue (Motivation)? Identifying the barrier type helps find the right solution.",
+        "thought_check": "Share a thought you're having about your health journey. Common distortions include: All-or-Nothing Thinking ('I missed one day, it's all ruined'), Catastrophizing ('This will never work'), and Overgeneralization ('I always fail'). Recognizing the pattern is the first step to reframing it!",
     }
     return responses.get(context_type, responses["general"])
 
