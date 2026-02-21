@@ -28,6 +28,7 @@ else:
             ],
             "Tracking": [
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
+                st.Page("pages/analytics.py", title="Analytics", icon=":material/insights:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],
             "Growth": [

@@ -1,5 +1,6 @@
 import random
 import streamlit as st
+import plotly.graph_objects as go
 from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_score_color
 from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
 from components.wheel_chart import create_wheel_chart
@@ -140,6 +141,84 @@ else:
         st.divider()
         if st.button("Take New Assessment", use_container_width=True):
             st.switch_page("pages/wheel_assessment.py")
+
+    # ── 14-Day Sparkline Trends ──────────────────────────────────────────────
+    st.divider()
+    st.markdown("### 14-Day Snapshot")
+
+    from datetime import timedelta as _td
+    _spark_start = (date.today() - _td(days=13)).isoformat()
+    conn = get_connection()
+    try:
+        _spark_rows = conn.execute(
+            "SELECT checkin_date, mood, energy FROM daily_checkins WHERE user_id = ? AND checkin_date >= ? ORDER BY checkin_date",
+            (user_id, _spark_start),
+        ).fetchall()
+        _habit_rates = []
+        for i in range(14):
+            _d = (date.today() - _td(days=13 - i)).isoformat()
+            _htotal = conn.execute(
+                "SELECT COUNT(*) as c FROM habits WHERE user_id = ? AND is_active = 1", (user_id,)
+            ).fetchone()["c"]
+            _hdone = conn.execute(
+                "SELECT COUNT(*) as c FROM habit_log WHERE user_id = ? AND log_date = ? AND completed_count > 0",
+                (user_id, _d),
+            ).fetchone()["c"]
+            _habit_rates.append((_d, _hdone / _htotal if _htotal > 0 else 0))
+    finally:
+        conn.close()
+
+    spark_col1, spark_col2 = st.columns(2)
+
+    with spark_col1:
+        if _spark_rows:
+            _dates = [r["checkin_date"] for r in _spark_rows]
+            _moods = [r["mood"] for r in _spark_rows]
+            _energies = [r["energy"] for r in _spark_rows]
+            _fig_spark = go.Figure()
+            _fig_spark.add_trace(go.Scatter(
+                x=_dates, y=_moods, mode='lines',
+                name='Mood', line=dict(color='#FF9800', width=2.5),
+                fill='tozeroy', fillcolor='rgba(255,152,0,0.08)',
+            ))
+            _fig_spark.add_trace(go.Scatter(
+                x=_dates, y=_energies, mode='lines',
+                name='Energy', line=dict(color='#2196F3', width=2.5),
+                fill='tozeroy', fillcolor='rgba(33,150,243,0.08)',
+            ))
+            _fig_spark.update_layout(
+                height=160, margin=dict(t=5, b=20, l=30, r=10),
+                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5),
+                xaxis=dict(showgrid=False, tickformat="%b %d"),
+                legend=dict(orientation="h", yanchor="top", y=1.15, xanchor="center", x=0.5, font=dict(size=10)),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            )
+            st.plotly_chart(_fig_spark, use_container_width=True, key="spark_mood")
+        else:
+            st.caption("No check-ins yet — start logging to see mood & energy trends.")
+
+    with spark_col2:
+        if any(r[1] > 0 for r in _habit_rates):
+            _h_dates = [r[0] for r in _habit_rates]
+            _h_vals = [round(r[1] * 100) for r in _habit_rates]
+            _bar_colors = ['#4CAF50' if v >= 80 else '#FF9800' if v >= 50 else '#F44336' for v in _h_vals]
+            _fig_hab = go.Figure()
+            _fig_hab.add_trace(go.Bar(
+                x=_h_dates, y=_h_vals,
+                marker_color=_bar_colors,
+                text=[f"{v}%" for v in _h_vals],
+                textposition='outside', textfont=dict(size=8),
+            ))
+            _fig_hab.update_layout(
+                height=160, margin=dict(t=5, b=20, l=30, r=10),
+                yaxis=dict(range=[0, 115], showgrid=False, title=""),
+                xaxis=dict(showgrid=False, tickformat="%b %d"),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                showlegend=False,
+            )
+            st.plotly_chart(_fig_hab, use_container_width=True, key="spark_habits")
+        else:
+            st.caption("No habit data yet — track habits to see your daily completion rates.")
 
     # ── Today's check-in widget ─────────────────────────────────────────────
     st.divider()
