@@ -1,0 +1,168 @@
+import random
+import streamlit as st
+from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_score_color
+from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
+from components.wheel_chart import create_wheel_chart
+from components.metrics_row import render_metrics_row
+
+user_id = st.session_state.user_id
+display_name = st.session_state.get("display_name", "there")
+
+# ── Header ──────────────────────────────────────────────────────────────────
+st.title(f"Welcome back, {display_name}!")
+st.markdown(f"*{random.choice(MOTIVATIONAL_QUOTES)}*")
+st.divider()
+
+# ── Current Wheel ───────────────────────────────────────────────────────────
+assessment = get_current_wheel(user_id)
+
+if not assessment:
+    st.info("You haven't taken a Wheel of Life assessment yet.")
+    st.markdown("Start by assessing where you stand across the **6 pillars of lifestyle medicine**.")
+    if st.button("Take Your First Assessment", type="primary", use_container_width=True):
+        st.switch_page("pages/wheel_assessment.py")
+else:
+    scores = assessment["scores"]
+
+    # Metrics row
+    from db.database import get_connection
+    conn = get_connection()
+    try:
+        # Active goals count
+        goals_row = conn.execute(
+            "SELECT COUNT(*) as cnt FROM goals WHERE user_id = ? AND status = 'active'", (user_id,)
+        ).fetchone()
+        active_goals = goals_row["cnt"]
+
+        # Habits completed today
+        from datetime import date
+        today = date.today().isoformat()
+        habits_total = conn.execute(
+            "SELECT COUNT(*) as cnt FROM habits WHERE user_id = ? AND is_active = 1", (user_id,)
+        ).fetchone()["cnt"]
+        habits_done = conn.execute(
+            "SELECT COUNT(*) as cnt FROM habit_log WHERE user_id = ? AND log_date = ? AND completed_count > 0",
+            (user_id, today),
+        ).fetchone()["cnt"]
+
+        # Streak (consecutive days with a check-in)
+        checkin_dates = conn.execute(
+            "SELECT DISTINCT checkin_date FROM daily_checkins WHERE user_id = ? ORDER BY checkin_date DESC",
+            (user_id,),
+        ).fetchall()
+        streak = 0
+        if checkin_dates:
+            from datetime import timedelta
+            expected = date.today()
+            for row in checkin_dates:
+                d = date.fromisoformat(row["checkin_date"])
+                if d == expected:
+                    streak += 1
+                    expected -= timedelta(days=1)
+                elif d < expected:
+                    break
+    finally:
+        conn.close()
+
+    render_metrics_row([
+        {"label": "Current Streak", "value": f"{streak} days", "help": "Consecutive days with a check-in"},
+        {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "help": "Habits completed today"},
+        {"label": "Active Goals", "value": str(active_goals)},
+        {"label": "Total Wheel Score", "value": f"{get_total_score(scores)}/60"},
+    ])
+
+    st.divider()
+
+    # Wheel + pillar breakdown
+    col_wheel, col_details = st.columns([3, 2])
+
+    with col_wheel:
+        fig = create_wheel_chart(scores)
+        st.plotly_chart(fig, use_container_width=True)
+        st.caption(get_score_summary(scores))
+
+    with col_details:
+        st.markdown("### Pillar Breakdown")
+        for pid in sorted(scores.keys()):
+            score = scores[pid]
+            label = get_score_label(score)
+            color = get_score_color(score)
+            pct = score * 10
+            st.markdown(
+                f"**{PILLARS[pid]['icon']} {PILLARS[pid]['display_name']}** — {score}/10 ({label})"
+            )
+            st.progress(pct / 100)
+
+        st.divider()
+        if st.button("Take New Assessment", use_container_width=True):
+            st.switch_page("pages/wheel_assessment.py")
+
+    # ── Today's check-in widget ─────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Quick Daily Check-in")
+    conn = get_connection()
+    try:
+        today_checkin = conn.execute(
+            "SELECT * FROM daily_checkins WHERE user_id = ? AND checkin_date = ?",
+            (user_id, today),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if today_checkin:
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Mood", f"{today_checkin['mood']}/10")
+        with col2:
+            st.metric("Energy", f"{today_checkin['energy']}/10")
+        with col3:
+            if today_checkin["journal_entry"]:
+                st.markdown(f"**Journal:** {today_checkin['journal_entry'][:100]}...")
+        st.success("Today's check-in complete!")
+    else:
+        st.caption("How are you feeling today?")
+        with st.form("quick_checkin"):
+            qc1, qc2 = st.columns(2)
+            with qc1:
+                mood = st.slider("Mood", 1, 10, 5)
+            with qc2:
+                energy = st.slider("Energy", 1, 10, 5)
+            journal = st.text_area("How was your day? (optional)", height=68)
+            if st.form_submit_button("Save Check-in", use_container_width=True):
+                conn = get_connection()
+                try:
+                    conn.execute(
+                        "INSERT OR REPLACE INTO daily_checkins (user_id, checkin_date, mood, energy, journal_entry) VALUES (?, ?, ?, ?, ?)",
+                        (user_id, today, mood, energy, journal),
+                    )
+                    conn.commit()
+                finally:
+                    conn.close()
+                st.rerun()
+
+    # ── Active goals summary ────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Active Goals")
+    conn = get_connection()
+    try:
+        active = conn.execute(
+            "SELECT * FROM goals WHERE user_id = ? AND status = 'active' ORDER BY target_date ASC LIMIT 5",
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not active:
+        st.caption("No active goals yet.")
+        if st.button("Set Your First Goal", use_container_width=True):
+            st.switch_page("pages/goals.py")
+    else:
+        for goal in active:
+            g = dict(goal)
+            col_g, col_p = st.columns([3, 1])
+            with col_g:
+                pillar_name = PILLARS.get(g["pillar_id"], {}).get("display_name", "")
+                st.markdown(f"**{g['title']}** — *{pillar_name}*")
+            with col_p:
+                st.progress(g["progress_pct"] / 100)
+                st.caption(f"{g['progress_pct']}% — Due: {g['target_date'][:10]}")
