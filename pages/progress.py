@@ -248,10 +248,17 @@ with tab_insights:
             if x_field != y_field:
                 scatter_df = df[[x_field, y_field, "checkin_date"]].dropna()
                 if len(scatter_df) >= 3:
+                    # Use trendline only if statsmodels is available
+                    try:
+                        import statsmodels  # noqa: F401
+                        trendline = "ols"
+                    except ImportError:
+                        trendline = None
+
                     fig_scatter = px.scatter(
                         scatter_df, x=x_field, y=y_field,
                         labels={x_field: field_labels[x_field], y_field: field_labels[y_field]},
-                        trendline="ols",
+                        trendline=trendline,
                         hover_data=["checkin_date"],
                         color_discrete_sequence=["#2196F3"],
                     )
