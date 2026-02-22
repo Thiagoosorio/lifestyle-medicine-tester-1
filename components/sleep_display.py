@@ -114,14 +114,17 @@ def render_sleep_stat_cards(averages):
         m = int(mins % 60)
         return f"{h}h {m}m"
 
+    avg_quality = averages.get("avg_quality")
+    quality_str = f"{avg_quality:.1f}/5" if avg_quality else "--"
+
     items = [
         {"icon": "&#128164;", "value": fmt_hours(averages["avg_duration"]),
          "label": "Avg Duration", "color": "#0A84FF"},
         {"icon": "&#128171;", "value": f"{averages['avg_efficiency']:.0f}%",
          "label": "Avg Efficiency", "color": "#30D158"},
-        {"icon": "&#9202;", "value": f"{averages['avg_latency']:.0f}m",
-         "label": "Avg Latency", "color": "#FFD60A"},
-        {"icon": "&#11088;", "value": f"{averages['avg_score']:.0f}",
+        {"icon": "&#11088;", "value": quality_str,
+         "label": "Avg Quality", "color": "#FFD60A"},
+        {"icon": "&#127775;", "value": f"{averages['avg_score']:.0f}",
          "label": "Avg Score", "color": "#BF5AF2"},
     ]
 
