@@ -20,6 +20,8 @@ def init_db():
     conn.commit()
     _migrate(conn)
     conn.close()
+    # Seed science foundation data (evidence library + protocols)
+    _seed_science_data()
 
 
 def _migrate(conn):
@@ -28,6 +30,8 @@ def _migrate(conn):
         "ALTER TABLE habits ADD COLUMN cue_behavior TEXT",
         "ALTER TABLE habits ADD COLUMN location TEXT",
         "ALTER TABLE habits ADD COLUMN implementation_intention TEXT",
+        "ALTER TABLE research_evidence ADD COLUMN journal_tier TEXT",
+        "ALTER TABLE research_evidence ADD COLUMN domain TEXT",
     ]
     for sql in migrations:
         try:
@@ -35,3 +39,14 @@ def _migrate(conn):
         except Exception:
             pass  # Column already exists
     conn.commit()
+
+
+def _seed_science_data():
+    """Seed the evidence library and protocols (idempotent)."""
+    try:
+        from services.evidence_service import seed_evidence
+        from services.protocol_service import seed_protocols
+        seed_protocols()
+        seed_evidence()
+    except Exception:
+        pass  # Tables may not exist yet on first run

@@ -336,3 +336,101 @@ CREATE TABLE IF NOT EXISTS habit_celebrations (
     log_date        TEXT NOT NULL,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- ============================================================
+-- PHASE 1: SCIENCE FOUNDATION
+-- ============================================================
+
+-- Research evidence library (curated PubMed citations)
+CREATE TABLE IF NOT EXISTS research_evidence (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    pmid            TEXT,
+    doi             TEXT,
+    title           TEXT NOT NULL,
+    authors         TEXT,
+    journal         TEXT,
+    year            INTEGER,
+    study_type      TEXT NOT NULL CHECK (study_type IN (
+                        'meta_analysis', 'systematic_review', 'rct',
+                        'cohort', 'case_control', 'cross_sectional',
+                        'case_report', 'expert_opinion', 'guideline'
+                    )),
+    evidence_grade  TEXT NOT NULL CHECK (evidence_grade IN ('A', 'B', 'C', 'D')),
+    pillar_id       INTEGER REFERENCES pillars(id),
+    summary         TEXT NOT NULL,
+    key_finding     TEXT,
+    effect_size     TEXT,
+    sample_size     INTEGER,
+    population      TEXT,
+    dose_response   TEXT,
+    causation_note  TEXT,
+    tags            TEXT,
+    url             TEXT,
+    journal_tier    TEXT CHECK (journal_tier IN ('elite', 'q1', 'q2', 'q3', 'q4')),
+    domain          TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_pillar ON research_evidence(pillar_id);
+CREATE INDEX IF NOT EXISTS idx_evidence_grade ON research_evidence(evidence_grade);
+CREATE INDEX IF NOT EXISTS idx_evidence_domain ON research_evidence(domain);
+
+-- Links evidence to other entities (protocols, lessons, habits, insights)
+CREATE TABLE IF NOT EXISTS evidence_links (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    evidence_id     INTEGER NOT NULL REFERENCES research_evidence(id),
+    entity_type     TEXT NOT NULL CHECK (entity_type IN (
+                        'protocol', 'lesson', 'recommendation', 'biomarker',
+                        'habit', 'insight', 'goal_template'
+                    )),
+    entity_id       INTEGER NOT NULL,
+    relevance_note  TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_evidence_links ON evidence_links(entity_type, entity_id);
+
+-- Science-backed daily protocols
+CREATE TABLE IF NOT EXISTS protocols (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    pillar_id       INTEGER NOT NULL REFERENCES pillars(id),
+    name            TEXT NOT NULL,
+    description     TEXT NOT NULL,
+    timing          TEXT,
+    duration        TEXT,
+    frequency       TEXT NOT NULL DEFAULT 'daily',
+    difficulty      INTEGER NOT NULL DEFAULT 1 CHECK (difficulty BETWEEN 1 AND 3),
+    mechanism       TEXT,
+    expected_benefit TEXT,
+    contraindications TEXT,
+    sort_order      INTEGER DEFAULT 0,
+    is_active       INTEGER NOT NULL DEFAULT 1,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_protocols_pillar ON protocols(pillar_id);
+
+-- User's adopted protocols
+CREATE TABLE IF NOT EXISTS user_protocols (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    protocol_id     INTEGER NOT NULL REFERENCES protocols(id),
+    started_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    status          TEXT NOT NULL DEFAULT 'active'
+                        CHECK (status IN ('active', 'paused', 'completed', 'abandoned')),
+    notes           TEXT,
+    UNIQUE(user_id, protocol_id)
+);
+
+-- Daily protocol completion log
+CREATE TABLE IF NOT EXISTS protocol_log (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    protocol_id     INTEGER NOT NULL REFERENCES protocols(id),
+    log_date        TEXT NOT NULL,
+    completed       INTEGER NOT NULL DEFAULT 0,
+    notes           TEXT,
+    UNIQUE(user_id, protocol_id, log_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_protocol_log ON protocol_log(user_id, log_date);

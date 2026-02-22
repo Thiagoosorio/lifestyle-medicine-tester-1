@@ -62,7 +62,8 @@ def main():
                        "coin_transactions", "daily_insights", "thought_checks",
                        "user_journey", "user_lesson_progress", "future_self_letters",
                        "auto_weekly_reports",
-                       "body_metrics", "weekly_challenges"]:
+                       "body_metrics", "weekly_challenges",
+                       "protocol_log", "user_protocols"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
@@ -813,6 +814,45 @@ def main():
                 (user_id, week_start.isoformat(), pid, title, desc, target, current, diff, reward, status, completed_at, week_start.isoformat()),
             )
 
+    # ── Protocol Adoption & Completion Logs ─────────────────────────────────
+    print("Creating protocol adoption and completion logs...")
+    # Maria adopted 5 protocols at various points in her journey
+    _proto_adoptions = [
+        ("Morning Sunlight Walk", "2025-06-01"),
+        ("Post-Meal Walk (10 min)", "2025-05-01"),
+        ("Morning Mindfulness (10 min)", "2025-05-15"),
+        ("Consistent Sleep Schedule", "2025-04-01"),
+        ("Mediterranean Meal Template", "2025-04-15"),
+    ]
+    for proto_name, adopted_date in _proto_adoptions:
+        _proto_row = conn.execute(
+            "SELECT id FROM protocols WHERE name = ?", (proto_name,)
+        ).fetchone()
+        if not _proto_row:
+            continue
+        _proto_id = _proto_row["id"]
+        conn.execute(
+            "INSERT OR IGNORE INTO user_protocols (user_id, protocol_id, started_at, status) VALUES (?, ?, ?, 'active')",
+            (user_id, _proto_id, adopted_date),
+        )
+        # Generate completion logs from adoption date to END_DATE
+        _adopt_d = date.fromisoformat(adopted_date)
+        _days_active = (END_DATE - _adopt_d).days
+        for _day_off in range(_days_active + 1):
+            _log_d = _adopt_d + timedelta(days=_day_off)
+            _months_in = _day_off / 30.0
+            # Adherence improves over time: starts ~60%, reaches ~90%
+            _adh_prob = min(0.95, 0.55 + _months_in * 0.04)
+            # Weekends slightly lower adherence
+            if _log_d.weekday() >= 5:
+                _adh_prob -= 0.08
+            _completed = 1 if random.random() < _adh_prob else 0
+            if _completed:
+                conn.execute(
+                    "INSERT OR IGNORE INTO protocol_log (user_id, protocol_id, log_date, completed) VALUES (?, ?, ?, 1)",
+                    (user_id, _proto_id, _log_d.isoformat()),
+                )
+
     conn.commit()
     conn.close()
 
@@ -843,6 +883,7 @@ def main():
     print("  - 3 future self letters (delivered)")
     print("  - 53 body metrics entries (weight/waist/hip/bf%)")
     print("  - 24 weekly challenges (8 weeks)")
+    print("  - 5 adopted protocols with completion logs")
     print("")
     print("  FEATURES:")
     print("  - Premium CSS Theme (glassmorphism, animations)")
@@ -865,6 +906,10 @@ def main():
     print("  - Analytics & Transformation Page")
     print("  - 365-Day Habit Heatmap")
     print("  - Achievement Badge System (22 badges)")
+    print("  - Science Foundation: Research Library (70 citations)")
+    print("  - Science Foundation: Daily Protocols (25 protocols)")
+    print("  - Science Foundation: Evidence Grading (A/B/C/D)")
+    print("  - Science Foundation: Protocol Adherence Tracking")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("")

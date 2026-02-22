@@ -132,6 +132,50 @@ else:
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
+    # ── Today's Protocols Checklist ────────────────────────────────────────
+    from services.protocol_service import get_daily_protocol_status, log_protocol_completion
+    _proto_status = get_daily_protocol_status(user_id, today)
+    if _proto_status:
+        render_section_header("Today's Protocols", "Science-backed daily actions")
+        _done_count = sum(1 for p in _proto_status if p["completed"])
+        _total_count = len(_proto_status)
+        _pct = round(_done_count / _total_count * 100) if _total_count else 0
+        _bar_color = "#34C759" if _pct >= 80 else "#FF9F0A" if _pct >= 50 else "#FF453A"
+        _progress_html = (
+            f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
+            f'<div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">'
+            f'<div style="width:{_pct}%;height:100%;background:{_bar_color};border-radius:3px"></div>'
+            f'</div>'
+            f'<span style="font-size:13px;font-weight:600;color:{_bar_color}">{_done_count}/{_total_count}</span>'
+            f'</div>'
+        )
+        st.markdown(_progress_html, unsafe_allow_html=True)
+        for _p in _proto_status:
+            _pcol1, _pcol2 = st.columns([1, 5])
+            with _pcol1:
+                _checked = st.checkbox(
+                    "done", value=bool(_p["completed"]),
+                    key=f"dash_proto_{_p['protocol_id']}",
+                    label_visibility="collapsed",
+                )
+                if _checked != bool(_p["completed"]):
+                    log_protocol_completion(user_id, _p["protocol_id"], today, int(_checked))
+                    st.rerun()
+            with _pcol2:
+                _pil = PILLARS.get(_p["pillar_id"], {})
+                _pil_color = _pil.get("color", "#888")
+                _timing = f' &middot; {_p["timing"]}' if _p.get("timing") else ""
+                _line_style = f"text-decoration:line-through;opacity:0.5" if _p["completed"] else ""
+                _proto_html = (
+                    f'<div style="font-size:14px;line-height:20px;{_line_style}">'
+                    f'<span style="color:{_pil_color};font-weight:600">{_pil.get("icon", "")} </span>'
+                    f'<span style="color:{A["label_primary"]}">{_p["name"]}</span>'
+                    f'<span style="color:{A["label_tertiary"]};font-size:12px">{_timing}</span>'
+                    f'</div>'
+                )
+                st.markdown(_proto_html, unsafe_allow_html=True)
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+
     # ── Wheel + Pillar Breakdown ─────────────────────────────────────────
     col_wheel, col_details = st.columns([3, 2])
 

@@ -45,6 +45,10 @@ else:
                 st.Page("pages/analytics.py", title="Analytics", icon=":material/insights:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],
+            "Science": [
+                st.Page("pages/research_library.py", title="Research Library", icon=":material/science:"),
+                st.Page("pages/protocols.py", title="Daily Protocols", icon=":material/labs:"),
+            ],
             "Growth": [
                 st.Page("pages/lessons.py", title="Micro-Lessons", icon=":material/school:"),
                 st.Page("pages/challenges.py", title="Challenges", icon=":material/emoji_events:"),
