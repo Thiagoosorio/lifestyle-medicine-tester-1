@@ -11,6 +11,15 @@ st.set_page_config(
 # Initialize database on first run
 init_db()
 
+# Auto-seed demo account if it doesn't exist (needed for Streamlit Cloud)
+from db.database import get_connection as _get_conn
+_c = _get_conn()
+_demo_exists = _c.execute("SELECT id FROM users WHERE username = 'maria.silva'").fetchone()
+_c.close()
+if not _demo_exists:
+    from seed_demo import main as _seed_demo
+    _seed_demo()
+
 # Inject Apple Design System + Tailwind utility CSS
 from components.custom_theme import inject_custom_css
 inject_custom_css()
