@@ -1,4 +1,4 @@
-"""Nutrition Logger — Meal tracking with Noom-style color coding and plant score."""
+"""Nutrition Logger — Meal tracking with Noom-style color coding, plant score, and calorie counter."""
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -18,7 +18,7 @@ user_id = st.session_state.user_id
 
 render_hero_banner(
     "Nutrition Logger",
-    "Track meals with color coding, plant diversity, and fiber. Inspired by ACLM guidelines and the science of plant-forward eating."
+    "Track meals with color coding, plant diversity, fiber, and calorie counting. Inspired by ACLM guidelines and the science of plant-forward eating."
 )
 
 COLOR_INFO = {
@@ -30,7 +30,7 @@ COLOR_INFO = {
             "desc": "Ultra-processed foods, added sugars, fried foods, desserts"},
 }
 
-tab_log, tab_today, tab_trends = st.tabs(["Log Meal", "Today's Summary", "Trends"])
+tab_log, tab_today, tab_trends, tab_calories = st.tabs(["Log Meal", "Today's Summary", "Trends", "Calorie Tracker"])
 
 # ══════════════════════════════════════════════════════════════════════════
 # Tab 1: Log Meal
@@ -306,3 +306,116 @@ with tab_trends:
                 showlegend=False,
             )
             st.plotly_chart(fig, use_container_width=True)
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 4: Calorie Tracker
+# ══════════════════════════════════════════════════════════════════════════
+with tab_calories:
+    from services.calorie_service import (
+        get_all_foods, log_food_item, delete_food_item,
+        get_food_items_for_date, get_calorie_summary,
+        get_calorie_targets, set_calorie_targets, get_calorie_trends,
+    )
+    from components.calorie_display import (
+        render_calorie_summary_card, render_macro_donut, render_food_item_row,
+    )
+
+    render_section_header("Calorie Tracker", "Log foods and track daily macros")
+
+    # ── Targets expander ──────────────────────────────────────────────────
+    targets = get_calorie_targets(user_id)
+    with st.expander("Set Calorie/Macro Targets"):
+        with st.form("calorie_targets_form"):
+            col_t1, col_t2 = st.columns(2)
+            with col_t1:
+                cal_target = st.number_input("Daily Calories (kcal)", min_value=800, max_value=5000,
+                                             value=int(targets.get("calorie_target", targets.get("calories", 2000))))
+                pro_target = st.number_input("Protein (g)", min_value=10, max_value=300,
+                                             value=int(targets.get("protein_target_g", targets.get("protein_g", 50))))
+            with col_t2:
+                carb_target = st.number_input("Carbs (g)", min_value=20, max_value=600,
+                                              value=int(targets.get("carbs_target_g", targets.get("carbs_g", 250))))
+                fat_target = st.number_input("Fat (g)", min_value=10, max_value=200,
+                                             value=int(targets.get("fat_target_g", targets.get("fat_g", 65))))
+            if st.form_submit_button("Save Targets", use_container_width=True):
+                set_calorie_targets(user_id, cal_target, pro_target, carb_target, fat_target)
+                st.toast("Targets saved!")
+                st.rerun()
+
+    # ── Add food form ─────────────────────────────────────────────────────
+    cal_date = st.date_input("Date", value=date.today(), key="cal_date")
+    cal_date_str = cal_date.isoformat()
+
+    all_foods = get_all_foods()
+    if not all_foods:
+        st.warning("Food database is empty. Please restart the app to seed it.")
+    else:
+        food_options = {f"{fd['name']} ({fd['category']}) — {fd['calories']} cal/{fd['serving_size']}{fd['serving_unit']}": fd["id"] for fd in all_foods}
+        with st.form("add_food_form"):
+            food_label = st.selectbox("Search food", options=list(food_options.keys()))
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                servings = st.number_input("Servings", min_value=0.25, max_value=10.0, value=1.0, step=0.25)
+            with col_f2:
+                meal_type = st.selectbox("Meal", ["breakfast", "lunch", "dinner", "snack"], key="cal_meal")
+            if st.form_submit_button("Add Food", use_container_width=True):
+                food_id = food_options[food_label]
+                result = log_food_item(user_id, food_id, cal_date_str, meal_type, servings)
+                if result:
+                    st.toast(f"Added {result['food_name']} — {result['calories']:.0f} cal")
+                    st.rerun()
+
+    # ── Daily summary ─────────────────────────────────────────────────────
+    cal_summary = get_calorie_summary(user_id, cal_date_str)
+    targets = get_calorie_targets(user_id)
+
+    col_bars, col_donut = st.columns([3, 2])
+    with col_bars:
+        render_calorie_summary_card(cal_summary, targets)
+    with col_donut:
+        if cal_summary:
+            render_macro_donut(
+                cal_summary["total_protein_g"],
+                cal_summary["total_carbs_g"],
+                cal_summary["total_fat_g"],
+            )
+
+    # ── Food log ──────────────────────────────────────────────────────────
+    food_items = get_food_items_for_date(user_id, cal_date_str)
+    if food_items:
+        render_section_header("Food Log", f"{len(food_items)} items")
+        for item in food_items:
+            col_item, col_del = st.columns([9, 1])
+            with col_item:
+                render_food_item_row(item)
+            with col_del:
+                if st.button("X", key=f"del_food_{item['id']}", help="Remove"):
+                    delete_food_item(item["id"], user_id)
+                    st.rerun()
+
+    # ── Calorie trends ────────────────────────────────────────────────────
+    cal_trend_data = get_calorie_trends(user_id, days=30)
+    if cal_trend_data and len(cal_trend_data) >= 2:
+        render_section_header("Calorie Trends", "Last 30 days")
+        t_dates = [t["summary_date"] for t in cal_trend_data]
+        t_cals = [t["total_calories"] for t in cal_trend_data]
+        fig_cal = go.Figure()
+        fig_cal.add_trace(go.Bar(
+            x=t_dates, y=t_cals, marker_color="#FF9F0A", opacity=0.8,
+            hovertemplate="%{y:.0f} cal<br>%{x}<extra></extra>",
+        ))
+        cal_tgt = targets.get("calorie_target", targets.get("calories", 2000))
+        fig_cal.add_hline(y=cal_tgt, line_dash="dash", line_color="#30D158", opacity=0.5,
+                          annotation_text=f"{cal_tgt} cal target")
+        fig_cal.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="#1C1C1E",
+            font=dict(family=A["font_text"]),
+            margin=dict(l=40, r=20, t=30, b=40),
+            height=250,
+            xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
+            yaxis=dict(title="Calories", gridcolor="rgba(84,84,88,0.3)"),
+            showlegend=False,
+        )
+        st.plotly_chart(fig_cal, use_container_width=True)

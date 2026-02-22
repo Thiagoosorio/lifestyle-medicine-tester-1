@@ -101,6 +101,37 @@ def _assemble_user_context(user_id: int) -> str:
     except Exception:
         pass
 
+    calorie_data = None
+    diet_data = None
+
+    try:
+        from services.calorie_service import get_calorie_trends, get_calorie_targets
+        cal_trends = get_calorie_trends(user_id, days=7)
+        if cal_trends:
+            avg_cal = sum(t["total_calories"] for t in cal_trends) / len(cal_trends)
+            avg_pro = sum(t["total_protein_g"] for t in cal_trends) / len(cal_trends)
+            targets = get_calorie_targets(user_id)
+            calorie_data = {
+                "avg_calories_7d": round(avg_cal),
+                "avg_protein_7d": round(avg_pro),
+                "calorie_target": targets.get("calorie_target", targets.get("calories", 2000)),
+                "days_logged": len(cal_trends),
+            }
+    except Exception:
+        pass
+
+    try:
+        from services.diet_service import get_latest_assessment
+        assessment = get_latest_assessment(user_id)
+        if assessment:
+            diet_data = {
+                "diet_type": assessment.get("data", {}).get("name", assessment.get("diet_type")),
+                "hei_score": assessment.get("hei_score"),
+                "assessment_date": assessment.get("assessment_date"),
+            }
+    except Exception:
+        pass
+
     return build_user_context(
         wheel_scores=wheel_scores,
         stages=stages,
@@ -111,6 +142,8 @@ def _assemble_user_context(user_id: int) -> str:
         biomarker_data=biomarker_data,
         nutrition_data=nutrition_data,
         fasting_data=fasting_data_ctx,
+        calorie_data=calorie_data,
+        diet_data=diet_data,
     )
 
 

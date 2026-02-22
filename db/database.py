@@ -15,7 +15,7 @@ def get_connection() -> sqlite3.Connection:
 
 def init_db():
     conn = get_connection()
-    with open(SCHEMA_PATH, "r") as f:
+    with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
         conn.executescript(f.read())
     conn.commit()
     _migrate(conn)
@@ -53,5 +53,10 @@ def _seed_science_data():
     try:
         from services.biomarker_service import seed_biomarker_definitions
         seed_biomarker_definitions()
+    except Exception:
+        pass
+    try:
+        from services.calorie_service import seed_food_database
+        seed_food_database()
     except Exception:
         pass

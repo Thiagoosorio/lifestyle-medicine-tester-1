@@ -66,7 +66,9 @@ def main():
                        "protocol_log", "user_protocols",
                        "biomarker_results", "chronotype_assessments",
                        "sleep_logs", "fasting_sessions",
-                       "meal_logs", "nutrition_daily_summary"]:
+                       "meal_logs", "nutrition_daily_summary",
+                       "food_log_items", "calorie_daily_summary",
+                       "calorie_targets", "diet_assessments"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
@@ -1193,6 +1195,133 @@ def main():
 
         _meal_date += timedelta(days=1)
 
+    # ════════════════════════════════════════════════════════════════════════
+    # PHASE 3: CALORIE TRACKING & DIET ASSESSMENT DATA
+    # ════════════════════════════════════════════════════════════════════════
+
+    # ── Food Log Items (from food_database) ──────────────────────────────
+    print("Creating calorie tracking food log data...")
+
+    _food_rows = conn.execute(
+        "SELECT id, name, category, calories, protein_g, carbs_g, fat_g, fiber_g, color_category FROM food_database"
+    ).fetchall()
+    _foods_by_cat = {}
+    for _fr in _food_rows:
+        cat = _fr["category"]
+        if cat not in _foods_by_cat:
+            _foods_by_cat[cat] = []
+        _foods_by_cat[cat].append(dict(_fr))
+
+    # Last 60 days of calorie tracking (Month 10-12)
+    _cal_start = END_DATE - timedelta(days=60)
+    _cal_date = _cal_start
+
+    while _cal_date <= END_DATE:
+        _ct = (_cal_date - _cal_start).days / 60.0
+
+        if random.random() > min(0.95, 0.85 + _ct * 0.1):
+            _cal_date += timedelta(days=1)
+            continue
+
+        _day_cal = 0
+        _day_pro = 0
+        _day_carb = 0
+        _day_fat = 0
+        _day_fiber = 0
+        _day_items = 0
+
+        for _mtype in ["breakfast", "lunch", "dinner", "snack"]:
+            if _mtype == "snack" and random.random() < 0.3:
+                continue
+
+            if _mtype == "breakfast":
+                _picks = random.sample(_foods_by_cat.get("fruits", [])[:5], min(1, len(_foods_by_cat.get("fruits", [])[:5])))
+                _picks += random.sample(_foods_by_cat.get("grains", [])[:5], min(1, len(_foods_by_cat.get("grains", [])[:5])))
+            elif _mtype == "lunch":
+                _picks = random.sample(_foods_by_cat.get("vegetables", [])[:8], min(2, len(_foods_by_cat.get("vegetables", [])[:8])))
+                _picks += random.sample(_foods_by_cat.get("legumes", [])[:5], min(1, len(_foods_by_cat.get("legumes", [])[:5])))
+            elif _mtype == "dinner":
+                _picks = random.sample(_foods_by_cat.get("vegetables", [])[:8], min(1, len(_foods_by_cat.get("vegetables", [])[:8])))
+                if random.random() < 0.5:
+                    _picks += random.sample(_foods_by_cat.get("fish_seafood", [])[:5], min(1, len(_foods_by_cat.get("fish_seafood", [])[:5])))
+                else:
+                    _picks += random.sample(_foods_by_cat.get("meat", [])[:5], min(1, len(_foods_by_cat.get("meat", [])[:5])))
+                _picks += random.sample(_foods_by_cat.get("grains", [])[:5], min(1, len(_foods_by_cat.get("grains", [])[:5])))
+            else:
+                _cat_choice = random.choice(["fruits", "nuts_seeds", "dairy"])
+                _picks = random.sample(_foods_by_cat.get(_cat_choice, [])[:5], min(1, len(_foods_by_cat.get(_cat_choice, [])[:5])))
+
+            for _food in _picks:
+                _srv = round(random.choice([0.5, 1.0, 1.0, 1.0, 1.5, 2.0]), 1)
+                _item_cal = round(_food["calories"] * _srv, 1)
+                _item_pro = round(_food["protein_g"] * _srv, 1)
+                _item_carb = round(_food["carbs_g"] * _srv, 1)
+                _item_fat = round(_food["fat_g"] * _srv, 1)
+                _item_fib = round(_food["fiber_g"] * _srv, 1)
+
+                conn.execute(
+                    """INSERT INTO food_log_items
+                       (user_id, food_id, log_date, meal_type, servings,
+                        calories, protein_g, carbs_g, fat_g, fiber_g)
+                       VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                    (user_id, _food["id"], _cal_date.isoformat(), _mtype, _srv,
+                     _item_cal, _item_pro, _item_carb, _item_fat, _item_fib),
+                )
+
+                _day_cal += _item_cal
+                _day_pro += _item_pro
+                _day_carb += _item_carb
+                _day_fat += _item_fat
+                _day_fiber += _item_fib
+                _day_items += 1
+
+        if _day_items > 0:
+            conn.execute(
+                """INSERT OR IGNORE INTO calorie_daily_summary
+                   (user_id, summary_date, total_calories, total_protein_g,
+                    total_carbs_g, total_fat_g, total_fiber_g, total_items)
+                   VALUES (?,?,?,?,?,?,?,?)""",
+                (user_id, _cal_date.isoformat(), round(_day_cal, 1),
+                 round(_day_pro, 1), round(_day_carb, 1), round(_day_fat, 1),
+                 round(_day_fiber, 1), _day_items),
+            )
+
+        _cal_date += timedelta(days=1)
+
+    # ── Diet Assessments (2 assessments) ─────────────────────────────────
+    print("Creating diet assessments...")
+    import json as _json
+
+    # Early: Standard American Diet, HEI ~31
+    _early_components = {
+        "total_fruits": 2, "whole_fruits": 1, "total_vegetables": 2,
+        "greens_beans": 1, "whole_grains": 1, "dairy": 5,
+        "total_protein": 4, "seafood_plant_protein": 1, "fatty_acids": 2,
+        "refined_grains": 3, "sodium": 2, "added_sugars": 4, "saturated_fats": 3,
+    }
+    conn.execute(
+        """INSERT OR IGNORE INTO diet_assessments
+           (user_id, assessment_date, diet_type, hei_score, component_scores, answers)
+           VALUES (?,?,?,?,?,?)""",
+        (user_id, "2025-05-01", "standard_american", 31,
+         _json.dumps(_early_components), _json.dumps([2, 2, 2, 0, 3, 3, 1, 2, 1, 2, 2, 3])),
+    )
+
+    # Late: Flexitarian, HEI ~72
+    _late_components = {
+        "total_fruits": 4, "whole_fruits": 4, "total_vegetables": 4,
+        "greens_beans": 4, "whole_grains": 8, "dairy": 7,
+        "total_protein": 5, "seafood_plant_protein": 4, "fatty_acids": 8,
+        "refined_grains": 6, "sodium": 5, "added_sugars": 7, "saturated_fats": 6,
+    }
+    conn.execute(
+        """INSERT OR IGNORE INTO diet_assessments
+           (user_id, assessment_date, diet_type, hei_score, component_scores, answers)
+           VALUES (?,?,?,?,?,?)""",
+        (user_id, "2026-01-15", "flexitarian", 72,
+         _json.dumps(_late_components), _json.dumps([0, 0, 0, 2, 1, 0, 0, 0, 3, 0, 0, 1])),
+    )
+
     conn.commit()
     conn.close()
 
@@ -1230,12 +1359,19 @@ def main():
     print("  - ~80 fasting sessions (12:12 -> 16:8)")
     print("  - ~500 meal logs with nutrition summaries")
     print("")
-    print("  PHASE 2 FEATURES:")
+    print("  PHASE 3 FEATURES:")
+    print("  - ~200 calorie tracking food log entries (60 days)")
+    print("  - ~55 calorie daily summaries")
+    print("  - 2 diet pattern assessments (Standard American -> Flexitarian)")
+    print("")
+    print("  ALL PHASES:")
     print("  - Biomarker Dashboard (40 markers, standard+optimal ranges)")
     print("  - Sleep Tracker (PSQI scoring, chronotype quiz)")
     print("  - Fasting Tracker (metabolic zones, timer)")
     print("  - Nutrition Logger (plant score, Noom-style colors)")
     print("  - Recovery Dashboard (composite score)")
+    print("  - Calorie Tracker (USDA food database, macro tracking)")
+    print("  - Diet Pattern Assessment (HEI-2020, Diet ID)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("")

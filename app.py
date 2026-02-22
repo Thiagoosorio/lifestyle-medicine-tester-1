@@ -46,6 +46,7 @@ else:
                 st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),
                 st.Page("pages/sleep_tracker.py", title="Sleep", icon=":material/bedtime:"),
                 st.Page("pages/nutrition_logger.py", title="Nutrition", icon=":material/restaurant:"),
+                st.Page("pages/diet_assessment.py", title="Diet Pattern", icon=":material/eco:"),
                 st.Page("pages/fasting_tracker.py", title="Fasting", icon=":material/timer:"),
                 st.Page("pages/analytics.py", title="Analytics", icon=":material/insights:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),

@@ -96,7 +96,11 @@ Recovery: A daily composite score (0-100) derived from sleep (35%), stress (25%)
 
 Fasting: Time-restricted eating sessions with metabolic zone tracking. Zones: Fed (0-4h), Early Fasting (4-12h), Fat Burning (12-18h), Ketosis (18-24h), Deep Ketosis (24-72h). Note: autophagy timing is primarily from animal models (PMID: 30172870) — use hedging language for autophagy claims. Always check contraindications before encouraging extended fasts.
 
-Nutrition: Meal logs with Noom-style color coding (green=whole plant foods, yellow=lean proteins/processed grains, red=ultra-processed). Plant score (0-100) based on plant servings, fiber, and color balance. Target: 10+ plant servings/day, 30g+ fiber/day (PMID: 30638909, 33641343)."""
+Nutrition: Meal logs with Noom-style color coding (green=whole plant foods, yellow=lean proteins/processed grains, red=ultra-processed). Plant score (0-100) based on plant servings, fiber, and color balance. Target: 10+ plant servings/day, 30g+ fiber/day (PMID: 30638909, 33641343).
+
+Calorie Tracking: Daily food logs from a curated USDA-sourced database (~150 foods). Tracks calories, protein, carbs, fat, and fiber against customizable targets. Self-monitoring dietary intake is associated with weight loss (PMID: 35428527). Use calorie data to help users understand energy balance without promoting restrictive eating.
+
+Diet Pattern Assessment: 12-question quiz identifying dietary patterns (Mediterranean, DASH, Plant-Based, Flexitarian, Standard American, Low-Carb, Paleo, Traditional) with HEI-2020 inspired scoring (0-100). Based on Dr. David Katz's Diet ID methodology (PMID: 25015212) and USDA HEI (PMID: 30487459). Higher HEI scores consistently associated with lower mortality (PMID: 30571591). Use diet pattern results to guide personalized nutrition advice."""
 
 CONTEXT_TEMPLATE = """
 --- USER CONTEXT ---
@@ -197,7 +201,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        habit_stats: dict = None,
                        sleep_data: dict = None, recovery_data: dict = None,
                        biomarker_data: dict = None, nutrition_data: dict = None,
-                       fasting_data: dict = None) -> str:
+                       fasting_data: dict = None,
+                       calorie_data: dict = None, diet_data: dict = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -271,5 +276,22 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
             parts.append(f"Average fast duration (30d): {fasting_data['avg_hours']:.1f}h")
         if fasting_data.get("streak"):
             parts.append(f"Fasting streak: {fasting_data['streak']} days")
+
+    if calorie_data:
+        if calorie_data.get("avg_calories_7d"):
+            target = calorie_data.get("calorie_target", 2000)
+            parts.append(f"Average daily calories (7d): {calorie_data['avg_calories_7d']} kcal (target: {target})")
+        if calorie_data.get("avg_protein_7d"):
+            parts.append(f"Average daily protein (7d): {calorie_data['avg_protein_7d']}g")
+        if calorie_data.get("days_logged"):
+            parts.append(f"Calorie tracking days (7d): {calorie_data['days_logged']}")
+
+    if diet_data:
+        if diet_data.get("diet_type"):
+            parts.append(f"Diet pattern: {diet_data['diet_type']}")
+        if diet_data.get("hei_score") is not None:
+            parts.append(f"HEI diet quality score: {diet_data['hei_score']}/100")
+        if diet_data.get("assessment_date"):
+            parts.append(f"Diet assessment date: {diet_data['assessment_date']}")
 
     return "\n".join(parts) if parts else "No user data available yet."

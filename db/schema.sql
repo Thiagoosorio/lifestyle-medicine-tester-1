@@ -578,3 +578,105 @@ CREATE TABLE IF NOT EXISTS nutrition_daily_summary (
 );
 
 CREATE INDEX IF NOT EXISTS idx_nutrition_summary ON nutrition_daily_summary(user_id, summary_date);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 3: Calorie Counter + Diet Pattern Assessment
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Curated food database (seeded from config/food_data.py, USDA FDC SR Legacy)
+CREATE TABLE IF NOT EXISTS food_database (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    category        TEXT NOT NULL CHECK (category IN (
+                        'fruits', 'vegetables', 'grains', 'legumes',
+                        'nuts_seeds', 'dairy', 'meat', 'fish_seafood',
+                        'oils_fats', 'beverages', 'snacks', 'condiments'
+                    )),
+    serving_size    REAL NOT NULL,
+    serving_unit    TEXT NOT NULL,
+    calories        REAL NOT NULL,
+    protein_g       REAL NOT NULL DEFAULT 0,
+    carbs_g         REAL NOT NULL DEFAULT 0,
+    fat_g           REAL NOT NULL DEFAULT 0,
+    fiber_g         REAL NOT NULL DEFAULT 0,
+    vitamin_a_mcg   REAL DEFAULT 0,
+    vitamin_c_mg    REAL DEFAULT 0,
+    vitamin_d_mcg   REAL DEFAULT 0,
+    calcium_mg      REAL DEFAULT 0,
+    iron_mg         REAL DEFAULT 0,
+    potassium_mg    REAL DEFAULT 0,
+    sodium_mg       REAL DEFAULT 0,
+    color_category  TEXT CHECK (color_category IN ('green', 'yellow', 'red')),
+    is_plant_based  INTEGER DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_name ON food_database(name);
+CREATE INDEX IF NOT EXISTS idx_food_category ON food_database(category);
+
+-- Individual food items logged by users
+CREATE TABLE IF NOT EXISTS food_log_items (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    food_id         INTEGER NOT NULL REFERENCES food_database(id),
+    log_date        TEXT NOT NULL,
+    meal_type       TEXT NOT NULL CHECK (meal_type IN (
+                        'breakfast', 'lunch', 'dinner', 'snack'
+                    )),
+    servings        REAL NOT NULL DEFAULT 1.0,
+    calories        REAL NOT NULL,
+    protein_g       REAL NOT NULL DEFAULT 0,
+    carbs_g         REAL NOT NULL DEFAULT 0,
+    fat_g           REAL NOT NULL DEFAULT 0,
+    fiber_g         REAL NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_food_log_user ON food_log_items(user_id, log_date);
+
+-- Daily calorie/macro summary (computed)
+CREATE TABLE IF NOT EXISTS calorie_daily_summary (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    summary_date    TEXT NOT NULL,
+    total_calories  REAL DEFAULT 0,
+    total_protein_g REAL DEFAULT 0,
+    total_carbs_g   REAL DEFAULT 0,
+    total_fat_g     REAL DEFAULT 0,
+    total_fiber_g   REAL DEFAULT 0,
+    total_items     INTEGER DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, summary_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_calorie_summary ON calorie_daily_summary(user_id, summary_date);
+
+-- User calorie/macro targets
+CREATE TABLE IF NOT EXISTS calorie_targets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    calorie_target  REAL NOT NULL DEFAULT 2000,
+    protein_target_g REAL NOT NULL DEFAULT 50,
+    carbs_target_g  REAL NOT NULL DEFAULT 250,
+    fat_target_g    REAL NOT NULL DEFAULT 65,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);
+
+-- Diet pattern assessment results
+CREATE TABLE IF NOT EXISTS diet_assessments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    assessment_date TEXT NOT NULL,
+    diet_type       TEXT NOT NULL CHECK (diet_type IN (
+                        'mediterranean', 'dash', 'plant_based',
+                        'flexitarian', 'standard_american', 'low_carb',
+                        'paleo', 'traditional'
+                    )),
+    hei_score       INTEGER CHECK (hei_score BETWEEN 0 AND 100),
+    component_scores TEXT,
+    answers         TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_diet_assess_user ON diet_assessments(user_id, assessment_date);
