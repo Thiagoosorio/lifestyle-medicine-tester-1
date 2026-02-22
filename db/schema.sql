@@ -680,3 +680,64 @@ CREATE TABLE IF NOT EXISTS diet_assessments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_diet_assess_user ON diet_assessments(user_id, assessment_date);
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 4: Daily Growth — Meditation, Quotes & Mindfulness
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Meditation session logs (post-session, not a timer)
+CREATE TABLE IF NOT EXISTS meditation_sessions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    session_date    TEXT NOT NULL,
+    duration_minutes INTEGER NOT NULL CHECK (duration_minutes > 0),
+    meditation_type TEXT NOT NULL CHECK (meditation_type IN (
+                        'guided', 'unguided', 'breathing', 'body_scan', 'walking'
+                    )),
+    mood_before     INTEGER CHECK (mood_before BETWEEN 1 AND 5),
+    mood_after      INTEGER CHECK (mood_after BETWEEN 1 AND 5),
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_meditation_user ON meditation_sessions(user_id, session_date);
+
+-- Quote interactions (shown, favorited, reflected on)
+CREATE TABLE IF NOT EXISTS quote_interactions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    quote_index     INTEGER NOT NULL,
+    shown_date      TEXT NOT NULL,
+    is_favorite     INTEGER NOT NULL DEFAULT 0,
+    reflection_text TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, quote_index, shown_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_quote_user ON quote_interactions(user_id, shown_date);
+
+-- Nudge display tracking (avoid short-term repeats)
+CREATE TABLE IF NOT EXISTS nudge_shown (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    nudge_index     INTEGER NOT NULL,
+    shown_date      TEXT NOT NULL,
+    acknowledged    INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, nudge_index, shown_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_nudge_user ON nudge_shown(user_id, shown_date);
+
+-- Per-user daily growth state (today's assigned quote/nudge + streak)
+CREATE TABLE IF NOT EXISTS daily_growth_state (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id             INTEGER NOT NULL REFERENCES users(id),
+    current_quote_index INTEGER,
+    current_nudge_index INTEGER,
+    state_date          TEXT NOT NULL,
+    meditation_streak   INTEGER NOT NULL DEFAULT 0,
+    created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);

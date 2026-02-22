@@ -56,6 +56,7 @@ else:
                 st.Page("pages/protocols.py", title="Daily Protocols", icon=":material/labs:"),
             ],
             "Growth": [
+                st.Page("pages/daily_growth.py", title="Daily Growth", icon=":material/spa:"),
                 st.Page("pages/lessons.py", title="Micro-Lessons", icon=":material/school:"),
                 st.Page("pages/challenges.py", title="Challenges", icon=":material/emoji_events:"),
                 st.Page("pages/future_self.py", title="Future Self", icon=":material/mail:"),

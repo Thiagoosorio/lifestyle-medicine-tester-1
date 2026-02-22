@@ -68,7 +68,9 @@ def main():
                        "sleep_logs", "fasting_sessions",
                        "meal_logs", "nutrition_daily_summary",
                        "food_log_items", "calorie_daily_summary",
-                       "calorie_targets", "diet_assessments"]:
+                       "calorie_targets", "diet_assessments",
+                       "meditation_sessions", "quote_interactions",
+                       "nudge_shown", "daily_growth_state"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
@@ -1322,6 +1324,103 @@ def main():
          _json.dumps(_late_components), _json.dumps([0, 0, 0, 2, 1, 0, 0, 0, 3, 0, 0, 1])),
     )
 
+    # ════════════════════════════════════════════════════════════════════════
+    # PHASE 4: Daily Growth — Meditation, Quotes & Mindfulness
+    # ════════════════════════════════════════════════════════════════════════
+    print("Phase 4: Daily Growth...")
+
+    # Meditation sessions — ~40 sessions over last 60 days
+    # Maria started meditating around month 5, became consistent by month 8+
+    _med_types = ["guided", "unguided", "breathing", "body_scan", "walking"]
+    _med_sessions = 0
+    for day_offset in range(60, -1, -1):
+        d = date.today() - timedelta(days=day_offset)
+        # ~65% probability of meditating on any given day in recent months
+        if random.random() < 0.65:
+            med_type = random.choice(_med_types[:3]) if day_offset > 30 else random.choice(_med_types)
+            duration = random.choice([5, 5, 10, 10, 10, 15, 15, 20, 20, 25, 30])
+            # Mood generally improves after meditation
+            mood_before = random.choice([1, 2, 2, 3, 3, 3, 4])
+            mood_after = min(5, mood_before + random.choice([0, 1, 1, 1, 2]))
+            notes_pool = [
+                None, None, None,  # most sessions no notes
+                "Felt restless at first, then settled",
+                "Good session, mind was clear",
+                "Difficult to focus today",
+                "Deep calm after",
+                "Short but effective",
+                "Morning sunlight meditation on the balcony",
+            ]
+            conn.execute(
+                """INSERT INTO meditation_sessions
+                   (user_id, session_date, duration_minutes, meditation_type,
+                    mood_before, mood_after, notes)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (user_id, d.isoformat(), duration, med_type,
+                 mood_before, mood_after, random.choice(notes_pool)),
+            )
+            _med_sessions += 1
+    print(f"  - {_med_sessions} meditation sessions (60 days)")
+
+    # Quote interactions — ~20 shown quotes, some with reflections and favorites
+    _quote_count = 0
+    _fav_count = 0
+    _refl_count = 0
+    for day_offset in range(25, -1, -1):
+        d = date.today() - timedelta(days=day_offset)
+        if random.random() < 0.80:  # 80% of days she views the quote
+            qi = random.randint(0, 59)
+            is_fav = 1 if random.random() < 0.15 else 0
+            refl = None
+            if random.random() < 0.25:
+                reflections = [
+                    "This resonates deeply with where I am right now.",
+                    "I need to remember this on hard days.",
+                    "Simple but powerful. I wrote this in my journal too.",
+                    "This is exactly what I needed to hear today.",
+                    "I shared this with my running group.",
+                ]
+                refl = random.choice(reflections)
+                _refl_count += 1
+            conn.execute(
+                """INSERT OR IGNORE INTO quote_interactions
+                   (user_id, quote_index, shown_date, is_favorite, reflection_text)
+                   VALUES (?,?,?,?,?)""",
+                (user_id, qi, d.isoformat(), is_fav, refl),
+            )
+            _quote_count += 1
+            if is_fav:
+                _fav_count += 1
+    print(f"  - {_quote_count} quote interactions ({_fav_count} favorites, {_refl_count} reflections)")
+
+    # Nudge shown — ~25 acknowledged nudges
+    _nudge_count = 0
+    for day_offset in range(30, -1, -1):
+        d = date.today() - timedelta(days=day_offset)
+        if random.random() < 0.80:
+            ni = random.randint(0, 34)
+            ack = 1 if random.random() < 0.85 else 0
+            conn.execute(
+                """INSERT OR IGNORE INTO nudge_shown
+                   (user_id, nudge_index, shown_date, acknowledged)
+                   VALUES (?,?,?,?)""",
+                (user_id, ni, d.isoformat(), ack),
+            )
+            _nudge_count += 1
+    print(f"  - {_nudge_count} mindfulness nudges shown")
+
+    # Daily growth state — set for today
+    from services.growth_service import get_meditation_streak as _get_streak
+    _streak = _get_streak(user_id)
+    conn.execute(
+        """INSERT OR REPLACE INTO daily_growth_state
+           (user_id, current_quote_index, current_nudge_index,
+            state_date, meditation_streak)
+           VALUES (?,?,?,?,?)""",
+        (user_id, random.randint(0, 59), random.randint(0, 34),
+         date.today().isoformat(), _streak),
+    )
+
     conn.commit()
     conn.close()
 
@@ -1364,6 +1463,11 @@ def main():
     print("  - ~55 calorie daily summaries")
     print("  - 2 diet pattern assessments (Standard American -> Flexitarian)")
     print("")
+    print("  PHASE 4 FEATURES:")
+    print("  - ~40 meditation sessions (60 days, 5 types)")
+    print("  - ~20 quote interactions with reflections and favorites")
+    print("  - ~25 mindfulness nudges shown")
+    print("")
     print("  ALL PHASES:")
     print("  - Biomarker Dashboard (40 markers, standard+optimal ranges)")
     print("  - Sleep Tracker (PSQI scoring, chronotype quiz)")
@@ -1372,6 +1476,7 @@ def main():
     print("  - Recovery Dashboard (composite score)")
     print("  - Calorie Tracker (USDA food database, macro tracking)")
     print("  - Diet Pattern Assessment (HEI-2020, Diet ID)")
+    print("  - Daily Growth (meditation, quotes, mindfulness nudges)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("")

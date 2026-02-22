@@ -100,7 +100,9 @@ Nutrition: Meal logs with Noom-style color coding (green=whole plant foods, yell
 
 Calorie Tracking: Daily food logs from a curated USDA-sourced database (~150 foods). Tracks calories, protein, carbs, fat, and fiber against customizable targets. Self-monitoring dietary intake is associated with weight loss (PMID: 35428527). Use calorie data to help users understand energy balance without promoting restrictive eating.
 
-Diet Pattern Assessment: 12-question quiz identifying dietary patterns (Mediterranean, DASH, Plant-Based, Flexitarian, Standard American, Low-Carb, Paleo, Traditional) with HEI-2020 inspired scoring (0-100). Based on Dr. David Katz's Diet ID methodology (PMID: 25015212) and USDA HEI (PMID: 30487459). Higher HEI scores consistently associated with lower mortality (PMID: 30571591). Use diet pattern results to guide personalized nutrition advice."""
+Diet Pattern Assessment: 12-question quiz identifying dietary patterns (Mediterranean, DASH, Plant-Based, Flexitarian, Standard American, Low-Carb, Paleo, Traditional) with HEI-2020 inspired scoring (0-100). Based on Dr. David Katz's Diet ID methodology (PMID: 25015212) and USDA HEI (PMID: 30487459). Higher HEI scores consistently associated with lower mortality (PMID: 30571591). Use diet pattern results to guide personalized nutrition advice.
+
+Meditation: Post-session logs with duration, type (guided, unguided, breathwork, body scan, walking), and optional mood before/after tracking. Meditation programs show moderate evidence for reducing anxiety (ES 0.38) and depression (ES 0.30) based on JAMA meta-analysis (PMID: 24395196). MBSR shows moderate effect (g=0.53) for stress reduction in healthy individuals (PMID: 25818837). When coaching on meditation, respect the user's preferred type and encourage consistency over duration. The streak counter reflects consecutive days of practice."""
 
 CONTEXT_TEMPLATE = """
 --- USER CONTEXT ---
@@ -202,7 +204,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        sleep_data: dict = None, recovery_data: dict = None,
                        biomarker_data: dict = None, nutrition_data: dict = None,
                        fasting_data: dict = None,
-                       calorie_data: dict = None, diet_data: dict = None) -> str:
+                       calorie_data: dict = None, diet_data: dict = None,
+                       meditation_data: dict = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -293,5 +296,15 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
             parts.append(f"HEI diet quality score: {diet_data['hei_score']}/100")
         if diet_data.get("assessment_date"):
             parts.append(f"Diet assessment date: {diet_data['assessment_date']}")
+
+    if meditation_data:
+        if meditation_data.get("streak"):
+            parts.append(f"Meditation streak: {meditation_data['streak']} days")
+        if meditation_data.get("total_sessions_30d"):
+            parts.append(f"Meditation sessions (30d): {meditation_data['total_sessions_30d']}")
+        if meditation_data.get("total_minutes_30d"):
+            parts.append(f"Total meditation time (30d): {meditation_data['total_minutes_30d']} minutes")
+        if meditation_data.get("avg_duration"):
+            parts.append(f"Average meditation duration: {meditation_data['avg_duration']} minutes")
 
     return "\n".join(parts) if parts else "No user data available yet."

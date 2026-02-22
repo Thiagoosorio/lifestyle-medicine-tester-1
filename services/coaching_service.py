@@ -101,6 +101,21 @@ def _assemble_user_context(user_id: int) -> str:
     except Exception:
         pass
 
+    meditation_data = None
+    try:
+        from services.growth_service import get_meditation_streak, get_meditation_stats
+        streak = get_meditation_streak(user_id)
+        med_stats = get_meditation_stats(user_id, days=30)
+        if med_stats and med_stats.get("total_sessions", 0) > 0:
+            meditation_data = {
+                "streak": streak,
+                "total_sessions_30d": med_stats["total_sessions"],
+                "total_minutes_30d": med_stats["total_minutes"],
+                "avg_duration": med_stats["avg_duration"],
+            }
+    except Exception:
+        pass
+
     calorie_data = None
     diet_data = None
 
@@ -144,6 +159,7 @@ def _assemble_user_context(user_id: int) -> str:
         fasting_data=fasting_data_ctx,
         calorie_data=calorie_data,
         diet_data=diet_data,
+        meditation_data=meditation_data,
     )
 
 
