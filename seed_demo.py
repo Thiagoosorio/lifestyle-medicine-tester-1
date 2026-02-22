@@ -1421,6 +1421,160 @@ def main():
          date.today().isoformat(), _streak),
     )
 
+    # ════════════════════════════════════════════════════════════════════════
+    # PHASE 5: SIBO & FODMAP Tracker
+    # ════════════════════════════════════════════════════════════════════════
+    print("Phase 5: SIBO & FODMAP Tracker...")
+
+    import json as _sjson
+
+    # ── Symptom logs: ~45 days over last 60 days ──
+    # Maria has IBS-like symptoms; they improve over time with Low-FODMAP diet
+    _sym_count = 0
+    for day_offset in range(60, -1, -1):
+        d = date.today() - timedelta(days=day_offset)
+        if random.random() < 0.75:  # ~75% logging rate
+            # Symptoms improve over time (higher early, lower later)
+            t = 1.0 - (day_offset / 60.0)  # 0=60 days ago, 1=today
+            base_reduction = t * 3  # up to 3 points improvement
+            bloating = max(0, min(10, round(random.gauss(6 - base_reduction, 1.5))))
+            pain = max(0, min(10, round(random.gauss(4.5 - base_reduction * 0.8, 1.5))))
+            gas = max(0, min(10, round(random.gauss(5.5 - base_reduction, 1.2))))
+            diarrhea = max(0, min(3, round(random.gauss(1.5 - base_reduction * 0.3, 0.6))))
+            constipation = max(0, min(3, round(random.gauss(0.8 - base_reduction * 0.1, 0.4))))
+            nausea = max(0, min(10, round(random.gauss(3 - base_reduction * 0.6, 1.2))))
+            fatigue = max(0, min(10, round(random.gauss(5 - base_reduction * 0.7, 1.5))))
+            # Normalize 0-3 scale to 0-10 for overall
+            norm_vals = [bloating, pain, gas, diarrhea * 10 / 3, constipation * 10 / 3, nausea, fatigue]
+            overall = max(0, min(10, round(sum(norm_vals) / len(norm_vals))))
+            sym_notes = random.choice([
+                None, None, None, None,
+                "Worse after lunch", "Better morning", "Ate late last night",
+                "Stressful day at work", "Slept poorly", "Good day overall",
+            ])
+            conn.execute(
+                """INSERT OR REPLACE INTO sibo_symptom_logs
+                   (user_id, log_date, bloating, abdominal_pain, gas, diarrhea,
+                    constipation, nausea, fatigue, overall_score, notes)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                (user_id, d.isoformat(), bloating, pain, gas, diarrhea,
+                 constipation, nausea, fatigue, overall, sym_notes),
+            )
+            _sym_count += 1
+    print(f"  - {_sym_count} symptom logs (60 days)")
+
+    # ── Food logs: ~120 entries over last 60 days ──
+    _food_count = 0
+    _low_foods = [
+        ("Rice, white", "grains", 190, "g cooked", "low", "[]"),
+        ("Chicken breast", "protein", 120, "g", "low", "[]"),
+        ("Carrot", "vegetables", 75, "g", "low", "[]"),
+        ("Banana, firm (unripe)", "fruits", 1, "medium", "low", "[]"),
+        ("Eggs", "protein", 2, "large", "low", "[]"),
+        ("Spinach", "vegetables", 75, "g", "low", "[]"),
+        ("Salmon", "protein", 120, "g", "low", "[]"),
+        ("Potato", "vegetables", 1, "medium", "low", "[]"),
+        ("Oats", "grains", 52, "g dry", "low", "[]"),
+        ("Blueberries", "fruits", 40, "g", "low", "[]"),
+        ("Lactose-free milk", "dairy", 250, "mL", "low", "[]"),
+        ("Tofu (firm)", "protein", 170, "g", "low", "[]"),
+        ("Quinoa", "grains", 155, "g cooked", "low", "[]"),
+        ("Orange", "fruits", 1, "medium", "low", "[]"),
+    ]
+    _high_foods = [
+        ("Garlic", "vegetables", 1, "clove", "high", '["fructans"]'),
+        ("Onion", "vegetables", 30, "g", "high", '["fructans"]'),
+        ("Wheat bread", "grains", 1, "slice", "high", '["fructans"]'),
+        ("Apple", "fruits", 1, "medium", "high", '["fructose","sorbitol"]'),
+        ("Cow's milk", "dairy", 250, "mL", "high", '["lactose"]'),
+        ("Honey", "condiments", 7, "g", "high", '["fructose"]'),
+        ("Mushrooms", "vegetables", 75, "g", "high", '["mannitol"]'),
+        ("Wheat pasta", "grains", 145, "g cooked", "high", '["fructans"]'),
+    ]
+    _meals = ["breakfast", "lunch", "dinner", "snack"]
+    for day_offset in range(60, -1, -1):
+        d = date.today() - timedelta(days=day_offset)
+        # Log 2-3 meals per day with ~80% probability
+        if random.random() < 0.80:
+            n_meals = random.choice([2, 2, 3, 3])
+            chosen_meals = random.sample(_meals[:3], min(n_meals, 3))
+            if n_meals > 3:
+                chosen_meals.append("snack")
+            for meal in chosen_meals:
+                # Early days: mix of high/low; later: mostly low FODMAP
+                t = 1.0 - (day_offset / 60.0)
+                if random.random() < (0.15 + 0.6 * t):  # more low-FODMAP over time
+                    food = random.choice(_low_foods)
+                else:
+                    food = random.choice(_high_foods)
+                name, cat, srv, unit, rating, groups = food
+                conn.execute(
+                    """INSERT INTO sibo_food_logs
+                       (user_id, log_date, meal_type, food_name, food_category,
+                        serving_size, serving_unit, fodmap_rating, fodmap_groups)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
+                    (user_id, d.isoformat(), meal, name, cat, srv, unit, rating, groups),
+                )
+                _food_count += 1
+    print(f"  - {_food_count} food log entries (60 days)")
+
+    # ── Phase history: 3 phases ──
+    # Elimination started 45 days ago, reintroduction started 14 days ago
+    elim_start = (date.today() - timedelta(days=45)).isoformat()
+    elim_end = (date.today() - timedelta(days=14)).isoformat()
+    reintro_start = (date.today() - timedelta(days=14)).isoformat()
+
+    conn.execute(
+        """INSERT INTO sibo_fodmap_phase (user_id, phase, started_date, ended_date)
+           VALUES (?,?,?,?)""",
+        (user_id, "elimination", elim_start, elim_end),
+    )
+    conn.execute(
+        """INSERT INTO sibo_fodmap_phase (user_id, phase, started_date)
+           VALUES (?,?,?)""",
+        (user_id, "reintroduction", reintro_start),
+    )
+    print("  - 2 phase records (elimination + reintroduction)")
+
+    # ── Reintroduction challenges: 3 completed ──
+    _challenge_data = [
+        ("fructans", "Wheat bread", 10, "not_tolerated",
+         '{"bloating":3,"abdominal_pain":2,"gas":4}',
+         '{"bloating":5,"abdominal_pain":4,"gas":6}',
+         '{"bloating":7,"abdominal_pain":5,"gas":7}'),
+        ("lactose", "Cow's milk", 7, "partial",
+         '{"bloating":2,"abdominal_pain":1,"gas":2}',
+         '{"bloating":3,"abdominal_pain":2,"gas":3}',
+         '{"bloating":4,"abdominal_pain":3,"gas":4}'),
+        ("fructose", "Honey", 4, "tolerated",
+         '{"bloating":1,"abdominal_pain":0,"gas":1}',
+         '{"bloating":1,"abdominal_pain":1,"gas":1}',
+         '{"bloating":2,"abdominal_pain":1,"gas":2}'),
+    ]
+    for group, food, days_ago, tolerance, d1, d2, d3 in _challenge_data:
+        c_start = (date.today() - timedelta(days=days_ago)).isoformat()
+        c_end = (date.today() - timedelta(days=days_ago - 3)).isoformat()
+        c_washout = (date.today() - timedelta(days=days_ago - 6)).isoformat()
+        conn.execute(
+            """INSERT INTO sibo_reintro_challenges
+               (user_id, fodmap_group, challenge_food, start_date, end_date,
+                day1_symptoms, day2_symptoms, day3_symptoms, washout_end, tolerance)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, group, food, c_start, c_end, d1, d2, d3, c_washout, tolerance),
+        )
+    print("  - 3 reintroduction challenges (fructans=not_tolerated, lactose=partial, fructose=tolerated)")
+
+    # ── User state ──
+    conn.execute(
+        """INSERT OR REPLACE INTO sibo_user_state
+           (user_id, active_diet, current_phase, phase_start,
+            total_symptom_logs, total_food_logs)
+           VALUES (?,?,?,?,?,?)""",
+        (user_id, "low_fodmap", "reintroduction", reintro_start,
+         _sym_count, _food_count),
+    )
+    print(f"  - User state: low_fodmap diet, reintroduction phase")
+
     conn.commit()
     conn.close()
 
@@ -1468,6 +1622,13 @@ def main():
     print("  - ~20 quote interactions with reflections and favorites")
     print("  - ~25 mindfulness nudges shown")
     print("")
+    print("  PHASE 5 FEATURES:")
+    print("  - ~45 SIBO symptom logs (60 days, improving over time)")
+    print("  - ~120 FODMAP food log entries (low/high FODMAP mix)")
+    print("  - 2 FODMAP phase records (elimination + reintroduction)")
+    print("  - 3 reintroduction challenges (fructans, lactose, fructose)")
+    print("  - SIBO user state (low_fodmap diet, reintroduction phase)")
+    print("")
     print("  ALL PHASES:")
     print("  - Biomarker Dashboard (40 markers, standard+optimal ranges)")
     print("  - Sleep Tracker (PSQI scoring, chronotype quiz)")
@@ -1477,6 +1638,7 @@ def main():
     print("  - Calorie Tracker (USDA food database, macro tracking)")
     print("  - Diet Pattern Assessment (HEI-2020, Diet ID)")
     print("  - Daily Growth (meditation, quotes, mindfulness nudges)")
+    print("  - SIBO & FODMAP Tracker (symptom log, food diary, phases, correlations)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("")

@@ -101,6 +101,21 @@ def _assemble_user_context(user_id: int) -> str:
     except Exception:
         pass
 
+    sibo_data = None
+    try:
+        from services.sibo_service import get_symptom_averages as sibo_sym_avg, get_current_phase as sibo_phase, get_tolerance_summary as sibo_tol
+        sym_avg = sibo_sym_avg(user_id, days=7)
+        phase = sibo_phase(user_id)
+        tolerance = sibo_tol(user_id)
+        if sym_avg:
+            sibo_data = {
+                "symptom_averages_7d": sym_avg,
+                "current_phase": phase["phase"] if phase else None,
+                "tolerance_results": tolerance if tolerance else None,
+            }
+    except Exception:
+        pass
+
     meditation_data = None
     try:
         from services.growth_service import get_meditation_streak, get_meditation_stats
@@ -160,6 +175,7 @@ def _assemble_user_context(user_id: int) -> str:
         calorie_data=calorie_data,
         diet_data=diet_data,
         meditation_data=meditation_data,
+        sibo_data=sibo_data,
     )
 
 

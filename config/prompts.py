@@ -102,7 +102,9 @@ Calorie Tracking: Daily food logs from a curated USDA-sourced database (~150 foo
 
 Diet Pattern Assessment: 12-question quiz identifying dietary patterns (Mediterranean, DASH, Plant-Based, Flexitarian, Standard American, Low-Carb, Paleo, Traditional) with HEI-2020 inspired scoring (0-100). Based on Dr. David Katz's Diet ID methodology (PMID: 25015212) and USDA HEI (PMID: 30487459). Higher HEI scores consistently associated with lower mortality (PMID: 30571591). Use diet pattern results to guide personalized nutrition advice.
 
-Meditation: Post-session logs with duration, type (guided, unguided, breathwork, body scan, walking), and optional mood before/after tracking. Meditation programs show moderate evidence for reducing anxiety (ES 0.38) and depression (ES 0.30) based on JAMA meta-analysis (PMID: 24395196). MBSR shows moderate effect (g=0.53) for stress reduction in healthy individuals (PMID: 25818837). When coaching on meditation, respect the user's preferred type and encourage consistency over duration. The streak counter reflects consecutive days of practice."""
+Meditation: Post-session logs with duration, type (guided, unguided, breathwork, body scan, walking), and optional mood before/after tracking. Meditation programs show moderate evidence for reducing anxiety (ES 0.38) and depression (ES 0.30) based on JAMA meta-analysis (PMID: 24395196). MBSR shows moderate effect (g=0.53) for stress reduction in healthy individuals (PMID: 25818837). When coaching on meditation, respect the user's preferred type and encourage consistency over duration. The streak counter reflects consecutive days of practice.
+
+SIBO & FODMAP Tracker: Daily GI symptom logging (bloating, pain, gas, diarrhea, constipation, nausea, fatigue), FODMAP-aware food diary with Monash University-aligned serving sizes, and 3-phase Low-FODMAP protocol management (Elimination, Reintroduction, Personalization). Spearman rank correlations between FODMAP food groups and symptom scores are computed when n>=10 matched days. IMPORTANT: This is a pattern-tracking tool, NOT a diagnostic tool. SIBO diagnosis requires breath testing or jejunal aspirate under clinical supervision (ACG 2020, PMID: 32023228). Low-FODMAP diet ranked first for IBS symptom improvement in network meta-analysis (Black 2021, PMID: 34376515). Always remind users this tracks personal patterns only and suggest consulting a gastroenterologist or registered dietitian. Never use diagnosis language — say "pattern" not "diagnosis", "may correlate" not "causes"."""
 
 CONTEXT_TEMPLATE = """
 --- USER CONTEXT ---
@@ -205,7 +207,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        biomarker_data: dict = None, nutrition_data: dict = None,
                        fasting_data: dict = None,
                        calorie_data: dict = None, diet_data: dict = None,
-                       meditation_data: dict = None) -> str:
+                       meditation_data: dict = None,
+                       sibo_data: dict = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -306,5 +309,16 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
             parts.append(f"Total meditation time (30d): {meditation_data['total_minutes_30d']} minutes")
         if meditation_data.get("avg_duration"):
             parts.append(f"Average meditation duration: {meditation_data['avg_duration']} minutes")
+
+    if sibo_data:
+        avgs = sibo_data.get("symptom_averages_7d")
+        if avgs:
+            parts.append(f"GI symptom averages (7d): bloating={avgs.get('bloating')}, pain={avgs.get('abdominal_pain')}, gas={avgs.get('gas')}, overall={avgs.get('overall')}")
+        if sibo_data.get("current_phase"):
+            parts.append(f"Low-FODMAP phase: {sibo_data['current_phase']}")
+        tol = sibo_data.get("tolerance_results")
+        if tol:
+            tol_str = ", ".join(f"{g}={d['tolerance']}" for g, d in tol.items())
+            parts.append(f"FODMAP tolerance results: {tol_str}")
 
     return "\n".join(parts) if parts else "No user data available yet."

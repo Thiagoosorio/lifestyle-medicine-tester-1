@@ -741,3 +741,97 @@ CREATE TABLE IF NOT EXISTS daily_growth_state (
     updated_at          TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id)
 );
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PHASE 5: SIBO & FODMAP Tracker
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Daily GI symptom tracking
+CREATE TABLE IF NOT EXISTS sibo_symptom_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    log_date        TEXT NOT NULL,
+    bloating        INTEGER CHECK (bloating BETWEEN 0 AND 10),
+    abdominal_pain  INTEGER CHECK (abdominal_pain BETWEEN 0 AND 10),
+    gas             INTEGER CHECK (gas BETWEEN 0 AND 10),
+    diarrhea        INTEGER CHECK (diarrhea BETWEEN 0 AND 3),
+    constipation    INTEGER CHECK (constipation BETWEEN 0 AND 3),
+    nausea          INTEGER CHECK (nausea BETWEEN 0 AND 10),
+    fatigue         INTEGER CHECK (fatigue BETWEEN 0 AND 10),
+    overall_score   INTEGER CHECK (overall_score BETWEEN 0 AND 10),
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, log_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sibo_symptoms_user ON sibo_symptom_logs(user_id, log_date);
+
+-- FODMAP-aware food diary
+CREATE TABLE IF NOT EXISTS sibo_food_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    log_date        TEXT NOT NULL,
+    meal_type       TEXT NOT NULL CHECK (meal_type IN (
+                        'breakfast', 'lunch', 'dinner', 'snack'
+                    )),
+    food_name       TEXT NOT NULL,
+    food_category   TEXT,
+    serving_size    REAL,
+    serving_unit    TEXT,
+    fodmap_rating   TEXT CHECK (fodmap_rating IN ('low', 'moderate', 'high')),
+    fodmap_groups   TEXT,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sibo_food_user ON sibo_food_logs(user_id, log_date);
+
+-- Low-FODMAP phase tracking (Elimination / Reintroduction / Personalization)
+CREATE TABLE IF NOT EXISTS sibo_fodmap_phase (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    phase           TEXT NOT NULL CHECK (phase IN (
+                        'elimination', 'reintroduction', 'personalization'
+                    )),
+    started_date    TEXT NOT NULL,
+    ended_date      TEXT,
+    reintro_group   TEXT,
+    washout_until   TEXT,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sibo_phase_user ON sibo_fodmap_phase(user_id, started_date);
+
+-- FODMAP reintroduction challenge results
+CREATE TABLE IF NOT EXISTS sibo_reintro_challenges (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    fodmap_group    TEXT NOT NULL,
+    challenge_food  TEXT NOT NULL,
+    start_date      TEXT NOT NULL,
+    end_date        TEXT,
+    day1_symptoms   TEXT,
+    day2_symptoms   TEXT,
+    day3_symptoms   TEXT,
+    washout_end     TEXT NOT NULL,
+    tolerance       TEXT CHECK (tolerance IN ('tolerated', 'partial', 'not_tolerated')),
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sibo_reintro_user ON sibo_reintro_challenges(user_id, start_date);
+
+-- Per-user SIBO module state
+CREATE TABLE IF NOT EXISTS sibo_user_state (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    active_diet     TEXT,
+    current_phase   TEXT,
+    phase_start     TEXT,
+    total_symptom_logs INTEGER DEFAULT 0,
+    total_food_logs INTEGER DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);
