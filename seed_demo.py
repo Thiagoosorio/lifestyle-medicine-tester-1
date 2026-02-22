@@ -54,17 +54,20 @@ def main():
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (USERNAME,)).fetchone()
     if existing:
         uid = existing["id"]
-        for table in ["wheel_assessments", "stage_of_change", "goals", "goal_progress",
-                       "habits", "habit_log", "daily_checkins", "weekly_reviews",
+        # Delete child tables before parent tables to avoid FK violations
+        for table in ["goal_progress", "habit_log", "habit_celebrations",
+                       "wheel_assessments", "stage_of_change", "goals",
+                       "habits", "daily_checkins", "weekly_reviews",
                        "coaching_messages", "comb_assessments",
                        "coin_transactions", "daily_insights", "thought_checks",
                        "user_journey", "user_lesson_progress", "future_self_letters",
-                       "auto_weekly_reports", "habit_celebrations",
+                       "auto_weekly_reports",
                        "body_metrics", "weekly_challenges"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
                 pass  # Table may not exist yet
+        conn.commit()
         conn.execute("DELETE FROM users WHERE id = ?", (uid,))
         conn.commit()
     # Reset shared tables
@@ -864,6 +867,9 @@ def main():
     print("  - Achievement Badge System (22 badges)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
+    print("")
+    print("  NOTE: Only the demo account (maria.silva) was reset.")
+    print("  Any other accounts you created are preserved.")
     print("=" * 60)
 
 

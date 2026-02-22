@@ -11,7 +11,7 @@ st.set_page_config(
 # Initialize database on first run
 init_db()
 
-# Inject premium CSS theme
+# Inject Apple Design System + Tailwind utility CSS
 from components.custom_theme import inject_custom_css
 inject_custom_css()
 
@@ -50,7 +50,19 @@ else:
         }
     )
     with st.sidebar:
-        st.markdown(f"### {st.session_state.get('display_name', 'User')}")
+        display = st.session_state.get("display_name", "User")
+        sidebar_html = (
+            '<div style="background:#1C1C1E;border:1px solid rgba(84,84,88,0.6);'
+            'border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">'
+            '<div style="font-size:2rem;margin-bottom:4px">&#128075;</div>'
+            f'<div style="font-family:-apple-system,BlinkMacSystemFont,\'SF Pro Display\','
+            f'\'Helvetica Neue\',system-ui,sans-serif;font-size:17px;line-height:22px;'
+            f'font-weight:600;color:rgba(255,255,255,1.0)">{display}</div>'
+            '<div style="font-size:11px;line-height:13px;color:rgba(235,235,245,0.3);'
+            'margin-top:4px">Lifestyle Medicine Journey</div>'
+            '</div>'
+        )
+        st.markdown(sidebar_html, unsafe_allow_html=True)
         if st.button("Logout", use_container_width=True):
             for key in list(st.session_state.keys()):
                 del st.session_state[key]

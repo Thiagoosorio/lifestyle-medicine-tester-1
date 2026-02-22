@@ -4,18 +4,21 @@ import plotly.graph_objects as go
 from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_score_color
 from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
 from components.wheel_chart import create_wheel_chart
-from components.metrics_row import render_metrics_row
-from components.custom_theme import render_hero_stats
+from components.custom_theme import APPLE, render_hero_stats, render_hero_banner, render_section_header
 from services.nudge_engine import get_active_nudges
 from services.coin_service import get_coin_balance, award_daily_coins
 from db.database import get_connection
 
+A = APPLE
 user_id = st.session_state.user_id
 display_name = st.session_state.get("display_name", "there")
 
-# ── Header ──────────────────────────────────────────────────────────────────
-st.title(f"Welcome back, {display_name}!")
-st.markdown(f"*{random.choice(MOTIVATIONAL_QUOTES)}*")
+# ══════════════════════════════════════════════════════════════════════════════
+# HERO BANNER — Fitness+ gradient with Apple HIG typography
+# ══════════════════════════════════════════════════════════════════════════════
+quote = random.choice(MOTIVATIONAL_QUOTES)
+render_hero_banner(f"Welcome back, {display_name}!", quote)
+
 
 # ── Future Self Letter Delivery ─────────────────────────────────────────────
 from datetime import date as _date
@@ -55,29 +58,39 @@ if nudges:
                 if st.button(nudge["action_label"], key=f"nudge_{nudge['type']}", use_container_width=True):
                     st.switch_page(nudge["action_page"])
 
-st.divider()
-
-# ── Current Wheel ───────────────────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN CONTENT
+# ══════════════════════════════════════════════════════════════════════════════
 assessment = get_current_wheel(user_id)
 
 if not assessment:
-    st.info("You haven't taken a Wheel of Life assessment yet.")
-    st.markdown("Start by assessing where you stand across the **6 pillars of lifestyle medicine**.")
+    # ── Empty State — Take First Assessment CTA ──────────────────────────
+    cta_html = (
+        f'<div style="border-radius:{A["radius_xl"]};padding:40px;text-align:center;'
+        f'margin-bottom:24px;background:rgba(94,92,230,0.10);'
+        f'border:1px solid rgba(94,92,230,0.20)">'
+        f'<div style="font-size:2.5rem;margin-bottom:12px">&#127905;</div>'
+        f'<div style="font-family:{A["font_display"]};font-size:20px;line-height:24px;'
+        f'font-weight:600;color:{A["label_primary"]};margin-bottom:8px">Start Your Journey</div>'
+        f'<div style="font-size:15px;line-height:20px;color:{A["label_secondary"]};'
+        f'max-width:420px;margin:0 auto 20px auto">'
+        f'Assess where you stand across the 6 pillars of lifestyle medicine '
+        f'and begin your transformation.</div>'
+        f'</div>'
+    )
+    st.markdown(cta_html, unsafe_allow_html=True)
     if st.button("Take Your First Assessment", type="primary", use_container_width=True):
         st.switch_page("pages/wheel_assessment.py")
 else:
     scores = assessment["scores"]
 
-    # Metrics row
+    # ── Fetch Stats ──────────────────────────────────────────────────────
     conn = get_connection()
     try:
-        # Active goals count
-        goals_row = conn.execute(
+        active_goals = conn.execute(
             "SELECT COUNT(*) as cnt FROM goals WHERE user_id = ? AND status = 'active'", (user_id,)
-        ).fetchone()
-        active_goals = goals_row["cnt"]
+        ).fetchone()["cnt"]
 
-        # Habits completed today
         from datetime import date
         today = date.today().isoformat()
         habits_total = conn.execute(
@@ -88,7 +101,6 @@ else:
             (user_id, today),
         ).fetchone()["cnt"]
 
-        # Streak (consecutive days with a check-in)
         checkin_dates = conn.execute(
             "SELECT DISTINCT checkin_date FROM daily_checkins WHERE user_id = ? ORDER BY checkin_date DESC",
             (user_id,),
@@ -109,17 +121,18 @@ else:
 
     coins = get_coin_balance(user_id)
 
+    # ── Hero Stat Cards (Apple Health colors) ────────────────────────────
     render_hero_stats([
-        {"label": "Current Streak", "value": f"{streak} days", "icon": "\U0001f525", "color": "#FF9800"},
-        {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "icon": "\u2705", "color": "#4CAF50"},
-        {"label": "Active Goals", "value": str(active_goals), "icon": "\U0001f3af", "color": "#2196F3"},
-        {"label": "Wheel Score", "value": f"{get_total_score(scores)}/60", "icon": "\U0001f3a1", "color": "#9C27B0"},
-        {"label": "LifeCoins", "value": str(coins), "icon": "\u2b50", "color": "#FFD700"},
+        {"label": "Current Streak", "value": f"{streak} days", "icon": "\U0001f525", "color": "#FA2D55"},
+        {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "icon": "\u2705", "color": "#34C759"},
+        {"label": "Active Goals", "value": str(active_goals), "icon": "\U0001f3af", "color": "#5E5CE6"},
+        {"label": "Wheel Score", "value": f"{get_total_score(scores)}/60", "icon": "\U0001f3a1", "color": "#BF5AF2"},
+        {"label": "LifeCoins", "value": str(coins), "icon": "\u2b50", "color": "#FFD60A"},
     ])
 
-    st.divider()
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-    # Wheel + pillar breakdown
+    # ── Wheel + Pillar Breakdown ─────────────────────────────────────────
     col_wheel, col_details = st.columns([3, 2])
 
     with col_wheel:
@@ -128,24 +141,21 @@ else:
         st.caption(get_score_summary(scores))
 
     with col_details:
-        st.markdown("### Pillar Breakdown")
+        render_section_header("Pillar Breakdown", "Your current scores")
         for pid in sorted(scores.keys()):
             score = scores[pid]
             label = get_score_label(score)
-            color = get_score_color(score)
-            pct = score * 10
-            st.markdown(
-                f"**{PILLARS[pid]['icon']} {PILLARS[pid]['display_name']}** — {score}/10 ({label})"
-            )
-            st.progress(pct / 100)
+            pillar = PILLARS[pid]
+            st.markdown(f"**{pillar['icon']} {pillar['display_name']}** — {score}/10 ({label})")
+            st.progress(score * 10 / 100)
 
-        st.divider()
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         if st.button("Take New Assessment", use_container_width=True):
             st.switch_page("pages/wheel_assessment.py")
 
-    # ── 14-Day Sparkline Trends ──────────────────────────────────────────────
+    # ── 14-Day Sparkline Trends ──────────────────────────────────────────
     st.divider()
-    st.markdown("### 14-Day Snapshot")
+    render_section_header("14-Day Snapshot", "Mood, energy & habit trends")
 
     from datetime import timedelta as _td
     _spark_start = (date.today() - _td(days=13)).isoformat()
@@ -176,54 +186,55 @@ else:
             _dates = [r["checkin_date"] for r in _spark_rows]
             _moods = [r["mood"] for r in _spark_rows]
             _energies = [r["energy"] for r in _spark_rows]
-            _fig_spark = go.Figure()
-            _fig_spark.add_trace(go.Scatter(
-                x=_dates, y=_moods, mode='lines',
-                name='Mood', line=dict(color='#FF9800', width=2.5),
-                fill='tozeroy', fillcolor='rgba(255,152,0,0.08)',
+            _fig = go.Figure()
+            _fig.add_trace(go.Scatter(
+                x=_dates, y=_moods, mode='lines', name='Mood',
+                line=dict(color='#FF9F0A', width=2.5, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(255,159,10,0.06)',
             ))
-            _fig_spark.add_trace(go.Scatter(
-                x=_dates, y=_energies, mode='lines',
-                name='Energy', line=dict(color='#2196F3', width=2.5),
-                fill='tozeroy', fillcolor='rgba(33,150,243,0.08)',
+            _fig.add_trace(go.Scatter(
+                x=_dates, y=_energies, mode='lines', name='Energy',
+                line=dict(color='#32C8FF', width=2.5, shape='spline'),
+                fill='tozeroy', fillcolor='rgba(50,200,255,0.06)',
             ))
-            _fig_spark.update_layout(
-                height=160, margin=dict(t=5, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5),
-                xaxis=dict(showgrid=False, tickformat="%b %d"),
-                legend=dict(orientation="h", yanchor="top", y=1.15, xanchor="center", x=0.5, font=dict(size=10)),
+            _fig.update_layout(
+                height=180, margin=dict(t=10, b=20, l=30, r=10),
+                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5, color='rgba(255,255,255,0.3)'),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.3)'),
+                legend=dict(orientation="h", yanchor="top", y=1.18, xanchor="center", x=0.5,
+                           font=dict(size=10, color='rgba(255,255,255,0.5)')),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color='rgba(255,255,255,0.4)'),
             )
-            st.plotly_chart(_fig_spark, use_container_width=True, key="spark_mood")
+            st.plotly_chart(_fig, use_container_width=True, key="spark_mood")
         else:
-            st.caption("No check-ins yet — start logging to see mood & energy trends.")
+            st.caption("No check-ins yet — start logging to see trends.")
 
     with spark_col2:
         if any(r[1] > 0 for r in _habit_rates):
             _h_dates = [r[0] for r in _habit_rates]
             _h_vals = [round(r[1] * 100) for r in _habit_rates]
-            _bar_colors = ['#4CAF50' if v >= 80 else '#FF9800' if v >= 50 else '#F44336' for v in _h_vals]
-            _fig_hab = go.Figure()
-            _fig_hab.add_trace(go.Bar(
-                x=_h_dates, y=_h_vals,
-                marker_color=_bar_colors,
+            _bar_colors = ['#34C759' if v >= 80 else '#FF9F0A' if v >= 50 else '#FF453A' for v in _h_vals]
+            _fig2 = go.Figure()
+            _fig2.add_trace(go.Bar(
+                x=_h_dates, y=_h_vals, marker_color=_bar_colors, marker_line_width=0,
                 text=[f"{v}%" for v in _h_vals],
-                textposition='outside', textfont=dict(size=8),
+                textposition='outside', textfont=dict(size=8, color='rgba(255,255,255,0.4)'),
             ))
-            _fig_hab.update_layout(
-                height=160, margin=dict(t=5, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 115], showgrid=False, title=""),
-                xaxis=dict(showgrid=False, tickformat="%b %d"),
+            _fig2.update_layout(
+                height=180, margin=dict(t=10, b=20, l=30, r=10),
+                yaxis=dict(range=[0, 115], showgrid=False, color='rgba(255,255,255,0.3)'),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.3)'),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                showlegend=False,
+                showlegend=False, font=dict(color='rgba(255,255,255,0.4)'), bargap=0.3,
             )
-            st.plotly_chart(_fig_hab, use_container_width=True, key="spark_habits")
+            st.plotly_chart(_fig2, use_container_width=True, key="spark_habits")
         else:
-            st.caption("No habit data yet — track habits to see your daily completion rates.")
+            st.caption("No habit data yet — track habits to see completion rates.")
 
-    # ── Today's check-in widget ─────────────────────────────────────────────
+    # ── Quick Daily Check-in ─────────────────────────────────────────────
     st.divider()
-    st.markdown("### Quick Daily Check-in")
+    render_section_header("Quick Daily Check-in", "How are you feeling today?")
     conn = get_connection()
     try:
         today_checkin = conn.execute(
@@ -243,17 +254,13 @@ else:
             if today_checkin["journal_entry"]:
                 st.markdown(f"**Journal:** {today_checkin['journal_entry'][:100]}...")
         st.success("Today's check-in complete!")
-
-        # Award daily coins
         award_daily_coins(user_id, today)
 
-        # Post-check-in AI insight
         from services.insight_service import get_or_generate_insight
         insight = get_or_generate_insight(user_id, today)
         if insight:
             st.info(f":material/psychology: **Today's Insight** — {insight}")
     else:
-        st.caption("How are you feeling today?")
         with st.form("quick_checkin"):
             qc1, qc2 = st.columns(2)
             with qc1:
@@ -275,9 +282,9 @@ else:
                 st.toast(":material/stars: +1 LifeCoin for checking in!")
                 st.rerun()
 
-    # ── Active goals summary ────────────────────────────────────────────────
+    # ── Active Goals ─────────────────────────────────────────────────────
     st.divider()
-    st.markdown("### Active Goals")
+    render_section_header("Active Goals", "Your current objectives")
     conn = get_connection()
     try:
         active = conn.execute(
@@ -302,12 +309,11 @@ else:
                 st.progress(g["progress_pct"] / 100)
                 st.caption(f"{g['progress_pct']}% — Due: {g['target_date'][:10]}")
 
-    # ── Today's Micro-Lesson ──────────────────────────────────────────────────
+    # ── Today's Micro-Lesson ─────────────────────────────────────────────
     st.divider()
-    st.markdown("### Today's Micro-Lesson")
+    render_section_header("Today's Micro-Lesson", "Keep learning every day")
     conn = get_connection()
     try:
-        # Find first uncompleted lesson
         completed_ids = [r["lesson_id"] for r in conn.execute(
             "SELECT lesson_id FROM user_lesson_progress WHERE user_id = ?", (user_id,)
         ).fetchall()]
@@ -327,21 +333,21 @@ else:
     if next_lesson:
         pillar_name = PILLARS.get(next_lesson["pillar_id"], {}).get("display_name", "")
         ltype = {"article": "Read", "exercise": "Practice", "reflection": "Reflect"}.get(next_lesson.get("lesson_type", ""), "Learn")
-        lesson_col1, lesson_col2 = st.columns([3, 1])
-        with lesson_col1:
+        lc1, lc2 = st.columns([3, 1])
+        with lc1:
             st.markdown(f":book: **{next_lesson['title']}** — *{pillar_name}* ({ltype})")
             st.caption(f"{done_lessons}/{total_lessons} lessons completed")
-        with lesson_col2:
+        with lc2:
             if st.button("Start Lesson", use_container_width=True, key="start_lesson_dash"):
                 st.switch_page("pages/lessons.py")
     elif total_lessons > 0:
-        st.success(f"All {total_lessons} lessons completed! You're a lifestyle medicine expert.")
+        st.success(f"All {total_lessons} lessons completed!")
     else:
-        st.caption("Lessons will appear once the content is loaded.")
+        st.caption("Lessons will appear once content is loaded.")
 
-    # ── Smart Insights Widget ──────────────────────────────────────────────
+    # ── Smart Insights ───────────────────────────────────────────────────
     st.divider()
-    st.markdown("### Smart Insights")
+    render_section_header("Smart Insights", "AI-powered patterns from your data")
     try:
         from components.smart_insights import render_smart_insights
         render_smart_insights(user_id)

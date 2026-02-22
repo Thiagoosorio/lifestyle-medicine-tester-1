@@ -2,6 +2,8 @@
 
 Renders personalized correlation insights, mood-booster charts, and pillar
 correlation heatmaps using Streamlit + Plotly.
+
+All HTML uses inline styles (no custom CSS classes) for Streamlit compatibility.
 """
 
 import streamlit as st
@@ -27,65 +29,23 @@ INSIGHT_ICONS = {
     "default": "&#128161;",   # light bulb
 }
 
-CARD_CSS = """
-<style>
-.insight-card {
-    background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
-    border-left: 4px solid {color};
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    color: #e0e0e0;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    transition: transform 0.15s ease;
-}
-.insight-card:hover {
-    transform: translateX(4px);
-}
-.insight-icon {
-    font-size: 1.3rem;
-    margin-right: 8px;
-    vertical-align: middle;
-}
-.digest-card {
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border-radius: 12px;
-    padding: 20px 24px;
-    margin-bottom: 16px;
-    color: #e0e0e0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-.digest-card h4 {
-    margin: 0 0 12px 0;
-    color: #90caf9;
-}
-.digest-stat {
-    display: inline-block;
-    text-align: center;
-    padding: 8px 16px;
-    margin: 4px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.06);
-    min-width: 120px;
-}
-.digest-stat .label {
-    font-size: 0.75rem;
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.digest-stat .value {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin-top: 2px;
-}
-.trend-up { color: #66bb6a; }
-.trend-down { color: #ef5350; }
-.trend-flat { color: #ffca28; }
-</style>
-"""
+# Inline style strings for reuse
+_CARD_STYLE = (
+    "border-radius:10px;padding:16px 20px;margin-bottom:12px;"
+    "color:#e0e0e0;font-size:0.95rem;line-height:1.5;"
+    "box-shadow:0 2px 8px rgba(0,0,0,0.25)"
+)
+
+_DIGEST_CARD_STYLE = (
+    "background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);"
+    "border-radius:12px;padding:20px 24px;margin-bottom:16px;"
+    "color:#e0e0e0;box-shadow:0 4px 12px rgba(0,0,0,0.3)"
+)
+
+_DIGEST_STAT_STYLE = (
+    "display:inline-block;text-align:center;padding:8px 16px;margin:4px;"
+    "border-radius:8px;background:rgba(255,255,255,0.06);min-width:120px"
+)
 
 # ── Color palette for cards ────────────────────────────────────────────────
 
@@ -116,20 +76,18 @@ def _pick_icon(text: str) -> str:
 
 
 def _trend_badge(trend: str) -> str:
-    """Return an HTML badge for a trend value."""
+    """Return an HTML badge for a trend value using inline styles."""
     if trend == "improving":
-        return '<span class="trend-up">&#9650; Improving</span>'
+        return '<span style="color:#66bb6a">&#9650; Improving</span>'
     elif trend == "declining":
-        return '<span class="trend-down">&#9660; Declining</span>'
-    return '<span class="trend-flat">&#9644; Stable</span>'
+        return '<span style="color:#ef5350">&#9660; Declining</span>'
+    return '<span style="color:#ffca28">&#9644; Stable</span>'
 
 
 # ── Main render function ───────────────────────────────────────────────────
 
 def render_smart_insights(user_id: int):
     """Render the full Smart Insights section for a user."""
-
-    st.markdown(CARD_CSS, unsafe_allow_html=True)
 
     # ── Weekly Digest ──────────────────────────────────────────────────────
     digest = get_weekly_digest(user_id)
@@ -146,8 +104,9 @@ def render_smart_insights(user_id: int):
             color = CARD_COLORS[idx % len(CARD_COLORS)]
             icon = _pick_icon(text)
             st.markdown(
-                f'<div class="insight-card" style="border-left-color:{color}">'
-                f'<span class="insight-icon">{icon}</span>{text}'
+                f'<div style="background:linear-gradient(135deg,#1e1e2f 0%,#2a2a40 100%);'
+                f'border-left:4px solid {color};{_CARD_STYLE}">'
+                f'<span style="font-size:1.3rem;margin-right:8px;vertical-align:middle">{icon}</span>{text}'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -172,7 +131,7 @@ def render_smart_insights(user_id: int):
 # ── Weekly Digest card ─────────────────────────────────────────────────────
 
 def _render_weekly_digest(digest: dict):
-    """Render the weekly digest as a styled card."""
+    """Render the weekly digest as a styled card with inline styles."""
     st.subheader("Weekly Digest")
 
     mood_badge = _trend_badge(digest["mood_trend"])
@@ -182,42 +141,42 @@ def _render_weekly_digest(digest: dict):
 
     if digest["strongest_pillar"]:
         stats_html += (
-            '<div class="digest-stat">'
-            '<div class="label">Strongest Pillar</div>'
-            f'<div class="value" style="color:#66bb6a">{digest["strongest_pillar"]}</div>'
-            '</div>'
+            f'<div style="{_DIGEST_STAT_STYLE}">'
+            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Strongest Pillar</div>'
+            f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#66bb6a">{digest["strongest_pillar"]}</div>'
+            f'</div>'
         )
     if digest["weakest_pillar"]:
         stats_html += (
-            '<div class="digest-stat">'
-            '<div class="label">Needs Attention</div>'
-            f'<div class="value" style="color:#ef5350">{digest["weakest_pillar"]}</div>'
-            '</div>'
+            f'<div style="{_DIGEST_STAT_STYLE}">'
+            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Needs Attention</div>'
+            f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#ef5350">{digest["weakest_pillar"]}</div>'
+            f'</div>'
         )
     if digest["top_habit"]:
         stats_html += (
-            '<div class="digest-stat">'
-            '<div class="label">Top Habit</div>'
-            f'<div class="value" style="color:#42a5f5">{digest["top_habit"]}</div>'
-            '</div>'
+            f'<div style="{_DIGEST_STAT_STYLE}">'
+            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Top Habit</div>'
+            f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#42a5f5">{digest["top_habit"]}</div>'
+            f'</div>'
         )
 
     stats_html += (
-        '<div class="digest-stat">'
-        '<div class="label">Mood Trend</div>'
-        f'<div class="value">{mood_badge}</div>'
-        '</div>'
+        f'<div style="{_DIGEST_STAT_STYLE}">'
+        f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Mood Trend</div>'
+        f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{mood_badge}</div>'
+        f'</div>'
     )
     stats_html += (
-        '<div class="digest-stat">'
-        '<div class="label">Energy Trend</div>'
-        f'<div class="value">{energy_badge}</div>'
-        '</div>'
+        f'<div style="{_DIGEST_STAT_STYLE}">'
+        f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Energy Trend</div>'
+        f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{energy_badge}</div>'
+        f'</div>'
     )
 
     st.markdown(
-        f'<div class="digest-card">'
-        f'<h4>&#128202; This Week at a Glance</h4>'
+        f'<div style="{_DIGEST_CARD_STYLE}">'
+        f'<h4 style="margin:0 0 12px 0;color:#90caf9">&#128202; This Week at a Glance</h4>'
         f'{stats_html}'
         f'</div>',
         unsafe_allow_html=True,

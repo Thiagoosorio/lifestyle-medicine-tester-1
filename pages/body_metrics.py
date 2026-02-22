@@ -30,9 +30,7 @@ user_id = st.session_state.user_id
 PLOTLY_LAYOUT_DEFAULTS = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="#FAFAFA"),
-    xaxis=dict(showgrid=False, gridcolor="rgba(255,255,255,0.06)"),
-    yaxis=dict(showgrid=True, gridcolor="rgba(255,255,255,0.06)"),
+    font=dict(color="rgba(255,255,255,0.7)"),
     margin=dict(t=40, b=40, l=50, r=20),
     hoverlabel=dict(bgcolor="#1E1E1E", font_size=13, font_color="#FAFAFA"),
     legend=dict(
@@ -455,11 +453,13 @@ if len(weight_df) >= 1:
             title="Weight (kg)",
             range=[y_min, y_max],
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+            color="rgba(255,255,255,0.5)",
         ),
         xaxis=dict(
             title="Date",
             showgrid=False,
             tickformat="%b %d",
+            color="rgba(255,255,255,0.5)",
         ),
         hovermode="x unified",
     )
@@ -521,10 +521,11 @@ if has_waist or has_hip or has_bf:
     layout_updates = dict(
         **PLOTLY_LAYOUT_DEFAULTS,
         height=380,
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.5)"),
         yaxis=dict(
             title="Measurement (cm)",
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+            color="rgba(255,255,255,0.5)",
         ),
         hovermode="x unified",
     )
@@ -606,8 +607,9 @@ if len(bmi_df) >= 1 and height:
             title="BMI",
             range=[bmi_y_min, bmi_y_max + 2],
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
+            color="rgba(255,255,255,0.5)",
         ),
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.5)"),
         bargap=0.3,
     )
 
