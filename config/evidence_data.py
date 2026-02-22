@@ -1,7 +1,7 @@
 """Curated PubMed citations for the evidence library.
 
-All 53 entries verified via PubMed API with confirmed PMIDs, DOIs, and metadata.
-Organized by the 6 ACLM pillars of lifestyle medicine.
+All 64 entries verified via PubMed API with confirmed PMIDs, DOIs, and metadata.
+Organized by the 6 ACLM pillars of lifestyle medicine + cross-pillar Phase 2 entries.
 
 v2.0 fields: journal_tier (elite/q1/q2/q3/q4) and domain (from RESEARCH_DOMAINS).
 """
@@ -824,5 +824,186 @@ EVIDENCE_LIBRARY = [
         "tags": "substance_avoidance,smoking,dementia,cognitive_decline,Alzheimer",
         "url": "https://pubmed.ncbi.nlm.nih.gov/17573335/",
         "journal_tier": "q1", "domain": "toxicology",
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PHASE 2: CROSS-PILLAR — Fasting / Time-Restricted Eating
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "pmid": "39618023", "doi": "10.1111/dom.16092",
+        "title": "Intermittent fasting for weight management and metabolic health: An updated comprehensive umbrella review of health outcomes",
+        "authors": "Hua Z et al.", "journal": "Diabetes Obes Metab", "year": 2024,
+        "study_type": "systematic_review", "evidence_grade": "A", "pillar_id": 1,
+        "summary": "Updated umbrella review of 12 meta-analyses evaluating intermittent fasting (IF) across 122 health outcome associations, graded with AMSTAR-2 and GRADE.",
+        "key_finding": "High-quality evidence that time-restricted eating (TRE) significantly reduces weight, fat mass, fasting insulin, and HbA1c in overweight/obese adults; 5:2 diet reduces LDL cholesterol.",
+        "effect_size": "Significant reductions in body weight, fat mass, fasting insulin, HbA1c (GRADE: high quality for TRE outcomes)",
+        "sample_size": None, "population": "12 meta-analyses, 122 health outcome associations",
+        "dose_response": "TRE most effective for anthropometric/metabolic outcomes; modified ADF for lipid improvements.",
+        "causation_note": "Based on meta-analyses of RCTs; supports causal inference for weight/metabolic outcomes.",
+        "tags": "intermittent_fasting,time_restricted_eating,weight_loss,metabolic_health,umbrella_review",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/39618023/",
+        "journal_tier": "q1", "domain": "nutrition",
+    },
+    {
+        "pmid": "34919135", "doi": "10.1001/jamanetworkopen.2021.39558",
+        "title": "Intermittent Fasting and Obesity-Related Health Outcomes: An Umbrella Review of Meta-analyses of Randomized Clinical Trials",
+        "authors": "Patikorn C et al.", "journal": "JAMA Netw Open", "year": 2021,
+        "study_type": "systematic_review", "evidence_grade": "A", "pillar_id": 1,
+        "summary": "JAMA umbrella review of 11 meta-analyses (130 RCTs) applying GRADE criteria to IF and obesity-related outcomes.",
+        "key_finding": "Modified alternate-day fasting for 1-2 months associated with moderate BMI reduction (high-quality evidence); beneficial associations for body weight, fat mass, lipids, glucose, insulin, and blood pressure.",
+        "effect_size": "28 statistically significant associations (27%) across BMI, weight, fat mass, LDL, TG, fasting glucose, insulin, HOMA-IR, BP",
+        "sample_size": None, "population": "11 meta-analyses, 130 RCTs (median N=38, median follow-up 3 months)",
+        "dose_response": None,
+        "causation_note": "Based on RCTs; most associations supported by very low to low quality evidence; only 1 high-quality and 6 moderate-quality associations.",
+        "tags": "intermittent_fasting,obesity,metabolic_health,GRADE,umbrella_review",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/34919135/",
+        "journal_tier": "elite", "domain": "cardio_metabolic",
+    },
+    {
+        "pmid": "38335125", "doi": "10.1093/nutrit/nuae001",
+        "title": "An umbrella review and meta-analysis of meta-analyses of the impact of Ramadan fasting on the metabolic syndrome components",
+        "authors": "Jahrami H et al.", "journal": "Nutr Rev", "year": 2025,
+        "study_type": "meta_analysis", "evidence_grade": "A", "pillar_id": 1,
+        "summary": "Umbrella meta-analysis of 11 systematic reviews examining Ramadan fasting (dawn-to-sunset, ~30 days) on all metabolic syndrome components.",
+        "key_finding": "Ramadan fasting significantly improved body weight (SMD -0.34), waist circumference (-0.30), HDL (+0.20), SBP (-0.20), DBP (-0.20), and fasting glucose (-0.10).",
+        "effect_size": "Body weight SMD -0.34 (95% CI -0.39 to -0.29); HDL SMD +0.20 (95% CI 0.10-0.30); BP SMD -0.20",
+        "sample_size": None, "population": "11 systematic reviews with meta-analyses",
+        "dose_response": None,
+        "causation_note": "Methodological quality of included reviews ranged from low to critically low (AMSTAR-2); interpret with caution.",
+        "tags": "intermittent_fasting,metabolic_syndrome,blood_pressure,lipids,glucose,umbrella_review",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/38335125/",
+        "journal_tier": "q1", "domain": "cardio_metabolic",
+    },
+    {
+        "pmid": "30172870", "doi": "10.1016/j.arr.2018.08.004",
+        "title": "The effect of fasting or calorie restriction on autophagy induction: A review of the literature",
+        "authors": "Bagherniya M et al.", "journal": "Ageing Res Rev", "year": 2018,
+        "study_type": "systematic_review", "evidence_grade": "C", "pillar_id": 1,
+        "summary": "Review of evidence connecting fasting and calorie restriction with autophagy promotion across tissues and organs.",
+        "key_finding": "Both fasting and calorie restriction upregulate autophagy in a wide variety of tissues and organs; autophagy plays a substantive role in CR-mediated longevity.",
+        "effect_size": None,
+        "sample_size": None, "population": "Review of animal and human studies",
+        "dose_response": "Autophagy activation increases with fasting duration, but precise human timing not established.",
+        "causation_note": "Most evidence from animal models; human clinical evidence is emerging but limited. Autophagy timing in humans not precisely established.",
+        "tags": "fasting,autophagy,calorie_restriction,cellular_renewal,longevity",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/30172870/",
+        "journal_tier": "q1", "domain": "longevity",
+    },
+    {
+        "pmid": "30583725", "doi": "10.1186/s12967-018-1748-4",
+        "title": "Intermittent versus continuous energy restriction on weight loss and cardiometabolic outcomes: a systematic review and meta-analysis of randomized controlled trials",
+        "authors": "Cioffi I et al.", "journal": "J Transl Med", "year": 2018,
+        "study_type": "meta_analysis", "evidence_grade": "A", "pillar_id": 1,
+        "summary": "Systematic review and meta-analysis comparing intermittent vs continuous energy restriction across 11 RCTs (8-24 weeks).",
+        "key_finding": "Intermittent and continuous energy restriction achieve comparable weight loss (WMD -0.61 kg, NS); IF showed slight fasting insulin reduction (-0.89 uIU/mL).",
+        "effect_size": "Weight loss WMD -0.61 kg (95% CI -1.70 to 0.47, NS); Fasting insulin WMD -0.89 uIU/mL (95% CI -1.56 to -0.22, p=0.009)",
+        "sample_size": None, "population": "11 RCTs (8-24 weeks duration)",
+        "dose_response": None,
+        "causation_note": "RCT-based; comparable efficacy suggests IF as a valid alternative to traditional dieting.",
+        "tags": "intermittent_fasting,energy_restriction,weight_loss,insulin,cardiometabolic",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/30583725/",
+        "journal_tier": "q1", "domain": "nutrition",
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PHASE 2: CROSS-PILLAR — Biomarkers & Clinical Markers
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "pmid": "24922127", "doi": "10.2105/AJPH.2014.302034",
+        "title": "Meta-analysis of all-cause mortality according to serum 25-hydroxyvitamin D",
+        "authors": "Garland CF et al.", "journal": "Am J Public Health", "year": 2014,
+        "study_type": "meta_analysis", "evidence_grade": "A", "pillar_id": 1,
+        "summary": "Meta-analysis of 32 studies showing strong inverse association between serum vitamin D levels and all-cause mortality.",
+        "key_finding": "Serum 25(OH)D in the lowest category (0-9 ng/mL) associated with 1.9-fold higher all-cause mortality vs highest (>30 ng/mL); cutoff for mortality reduction >30 ng/mL.",
+        "effect_size": "HR 1.9 (95% CI 1.6-2.2) lowest vs highest category",
+        "sample_size": None, "population": "32 studies pooled",
+        "dose_response": "Concentrations ≤30 ng/mL associated with higher mortality; optimal threshold >30 ng/mL.",
+        "causation_note": "Observational; confounding by outdoor activity and overall health possible.",
+        "tags": "vitamin_d,mortality,biomarker,serum_levels,dose_response",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/24922127/",
+        "journal_tier": "q1", "domain": "nutrition",
+    },
+    {
+        "pmid": "14621448", "doi": "10.1016/s0733-8651(03)00079-1",
+        "title": "C-reactive protein, inflammation, and coronary risk",
+        "authors": "Ridker PM, Morrow DA", "journal": "Cardiol Clin", "year": 2003,
+        "study_type": "cross_sectional", "evidence_grade": "D", "pillar_id": None,
+        "summary": "Landmark review establishing hs-CRP as an independent predictor of cardiovascular risk, with AHA risk stratification: <1.0 mg/L low risk, 1-3 moderate, >3 high.",
+        "key_finding": "Mild elevation of baseline hs-CRP in apparently healthy individuals is associated with higher long-term cardiovascular event risk, independent of traditional risk factors.",
+        "effect_size": "AHA risk categories: <1.0 mg/L (low), 1.0-3.0 (moderate), >3.0 (high risk)",
+        "sample_size": None, "population": "Review of prospective cohort studies",
+        "dose_response": "Higher hs-CRP levels predict progressively greater cardiovascular risk.",
+        "causation_note": "hs-CRP is a risk marker, not necessarily a causal factor; debate ongoing about whether lowering CRP independently reduces events.",
+        "tags": "inflammation,hs_crp,cardiovascular,biomarker,risk_stratification",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/14621448/",
+        "journal_tier": "q2", "domain": "cardio_metabolic",
+    },
+    {
+        "pmid": "19502545", "doi": "10.2337/dc09-9033",
+        "title": "International Expert Committee report on the role of the A1C assay in the diagnosis of diabetes",
+        "authors": "International Expert Committee", "journal": "Diabetes Care", "year": 2009,
+        "study_type": "guideline", "evidence_grade": "D", "pillar_id": 1,
+        "summary": "Expert committee report recommending HbA1c as a diagnostic tool for diabetes (≥6.5%) and identifying pre-diabetes risk (5.7-6.4%).",
+        "key_finding": "HbA1c ≥6.5% recommended for diabetes diagnosis; 5.7-6.4% identifies increased risk; advantages over fasting glucose include no fasting requirement and better pre-analytical stability.",
+        "effect_size": "Diagnostic thresholds: ≥6.5% diabetes, 5.7-6.4% increased risk",
+        "sample_size": None, "population": "Expert consensus based on epidemiological data",
+        "dose_response": "Retinopathy prevalence increases sharply above HbA1c 6.5%.",
+        "causation_note": "Guideline based on observational epidemiological evidence linking HbA1c to retinopathy.",
+        "tags": "hba1c,diabetes,diagnosis,biomarker,guideline,pre_diabetes",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/19502545/",
+        "journal_tier": "elite", "domain": "cardio_metabolic",
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PHASE 2: Sleep Scoring & Chronotype
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "pmid": "2748771", "doi": "10.1016/0165-1781(89)90047-4",
+        "title": "The Pittsburgh Sleep Quality Index: a new instrument for psychiatric practice and research",
+        "authors": "Buysse DJ et al.", "journal": "Psychiatry Res", "year": 1989,
+        "study_type": "cross_sectional", "evidence_grade": "B", "pillar_id": 3,
+        "summary": "Landmark validation study of the PSQI — a 19-item self-rated questionnaire generating 7 component scores and 1 global sleep quality score.",
+        "key_finding": "PSQI global score >5 yielded 89.6% sensitivity and 86.5% specificity (kappa=0.75) in distinguishing good and poor sleepers; 7 components cover all major sleep quality dimensions.",
+        "effect_size": "Sensitivity 89.6%, specificity 86.5%, kappa 0.75 (p<0.001)",
+        "sample_size": 168, "population": "Healthy controls (52), depressed patients (54), sleep-disorder patients (62)",
+        "dose_response": None,
+        "causation_note": None,
+        "tags": "sleep,psqi,sleep_quality,assessment,validation,instrument",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/2748771/",
+        "journal_tier": "q1", "domain": "sleep_science",
+    },
+    {
+        "pmid": "1027738", "doi": None,
+        "title": "A self-assessment questionnaire to determine morningness-eveningness in human circadian rhythms",
+        "authors": "Horne JA, Ostberg O", "journal": "Int J Chronobiol", "year": 1976,
+        "study_type": "cross_sectional", "evidence_grade": "C", "pillar_id": 3,
+        "summary": "Original validation of the Morningness-Eveningness Questionnaire (MEQ) — the gold standard for chronotype assessment, validated against circadian oral temperature peaks.",
+        "key_finding": "Morning types had significantly earlier circadian peak time than evening types; the MEQ showed higher correlation with peak time than sleep habits alone, capturing additional circadian factors.",
+        "effect_size": "Significant correlation between MEQ score and circadian temperature peak time",
+        "sample_size": 48, "population": "Adults categorized into morning, evening, and intermediate types",
+        "dose_response": None,
+        "causation_note": "Validated against physiological circadian markers (oral temperature).",
+        "tags": "sleep,chronotype,circadian_rhythm,morningness_eveningness,meq,assessment",
+        "url": None,
+        "journal_tier": "q1", "domain": "sleep_science",
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # PHASE 2: Recovery & Athletic Sleep
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "pmid": "29352373", "doi": "10.1007/s40279-017-0832-x",
+        "title": "Sleep Interventions Designed to Improve Athletic Performance and Recovery: A Systematic Review of Current Approaches",
+        "authors": "Bonnar D et al.", "journal": "Sports Med", "year": 2018,
+        "study_type": "systematic_review", "evidence_grade": "A", "pillar_id": 3,
+        "summary": "Systematic review of 10 sleep intervention studies in competitive athletes, evaluating sleep extension, napping, sleep hygiene, and post-exercise recovery strategies.",
+        "key_finding": "Sleep extension had the most beneficial effects on subsequent athletic performance; sleep plays an important role in athletes' performance and recovery.",
+        "effect_size": None,
+        "sample_size": 218, "population": "Competitive athletes ages 18-24 (10 studies, various sports)",
+        "dose_response": None,
+        "causation_note": "RCT-based interventions support causal inference for sleep extension benefits.",
+        "tags": "sleep,recovery,athletic_performance,sleep_extension,sleep_hygiene",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/29352373/",
+        "journal_tier": "q1", "domain": "exercise_science",
     },
 ]

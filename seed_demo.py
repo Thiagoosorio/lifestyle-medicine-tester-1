@@ -13,7 +13,7 @@ Maria, 43, mother of two. Over 12 months she:
 
 import random
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from db.database import init_db, get_connection
 from models.user import create_user
 
@@ -63,7 +63,10 @@ def main():
                        "user_journey", "user_lesson_progress", "future_self_letters",
                        "auto_weekly_reports",
                        "body_metrics", "weekly_challenges",
-                       "protocol_log", "user_protocols"]:
+                       "protocol_log", "user_protocols",
+                       "biomarker_results", "chronotype_assessments",
+                       "sleep_logs", "fasting_sessions",
+                       "meal_logs", "nutrition_daily_summary"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
@@ -853,6 +856,343 @@ def main():
                     (user_id, _proto_id, _log_d.isoformat()),
                 )
 
+    # ════════════════════════════════════════════════════════════════════════
+    # PHASE 2: ADVANCED TRACKING DATA
+    # ════════════════════════════════════════════════════════════════════════
+
+    # ── Biomarker Results (4 lab panels across Maria's journey) ────────────
+    print("Creating biomarker lab results...")
+    import math as _math
+
+    # Get biomarker definition IDs by code
+    _bm_defs = {}
+    for _row in conn.execute("SELECT id, code FROM biomarker_definitions").fetchall():
+        _bm_defs[_row["code"]] = _row["id"]
+
+    # Maria's biomarker story: pre-diabetic baseline → optimal at 12 months
+    # (biomarker_code, month0, month4, month8, month12)
+    _biomarker_panels = [
+        ("hba1c", 6.1, 5.6, 5.2, 4.9),
+        ("fasting_glucose", 108, 95, 84, 79),
+        ("hs_crp", 4.2, 2.8, 1.1, 0.4),
+        ("ldl_cholesterol", 158, 132, 105, 88),
+        ("hdl_cholesterol", 38, 45, 55, 68),
+        ("triglycerides", 210, 165, 110, 72),
+        ("vitamin_d", 18, 28, 42, 52),
+        ("fasting_insulin", 18.5, 12.0, 7.2, 4.8),
+        ("total_cholesterol", 248, 218, 192, 172),
+        ("tsh", 3.2, 2.8, 2.1, 1.8),
+        ("alt", 42, 32, 22, 18),
+        ("hemoglobin", 12.8, 13.2, 14.0, 14.5),
+    ]
+
+    _panel_dates = [
+        ("2025-02-01", 0),   # baseline
+        ("2025-06-01", 1),   # month 4
+        ("2025-10-01", 2),   # month 8
+        ("2026-02-01", 3),   # month 12
+    ]
+    _lab_names = ["City Hospital Lab", "City Hospital Lab", "Quest Diagnostics", "Quest Diagnostics"]
+
+    for _code, *_values in _biomarker_panels:
+        if _code not in _bm_defs:
+            continue
+        _bm_id = _bm_defs[_code]
+        for (_pdate, _idx), _lab in zip(_panel_dates, _lab_names):
+            _val = _values[_idx] + random.gauss(0, 0.2)
+            _val = round(_val, 1)
+            conn.execute(
+                """INSERT OR IGNORE INTO biomarker_results
+                   (user_id, biomarker_id, value, lab_date, lab_name)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (user_id, _bm_id, _val, _pdate, _lab),
+            )
+
+    # ── Sleep Logs (~250 entries from Month 3 onward) ─────────────────────
+    print("Creating sleep logs (250+ entries)...")
+
+    _sleep_start = START_DATE + timedelta(days=60)  # month 3
+    _sleep_date = _sleep_start
+    _sleep_total_days = (END_DATE - _sleep_start).days
+
+    while _sleep_date <= END_DATE:
+        _st = (_sleep_date - _sleep_start).days / max(1, _sleep_total_days)
+
+        # Skip some days early on (less consistent logging)
+        if random.random() < max(0.02, 0.15 * (1 - _st)):
+            _sleep_date += timedelta(days=1)
+            continue
+
+        # Bedtime: 00:30-01:30 early → 22:15-22:45 late (sigmoid)
+        _s = 1 / (1 + _math.exp(-10 * (_st - 0.35)))
+        _bed_h = 24 + 0.5 + (1 - _s) * 1.0  # late: 00:30-01:30
+        _bed_h = _bed_h - _s * 2.25  # shifts to ~22:15-22:45
+        _bed_h += random.gauss(0, 0.25)
+        _bed_h = max(21.5, min(25.5, _bed_h))
+        _bed_hour = int(_bed_h) % 24
+        _bed_min = int((_bed_h % 1) * 60)
+        _bedtime = f"{_bed_hour:02d}:{_bed_min:02d}"
+
+        # Wake time: 06:00-07:00 early → 06:00-06:30 late
+        _wake_h = 6 + random.gauss(0.25, 0.25) if _st < 0.5 else 6 + random.gauss(0.15, 0.15)
+        _wake_h = max(5.5, min(7.5, _wake_h))
+        _wake_hour = int(_wake_h)
+        _wake_min = int((_wake_h % 1) * 60)
+        _waketime = f"{_wake_hour:02d}:{_wake_min:02d}"
+
+        # Latency: 30-60min early → 5-15min late
+        _latency = round(lerp_smooth(45, 10, _st) + random.gauss(0, 5))
+        _latency = max(2, min(90, _latency))
+
+        # Awakenings: 3-4 early → 0-1 late
+        _awakenings = max(0, round(lerp_smooth(3.5, 0.5, _st) + random.gauss(0, 0.5)))
+        _wake_dur = max(0, _awakenings * random.randint(3, 10))
+
+        # Quality: 1-2 early → 4-5 late
+        _quality = max(1, min(5, round(lerp_smooth(1.5, 4.5, _st))))
+
+        # Setback periods mirror main arc
+        _day_in = (_sleep_date - START_DATE).days
+        if 145 <= _day_in <= 155:  # injury
+            _quality = max(1, _quality - 1)
+            _awakenings += 1
+        if 235 <= _day_in <= 242:  # grief
+            _latency = min(90, _latency + 15)
+            _quality = max(1, _quality - 1)
+
+        # Hygiene factors
+        _alcohol = 1 if (random.random() < 0.1 and _sleep_date.weekday() >= 4) else 0
+        _exercise = 1 if random.random() < min(0.9, 0.4 + _st * 0.5) else 0
+
+        # Compute derived fields
+        _bed_dt = datetime.strptime(_bedtime, "%H:%M")
+        _wake_dt = datetime.strptime(_waketime, "%H:%M")
+        if _wake_dt <= _bed_dt:
+            _wake_dt += timedelta(days=1)
+        _tib = (_wake_dt - _bed_dt).total_seconds() / 60
+        _total_sleep = max(0, _tib - _latency - _wake_dur)
+        _efficiency = round((_total_sleep / _tib) * 100, 1) if _tib > 0 else 0
+
+        # Score (simplified — full algo runs in service)
+        _hours = _total_sleep / 60
+        _dur_sc = 1.0 if 7 <= _hours <= 9 else (0.7 if 6 <= _hours < 7 else 0.4)
+        _lat_sc = 1.0 if _latency <= 15 else (0.7 if _latency <= 30 else 0.4)
+        _eff_sc = 1.0 if _efficiency >= 90 else (0.7 if _efficiency >= 85 else 0.4)
+        _dst_sc = 1.0 if _awakenings <= 1 else (0.7 if _awakenings <= 3 else 0.4)
+        _qua_sc = max(0, (_quality - 1) / 4)
+        _score = round((_dur_sc * 0.30 + _lat_sc * 0.15 + _eff_sc * 0.20 + _dst_sc * 0.15 + _qua_sc * 0.10 + 0.7 * 0.10) * 100)
+        _score = max(0, min(100, _score))
+
+        conn.execute(
+            """INSERT OR IGNORE INTO sleep_logs
+               (user_id, sleep_date, bedtime, wake_time, sleep_latency_min,
+                awakenings, wake_duration_min, sleep_quality,
+                alcohol, exercise_today,
+                total_sleep_min, sleep_efficiency, sleep_score)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, _sleep_date.isoformat(), _bedtime, _waketime, _latency,
+             _awakenings, _wake_dur, _quality,
+             _alcohol, _exercise,
+             round(_total_sleep), round(_efficiency, 1), _score),
+        )
+        _sleep_date += timedelta(days=1)
+
+    # ── Chronotype Assessment (Bear, MEQ ~50) ─────────────────────────────
+    print("Setting chronotype (Bear)...")
+    conn.execute(
+        """INSERT OR IGNORE INTO chronotype_assessments
+           (user_id, meq_score, chronotype, ideal_bedtime, ideal_waketime)
+           VALUES (?, 50, 'bear', '22:30-23:00', '06:30-07:00')""",
+        (user_id,),
+    )
+
+    # ── Fasting Sessions (~80 from Month 6 onward) ────────────────────────
+    print("Creating fasting sessions...")
+
+    _fast_start = START_DATE + timedelta(days=150)  # month 6
+    _fast_date = _fast_start
+    _fast_total_days = (END_DATE - _fast_start).days
+
+    while _fast_date <= END_DATE:
+        _ft = (_fast_date - _fast_start).days / max(1, _fast_total_days)
+
+        # Frequency: 3-4/week early → 5-6/week late
+        _skip = random.random() > min(0.85, 0.5 + _ft * 0.35)
+        if _skip:
+            _fast_date += timedelta(days=1)
+            continue
+
+        # Type progression: 12:12 → 14:10 → 16:8
+        if _ft < 0.3:
+            _ftype = "12:12"
+            _target = 12
+        elif _ft < 0.65:
+            _ftype = "14:10"
+            _target = 14
+        else:
+            _ftype = "16:8"
+            _target = 16
+
+        # Start time: evening of previous day
+        _start_h = random.randint(19, 21)
+        _start_dt = datetime(_fast_date.year, _fast_date.month, _fast_date.day, _start_h, random.randint(0, 59))
+        _start_str = _start_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        # Actual hours: sometimes they break early
+        _completed = 1 if random.random() < min(0.9, 0.65 + _ft * 0.25) else 0
+        if _completed:
+            _actual = _target + random.gauss(0, 0.5)
+        else:
+            _actual = _target * random.uniform(0.5, 0.85)
+        _actual = round(max(4, _actual), 1)
+
+        _end_dt = _start_dt + timedelta(hours=_actual)
+        _end_str = _end_dt.strftime("%Y-%m-%d %H:%M:%S")
+
+        conn.execute(
+            """INSERT INTO fasting_sessions
+               (user_id, start_time, end_time, target_hours, actual_hours,
+                fasting_type, completed)
+               VALUES (?,?,?,?,?,?,?)""",
+            (user_id, _start_str, _end_str, _target, _actual, _ftype, _completed),
+        )
+        _fast_date += timedelta(days=1)
+
+    # ── Meal Logs (~500 from Month 2 onward) ──────────────────────────────
+    print("Creating meal logs and nutrition summaries...")
+
+    _meal_start = START_DATE + timedelta(days=30)  # month 2
+    _meal_date = _meal_start
+    _meal_total_days = (END_DATE - _meal_start).days
+
+    _green_meals = [
+        "Quinoa grain bowl with roasted chickpeas and veggies",
+        "Mixed green salad with lentils and tahini dressing",
+        "Oatmeal with berries, flax seeds, and walnuts",
+        "Sweet potato and black bean tacos",
+        "Smoothie bowl with spinach, banana, chia seeds",
+        "Brown rice stir-fry with tofu and vegetables",
+        "Mediterranean salad with hummus and whole wheat pita",
+        "Vegetable curry with brown rice",
+        "Bean and vegetable soup with whole grain bread",
+        "Avocado toast on whole grain with cherry tomatoes",
+    ]
+    _yellow_meals = [
+        "Grilled chicken breast with steamed broccoli",
+        "Salmon fillet with quinoa and asparagus",
+        "Turkey sandwich on whole wheat with mixed greens",
+        "Greek yogurt with granola and fruit",
+        "Pasta with marinara sauce and side salad",
+        "Egg white omelet with vegetables and cheese",
+        "Rice bowl with grilled fish and vegetables",
+        "Chicken stir-fry with white rice",
+    ]
+    _red_meals = [
+        "Pizza delivery with garlic bread",
+        "Burger and fries from fast food",
+        "Chocolate cake slice and ice cream",
+        "Fried chicken with mashed potatoes",
+        "Pasta with cream sauce and garlic bread",
+        "Chips and dip while watching TV",
+        "Takeout Chinese food with fried rice",
+    ]
+
+    while _meal_date <= END_DATE:
+        _mt = (_meal_date - _meal_start).days / max(1, _meal_total_days)
+
+        # Green probability increases: 0.15 → 0.75
+        _s = 1 / (1 + _math.exp(-10 * (_mt - 0.35)))
+        _green_prob = 0.15 + 0.60 * _s
+        _red_prob = max(0.05, 0.40 * (1 - _s))
+        _yellow_prob = 1 - _green_prob - _red_prob
+
+        # 2-4 meals per day
+        _num_meals = random.choice([2, 3, 3, 3, 4])
+        _meal_types = ["breakfast", "lunch", "dinner", "snack"][:_num_meals]
+
+        for _mtype in _meal_types:
+            _r = random.random()
+            if _r < _green_prob:
+                _color = "green"
+                _desc = random.choice(_green_meals)
+                _plant = random.randint(2, 5)
+                _fruit = random.randint(0, 2)
+                _veg = random.randint(1, 3)
+                _grains = random.randint(0, 2)
+                _legumes = random.randint(0, 2)
+                _nuts = random.randint(0, 1)
+                _fiber = random.randint(5, 12)
+            elif _r < _green_prob + _yellow_prob:
+                _color = "yellow"
+                _desc = random.choice(_yellow_meals)
+                _plant = random.randint(0, 2)
+                _fruit = random.randint(0, 1)
+                _veg = random.randint(0, 2)
+                _grains = random.randint(0, 1)
+                _legumes = 0
+                _nuts = 0
+                _fiber = random.randint(2, 6)
+            else:
+                _color = "red"
+                _desc = random.choice(_red_meals)
+                _plant = 0
+                _fruit = 0
+                _veg = random.randint(0, 1)
+                _grains = 0
+                _legumes = 0
+                _nuts = 0
+                _fiber = random.randint(0, 2)
+
+            _water = random.randint(0, 2)
+            _total_plant = _plant
+
+            conn.execute(
+                """INSERT INTO meal_logs
+                   (user_id, log_date, meal_type, description, color_category,
+                    plant_servings, fruit_servings, vegetable_servings,
+                    whole_grain_servings, legume_servings, nut_seed_servings,
+                    fiber_grams, water_glasses)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (user_id, _meal_date.isoformat(), _mtype, _desc, _color,
+                 _total_plant, _fruit, _veg, _grains, _legumes, _nuts,
+                 _fiber, _water),
+            )
+
+        # Compute daily summary for this date
+        _day_meals = conn.execute(
+            "SELECT * FROM meal_logs WHERE user_id = ? AND log_date = ?",
+            (user_id, _meal_date.isoformat()),
+        ).fetchall()
+        _d_total = len(_day_meals)
+        _d_green = sum(1 for m in _day_meals if m["color_category"] == "green")
+        _d_yellow = sum(1 for m in _day_meals if m["color_category"] == "yellow")
+        _d_red = sum(1 for m in _day_meals if m["color_category"] == "red")
+        _d_plants = sum(m["plant_servings"] or 0 for m in _day_meals)
+        _d_fiber = sum(m["fiber_grams"] or 0 for m in _day_meals)
+        _d_water = sum(m["water_glasses"] or 0 for m in _day_meals)
+        _d_fv = sum((m["fruit_servings"] or 0) + (m["vegetable_servings"] or 0) for m in _day_meals)
+
+        # Plant score
+        _ps_plant = min(40, (_d_plants / 10) * 40)
+        _ps_fv = min(30, (_d_fv / 5) * 30)
+        _ps_fiber = min(20, (_d_fiber / 30) * 20)
+        _ps_color = (_d_green / _d_total * 10) if _d_total > 0 else 0
+        _plant_score = round(min(100, _ps_plant + _ps_fv + _ps_fiber + _ps_color))
+        _color_ratio = _d_green / _d_total if _d_total > 0 else 0
+        _nut_score = round(_plant_score * 0.7 + _color_ratio * 100 * 0.3)
+
+        conn.execute(
+            """INSERT OR IGNORE INTO nutrition_daily_summary
+               (user_id, summary_date, total_meals, green_count, yellow_count, red_count,
+                total_plant_servings, total_fiber_grams, total_water_glasses,
+                plant_score, nutrition_score)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, _meal_date.isoformat(), _d_total, _d_green, _d_yellow, _d_red,
+             _d_plants, _d_fiber, _d_water, _plant_score, _nut_score),
+        )
+
+        _meal_date += timedelta(days=1)
+
     conn.commit()
     conn.close()
 
@@ -884,32 +1224,18 @@ def main():
     print("  - 53 body metrics entries (weight/waist/hip/bf%)")
     print("  - 24 weekly challenges (8 weeks)")
     print("  - 5 adopted protocols with completion logs")
+    print("  - ~48 biomarker results (12 markers x 4 panels)")
+    print("  - ~250 sleep logs with scores")
+    print("  - 1 chronotype assessment (Bear)")
+    print("  - ~80 fasting sessions (12:12 -> 16:8)")
+    print("  - ~500 meal logs with nutrition summaries")
     print("")
-    print("  FEATURES:")
-    print("  - Premium CSS Theme (glassmorphism, animations)")
-    print("  - Hero Stats Dashboard Cards")
-    print("  - Smart Correlation Engine (habit-mood insights)")
-    print("  - Downloadable HTML Health Report")
-    print("  - Body Metrics Tracker (weight/BMI/measurements)")
-    print("  - Weekly Challenges (auto-generated)")
-    print("  - Proactive Nudge Engine (dashboard)")
-    print("  - Post-Check-in AI Insights")
-    print("  - LifeCoin Engagement System")
-    print("  - CBT Thought Check (AI Coach)")
-    print("  - Pillar Correlation Dashboard (Progress)")
-    print("  - Implementation Intentions (habit creation)")
-    print("  - Celebration Micro-Feedback (habit toggle)")
-    print("  - Progressive Habit Unlocking (weekly plan)")
-    print("  - Auto Weekly Reports (weekly plan)")
-    print("  - Daily Micro-Lessons (15 lessons)")
-    print("  - Future Self Letters (write & receive)")
-    print("  - Analytics & Transformation Page")
-    print("  - 365-Day Habit Heatmap")
-    print("  - Achievement Badge System (22 badges)")
-    print("  - Science Foundation: Research Library (70 citations)")
-    print("  - Science Foundation: Daily Protocols (25 protocols)")
-    print("  - Science Foundation: Evidence Grading (A/B/C/D)")
-    print("  - Science Foundation: Protocol Adherence Tracking")
+    print("  PHASE 2 FEATURES:")
+    print("  - Biomarker Dashboard (40 markers, standard+optimal ranges)")
+    print("  - Sleep Tracker (PSQI scoring, chronotype quiz)")
+    print("  - Fasting Tracker (metabolic zones, timer)")
+    print("  - Nutrition Logger (plant score, Noom-style colors)")
+    print("  - Recovery Dashboard (composite score)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("")

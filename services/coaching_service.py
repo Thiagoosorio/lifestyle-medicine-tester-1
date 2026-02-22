@@ -38,11 +38,79 @@ def _assemble_user_context(user_id: int) -> str:
         "streak": streak,
     }
 
+    # Phase 2 data — wrapped in try/except so missing tables don't break coaching
+    sleep_data = None
+    recovery_data = None
+    biomarker_data = None
+    nutrition_data = None
+    fasting_data_ctx = None
+
+    try:
+        from services.sleep_service import get_latest_sleep_score, get_sleep_averages, get_chronotype
+        latest_score = get_latest_sleep_score(user_id)
+        avgs = get_sleep_averages(user_id, days=7)
+        chrono = get_chronotype(user_id)
+        sleep_data = {
+            "latest_score": latest_score,
+            "avg_duration": avgs.get("avg_duration") if avgs else None,
+            "avg_efficiency": avgs.get("avg_efficiency") if avgs else None,
+            "chronotype": chrono.get("data", {}).get("name") if chrono else None,
+        }
+    except Exception:
+        pass
+
+    try:
+        from services.recovery_service import calculate_recovery_score
+        rec = calculate_recovery_score(user_id)
+        if rec:
+            recovery_data = {"score": rec["score"], "zone": rec["zone"]["label"]}
+    except Exception:
+        pass
+
+    try:
+        from services.biomarker_service import calculate_biomarker_score, get_biomarker_summary
+        bio_score = calculate_biomarker_score(user_id)
+        bio_summary = get_biomarker_summary(user_id)
+        if bio_score is not None or bio_summary:
+            summary_str = ", ".join(f"{v} {k}" for k, v in bio_summary.items() if v > 0) if bio_summary else None
+            biomarker_data = {"score": bio_score, "summary": summary_str}
+    except Exception:
+        pass
+
+    try:
+        from services.nutrition_service import get_nutrition_averages
+        nut_avgs = get_nutrition_averages(user_id, days=30)
+        if nut_avgs and nut_avgs.get("log_count"):
+            nutrition_data = {
+                "avg_plant_score": nut_avgs.get("avg_plant_score"),
+                "avg_fiber": nut_avgs.get("avg_fiber"),
+                "avg_plants": nut_avgs.get("avg_plants"),
+            }
+    except Exception:
+        pass
+
+    try:
+        from services.fasting_service import get_fasting_stats
+        fast_stats = get_fasting_stats(user_id, days=30)
+        if fast_stats and fast_stats.get("total_fasts", 0) > 0:
+            fasting_data_ctx = {
+                "completion_rate": fast_stats.get("completion_rate"),
+                "avg_hours": fast_stats.get("avg_hours"),
+                "streak": fast_stats.get("streak"),
+            }
+    except Exception:
+        pass
+
     return build_user_context(
         wheel_scores=wheel_scores,
         stages=stages,
         active_goals=active_goals,
         recent_trends=recent_trends,
+        sleep_data=sleep_data,
+        recovery_data=recovery_data,
+        biomarker_data=biomarker_data,
+        nutrition_data=nutrition_data,
+        fasting_data=fasting_data_ctx,
     )
 
 

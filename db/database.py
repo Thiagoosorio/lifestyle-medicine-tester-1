@@ -42,7 +42,7 @@ def _migrate(conn):
 
 
 def _seed_science_data():
-    """Seed the evidence library and protocols (idempotent)."""
+    """Seed the evidence library, protocols, and biomarker definitions (idempotent)."""
     try:
         from services.evidence_service import seed_evidence
         from services.protocol_service import seed_protocols
@@ -50,3 +50,8 @@ def _seed_science_data():
         seed_evidence()
     except Exception:
         pass  # Tables may not exist yet on first run
+    try:
+        from services.biomarker_service import seed_biomarker_definitions
+        seed_biomarker_definitions()
+    except Exception:
+        pass

@@ -33,6 +33,7 @@ else:
             "Overview": [
                 st.Page("pages/dashboard.py", title="Dashboard", icon=":material/dashboard:", default=True),
                 st.Page("pages/wheel_assessment.py", title="Wheel of Life", icon=":material/donut_large:"),
+                st.Page("pages/recovery.py", title="Recovery", icon=":material/hotel:"),
             ],
             "Planning": [
                 st.Page("pages/weekly_plan.py", title="Weekly Plan", icon=":material/calendar_view_week:"),
@@ -42,6 +43,10 @@ else:
             "Tracking": [
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
                 st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
+                st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),
+                st.Page("pages/sleep_tracker.py", title="Sleep", icon=":material/bedtime:"),
+                st.Page("pages/nutrition_logger.py", title="Nutrition", icon=":material/restaurant:"),
+                st.Page("pages/fasting_tracker.py", title="Fasting", icon=":material/timer:"),
                 st.Page("pages/analytics.py", title="Analytics", icon=":material/insights:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],

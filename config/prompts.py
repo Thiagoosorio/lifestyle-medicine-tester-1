@@ -82,7 +82,21 @@ Longevity & Aging Biology | Gerontology | Lifestyle Medicine | Exercise Science 
 - Use hedging language for lower-quality evidence: "research suggests" (Grade C), "experts recommend" (Grade D)
 - For Grade A/B evidence, use confident language: "strong evidence shows", "a meta-analysis of X RCTs found"
 
-Always prioritize patient safety: when evidence is conflicting or insufficient, recommend the conservative approach and suggest consulting a healthcare provider."""
+Always prioritize patient safety: when evidence is conflicting or insufficient, recommend the conservative approach and suggest consulting a healthcare provider.
+
+--- AVAILABLE USER DATA ---
+
+The app tracks the following data that may be provided in the user context. Use it to personalize your coaching:
+
+Biomarkers: Lab results with standard and optimal ranges. Categories include lipids, metabolic, inflammation, vitamins, hormones, thyroid, liver, kidney, blood count, minerals. When discussing results, distinguish between "standard range" (clinically normal) and "optimal range" (lifestyle medicine target). Never interpret biomarker results as a diagnosis.
+
+Sleep: Nightly logs with bedtime, wake time, latency, awakenings, efficiency, and a composite sleep score (0-100) based on PSQI components (PMID: 2748771). Chronotype assessed via simplified MEQ (Lion/Bear/Wolf/Dolphin). When coaching on sleep, respect the user's chronotype rather than prescribing a one-size-fits-all schedule.
+
+Recovery: A daily composite score (0-100) derived from sleep (35%), stress (25%), activity (20%), habits (10%), and mood (10%). Zones: Green (80-100, push hard), Yellow (60-79, moderate), Red (0-59, prioritize rest). Use recovery data to guide training intensity recommendations.
+
+Fasting: Time-restricted eating sessions with metabolic zone tracking. Zones: Fed (0-4h), Early Fasting (4-12h), Fat Burning (12-18h), Ketosis (18-24h), Deep Ketosis (24-72h). Note: autophagy timing is primarily from animal models (PMID: 30172870) — use hedging language for autophagy claims. Always check contraindications before encouraging extended fasts.
+
+Nutrition: Meal logs with Noom-style color coding (green=whole plant foods, yellow=lean proteins/processed grains, red=ultra-processed). Plant score (0-100) based on plant servings, fiber, and color balance. Target: 10+ plant servings/day, 30g+ fiber/day (PMID: 30638909, 33641343)."""
 
 CONTEXT_TEMPLATE = """
 --- USER CONTEXT ---
@@ -180,7 +194,10 @@ def get_context_prompt(context_type: str) -> str:
 
 def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        active_goals: list = None, recent_trends: dict = None,
-                       habit_stats: dict = None) -> str:
+                       habit_stats: dict = None,
+                       sleep_data: dict = None, recovery_data: dict = None,
+                       biomarker_data: dict = None, nutrition_data: dict = None,
+                       fasting_data: dict = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -217,5 +234,42 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
             parts.append(f"Recent habit completion rate: {recent_trends['habit_completion']:.0%}")
         if recent_trends.get("streak"):
             parts.append(f"Current streak: {recent_trends['streak']} days")
+
+    if sleep_data:
+        if sleep_data.get("latest_score") is not None:
+            parts.append(f"Latest sleep score: {sleep_data['latest_score']}/100")
+        if sleep_data.get("avg_duration"):
+            parts.append(f"Average sleep duration (7d): {sleep_data['avg_duration']:.1f}h")
+        if sleep_data.get("avg_efficiency"):
+            parts.append(f"Average sleep efficiency (7d): {sleep_data['avg_efficiency']:.0f}%")
+        if sleep_data.get("chronotype"):
+            parts.append(f"Chronotype: {sleep_data['chronotype']}")
+
+    if recovery_data:
+        if recovery_data.get("score") is not None:
+            zone_label = recovery_data.get("zone", "")
+            parts.append(f"Recovery score: {recovery_data['score']}/100 ({zone_label})")
+
+    if biomarker_data:
+        if biomarker_data.get("score") is not None:
+            parts.append(f"Biomarker score: {biomarker_data['score']}/100")
+        if biomarker_data.get("summary"):
+            parts.append(f"Biomarker summary: {biomarker_data['summary']}")
+
+    if nutrition_data:
+        if nutrition_data.get("avg_plant_score") is not None:
+            parts.append(f"Average plant score (30d): {nutrition_data['avg_plant_score']:.0f}/100")
+        if nutrition_data.get("avg_fiber"):
+            parts.append(f"Average daily fiber (30d): {nutrition_data['avg_fiber']:.0f}g")
+        if nutrition_data.get("avg_plants"):
+            parts.append(f"Average plant servings/day (30d): {nutrition_data['avg_plants']:.1f}")
+
+    if fasting_data:
+        if fasting_data.get("completion_rate") is not None:
+            parts.append(f"Fasting completion rate (30d): {fasting_data['completion_rate']:.0f}%")
+        if fasting_data.get("avg_hours"):
+            parts.append(f"Average fast duration (30d): {fasting_data['avg_hours']:.1f}h")
+        if fasting_data.get("streak"):
+            parts.append(f"Fasting streak: {fasting_data['streak']} days")
 
     return "\n".join(parts) if parts else "No user data available yet."

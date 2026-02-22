@@ -434,3 +434,147 @@ CREATE TABLE IF NOT EXISTS protocol_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_protocol_log ON protocol_log(user_id, log_date);
+
+-- ============================================================
+-- PHASE 2: ADVANCED TRACKING
+-- ============================================================
+
+-- Biomarker definitions (seeded from config)
+CREATE TABLE IF NOT EXISTS biomarker_definitions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    code            TEXT NOT NULL UNIQUE,
+    name            TEXT NOT NULL,
+    category        TEXT NOT NULL CHECK (category IN (
+                        'lipids', 'metabolic', 'inflammation', 'vitamins',
+                        'hormones', 'thyroid', 'liver', 'kidney',
+                        'blood_count', 'minerals'
+                    )),
+    unit            TEXT NOT NULL,
+    standard_low    REAL,
+    standard_high   REAL,
+    optimal_low     REAL,
+    optimal_high    REAL,
+    critical_low    REAL,
+    critical_high   REAL,
+    description     TEXT,
+    clinical_note   TEXT,
+    pillar_id       INTEGER REFERENCES pillars(id),
+    sort_order      INTEGER DEFAULT 0
+);
+
+-- User biomarker lab results
+CREATE TABLE IF NOT EXISTS biomarker_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    biomarker_id    INTEGER NOT NULL REFERENCES biomarker_definitions(id),
+    value           REAL NOT NULL,
+    lab_date        TEXT NOT NULL,
+    lab_name        TEXT,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, biomarker_id, lab_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_biomarker_results_user ON biomarker_results(user_id, lab_date);
+CREATE INDEX IF NOT EXISTS idx_biomarker_results_marker ON biomarker_results(biomarker_id, lab_date);
+
+-- Detailed sleep logs
+CREATE TABLE IF NOT EXISTS sleep_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    sleep_date      TEXT NOT NULL,
+    bedtime         TEXT,
+    wake_time       TEXT,
+    sleep_latency_min INTEGER,
+    awakenings      INTEGER DEFAULT 0,
+    wake_duration_min INTEGER DEFAULT 0,
+    sleep_quality   INTEGER CHECK (sleep_quality BETWEEN 1 AND 5),
+    naps_min        INTEGER DEFAULT 0,
+    caffeine_cutoff TEXT,
+    screen_cutoff   TEXT,
+    alcohol         INTEGER DEFAULT 0,
+    exercise_today  INTEGER DEFAULT 0,
+    notes           TEXT,
+    total_sleep_min INTEGER,
+    sleep_efficiency REAL,
+    sleep_score     INTEGER CHECK (sleep_score BETWEEN 0 AND 100),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, sleep_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sleep_logs_user ON sleep_logs(user_id, sleep_date);
+
+-- Chronotype assessment (one per user, updatable)
+CREATE TABLE IF NOT EXISTS chronotype_assessments (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    meq_score       INTEGER,
+    chronotype      TEXT CHECK (chronotype IN ('lion', 'bear', 'wolf', 'dolphin')),
+    ideal_bedtime   TEXT,
+    ideal_waketime  TEXT,
+    assessed_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);
+
+-- Fasting sessions
+CREATE TABLE IF NOT EXISTS fasting_sessions (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    start_time      TEXT NOT NULL,
+    end_time        TEXT,
+    target_hours    REAL DEFAULT 16,
+    actual_hours    REAL,
+    fasting_type    TEXT DEFAULT '16:8' CHECK (fasting_type IN (
+                        '12:12', '14:10', '16:8', '18:6', '20:4',
+                        'OMAD', '24h', '36h', 'custom'
+                    )),
+    notes           TEXT,
+    completed       INTEGER DEFAULT 0,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_fasting_user ON fasting_sessions(user_id, start_time);
+
+-- Meal logs
+CREATE TABLE IF NOT EXISTS meal_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    log_date        TEXT NOT NULL,
+    meal_type       TEXT NOT NULL CHECK (meal_type IN (
+                        'breakfast', 'lunch', 'dinner', 'snack'
+                    )),
+    description     TEXT NOT NULL,
+    color_category  TEXT CHECK (color_category IN ('green', 'yellow', 'red')),
+    plant_servings  INTEGER DEFAULT 0,
+    fruit_servings  INTEGER DEFAULT 0,
+    vegetable_servings INTEGER DEFAULT 0,
+    whole_grain_servings INTEGER DEFAULT 0,
+    legume_servings INTEGER DEFAULT 0,
+    nut_seed_servings INTEGER DEFAULT 0,
+    fiber_grams     REAL,
+    water_glasses   INTEGER DEFAULT 0,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_meal_logs_user ON meal_logs(user_id, log_date);
+
+-- Daily nutrition summary (computed daily)
+CREATE TABLE IF NOT EXISTS nutrition_daily_summary (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    summary_date    TEXT NOT NULL,
+    total_meals     INTEGER DEFAULT 0,
+    green_count     INTEGER DEFAULT 0,
+    yellow_count    INTEGER DEFAULT 0,
+    red_count       INTEGER DEFAULT 0,
+    total_plant_servings INTEGER DEFAULT 0,
+    total_fiber_grams REAL DEFAULT 0,
+    total_water_glasses INTEGER DEFAULT 0,
+    plant_score     INTEGER CHECK (plant_score BETWEEN 0 AND 100),
+    nutrition_score INTEGER CHECK (nutrition_score BETWEEN 0 AND 100),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, summary_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_nutrition_summary ON nutrition_daily_summary(user_id, summary_date);
