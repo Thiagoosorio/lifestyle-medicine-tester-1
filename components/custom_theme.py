@@ -22,9 +22,9 @@ APPLE = {
     "bg_secondary": "#2C2C2E",
     "bg_tertiary": "#3A3A3C",
     "label_primary": "rgba(255,255,255,1.0)",
-    "label_secondary": "rgba(235,235,245,0.6)",
-    "label_tertiary": "rgba(235,235,245,0.3)",
-    "label_quaternary": "rgba(235,235,245,0.18)",
+    "label_secondary": "rgba(235,235,245,0.8)",
+    "label_tertiary": "rgba(235,235,245,0.5)",
+    "label_quaternary": "rgba(235,235,245,0.35)",
     "fill_tertiary": "rgba(118,118,128,0.24)",
     "separator": "rgba(84,84,88,0.6)",
     "glass_bg": "rgba(28,28,30,0.72)",
@@ -61,9 +61,9 @@ def inject_custom_css() -> None:
     --bg-secondary: #1C1C1E;
     --bg-tertiary: #2C2C2E;
     --label-primary: rgba(255,255,255,1.0);
-    --label-secondary: rgba(235,235,245,0.6);
-    --label-tertiary: rgba(235,235,245,0.3);
-    --label-quaternary: rgba(235,235,245,0.18);
+    --label-secondary: rgba(235,235,245,0.8);
+    --label-tertiary: rgba(235,235,245,0.5);
+    --label-quaternary: rgba(235,235,245,0.35);
     --fill-tertiary: rgba(118,118,128,0.24);
     --separator: rgba(84,84,88,0.6);
     --separator-opaque: #38383A;
@@ -85,9 +85,8 @@ def inject_custom_css() -> None:
 [data-testid="stToolbar"],
 [data-testid="stDecoration"],
 [data-testid="stStatusWidget"] { display:none !important; visibility:hidden !important; }
-#MainMenu { visibility:hidden !important; }
 footer { visibility:hidden !important; height:0 !important; }
-header[data-testid="stHeader"] { background:transparent !important; }
+header[data-testid="stHeader"] { background:rgba(0,0,0,0.85) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
 .stApp {
     background-color: var(--bg-primary) !important;
     font-family: var(--font-text) !important;
@@ -278,6 +277,10 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
 [data-testid="stHorizontalBlock"] > div:nth-child(3) { animation: anim-fade-up 0.4s cubic-bezier(0.34,1.56,0.64,1) both; animation-delay:0.15s; }
 [data-testid="stHorizontalBlock"] > div:nth-child(4) { animation: anim-fade-up 0.4s cubic-bezier(0.34,1.56,0.64,1) both; animation-delay:0.20s; }
 [data-testid="stHorizontalBlock"] > div:nth-child(5) { animation: anim-fade-up 0.4s cubic-bezier(0.34,1.56,0.64,1) both; animation-delay:0.25s; }
+@media (max-width: 768px) {
+    section.main .block-container { padding-top:16px; padding-left:12px; padding-right:12px; }
+    .stTabs [data-baseweb="tab"] { font-size:11px !important; padding:6px 8px !important; }
+}
 </style>""", unsafe_allow_html=True)
 
 
