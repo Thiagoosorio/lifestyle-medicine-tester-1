@@ -82,9 +82,8 @@ def inject_custom_css() -> None:
     --ease-default: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     --ease-spring: 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-[data-testid="stToolbar"],
-[data-testid="stDecoration"],
-[data-testid="stStatusWidget"] { display:none !important; visibility:hidden !important; }
+[data-testid="stDecoration"] { display:none !important; }
+[data-testid="stStatusWidget"] { visibility:hidden !important; }
 footer { visibility:hidden !important; height:0 !important; }
 header[data-testid="stHeader"] { background:rgba(0,0,0,0.85) !important; backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); }
 .stApp {
