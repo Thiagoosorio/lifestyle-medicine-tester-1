@@ -118,20 +118,23 @@ html, body, [class*="css"] { font-family: var(--font-text) !important; }
     line-height: 24px !important; letter-spacing: -0.01em;
     color: var(--label-primary) !important;
 }
-button[data-testid="stSidebarCollapseButton"],
-button[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"] button,
-[data-testid="stToolbar"] button[kind="header"] {
+[data-testid="stSidebarCollapseButton"],
+[data-testid="stExpandSidebarButton"] {
     background: var(--blue) !important;
     color: white !important;
     border-radius: 8px !important;
-    min-width: 36px !important; min-height: 36px !important;
+    min-width: 40px !important; min-height: 40px !important;
     border: none !important;
     opacity: 1 !important;
 }
-button[data-testid="stSidebarCollapseButton"]:hover,
-button[data-testid="collapsedControl"]:hover,
-[data-testid="stSidebarCollapsedControl"] button:hover {
+[data-testid="stSidebarCollapseButton"] svg,
+[data-testid="stExpandSidebarButton"] svg {
+    color: white !important;
+    fill: white !important;
+    stroke: white !important;
+}
+[data-testid="stSidebarCollapseButton"]:hover,
+[data-testid="stExpandSidebarButton"]:hover {
     background: var(--red) !important;
 }
 section[data-testid="stSidebar"] {
