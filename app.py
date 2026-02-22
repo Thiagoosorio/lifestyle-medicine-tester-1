@@ -5,7 +5,7 @@ st.set_page_config(
     page_title="Lifestyle Medicine Coach",
     page_icon=":material/favorite:",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 # Initialize database on first run
