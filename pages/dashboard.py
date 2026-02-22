@@ -164,11 +164,12 @@ else:
             with _pcol2:
                 _pil = PILLARS.get(_p["pillar_id"], {})
                 _pil_color = _pil.get("color", "#888")
+                _pil_emoji = {1: "&#127813;", 2: "&#127939;", 3: "&#127769;", 4: "&#129502;", 5: "&#128101;", 6: "&#128683;"}.get(_p["pillar_id"], "")
                 _timing = f' &middot; {_p["timing"]}' if _p.get("timing") else ""
                 _line_style = f"text-decoration:line-through;opacity:0.5" if _p["completed"] else ""
                 _proto_html = (
                     f'<div style="font-size:14px;line-height:20px;{_line_style}">'
-                    f'<span style="color:{_pil_color};font-weight:600">{_pil.get("icon", "")} </span>'
+                    f'<span style="color:{_pil_color};font-weight:600">{_pil_emoji} </span>'
                     f'<span style="color:{A["label_primary"]}">{_p["name"]}</span>'
                     f'<span style="color:{A["label_tertiary"]};font-size:12px">{_timing}</span>'
                     f'</div>'
