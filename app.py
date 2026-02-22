@@ -11,6 +11,10 @@ st.set_page_config(
 # Initialize database on first run
 init_db()
 
+# Inject premium CSS theme
+from components.custom_theme import inject_custom_css
+inject_custom_css()
+
 # ── Authentication gate ─────────────────────────────────────────────────────
 if "user_id" not in st.session_state:
     pg = st.navigation([st.Page("pages/login.py", title="Login", icon=":material/login:")])
@@ -28,12 +32,17 @@ else:
             ],
             "Tracking": [
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
+                st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
                 st.Page("pages/analytics.py", title="Analytics", icon=":material/insights:"),
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],
             "Growth": [
                 st.Page("pages/lessons.py", title="Micro-Lessons", icon=":material/school:"),
+                st.Page("pages/challenges.py", title="Challenges", icon=":material/emoji_events:"),
                 st.Page("pages/future_self.py", title="Future Self", icon=":material/mail:"),
+            ],
+            "Reports": [
+                st.Page("pages/reports.py", title="Health Report", icon=":material/summarize:"),
             ],
             "Account": [
                 st.Page("pages/settings_page.py", title="Settings", icon=":material/settings:"),

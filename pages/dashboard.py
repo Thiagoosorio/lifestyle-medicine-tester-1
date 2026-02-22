@@ -5,6 +5,7 @@ from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_s
 from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
 from components.wheel_chart import create_wheel_chart
 from components.metrics_row import render_metrics_row
+from components.custom_theme import render_hero_stats
 from services.nudge_engine import get_active_nudges
 from services.coin_service import get_coin_balance, award_daily_coins
 from db.database import get_connection
@@ -108,12 +109,12 @@ else:
 
     coins = get_coin_balance(user_id)
 
-    render_metrics_row([
-        {"label": "Current Streak", "value": f"{streak} days", "help": "Consecutive days with a check-in"},
-        {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "help": "Habits completed today"},
-        {"label": "Active Goals", "value": str(active_goals)},
-        {"label": "Total Wheel Score", "value": f"{get_total_score(scores)}/60"},
-        {"label": ":material/stars: LifeCoins", "value": str(coins), "help": "Earn coins by completing daily check-ins, habits, and staying consistent"},
+    render_hero_stats([
+        {"label": "Current Streak", "value": f"{streak} days", "icon": "\U0001f525", "color": "#FF9800"},
+        {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "icon": "\u2705", "color": "#4CAF50"},
+        {"label": "Active Goals", "value": str(active_goals), "icon": "\U0001f3af", "color": "#2196F3"},
+        {"label": "Wheel Score", "value": f"{get_total_score(scores)}/60", "icon": "\U0001f3a1", "color": "#9C27B0"},
+        {"label": "LifeCoins", "value": str(coins), "icon": "\u2b50", "color": "#FFD700"},
     ])
 
     st.divider()
@@ -337,3 +338,12 @@ else:
         st.success(f"All {total_lessons} lessons completed! You're a lifestyle medicine expert.")
     else:
         st.caption("Lessons will appear once the content is loaded.")
+
+    # ── Smart Insights Widget ──────────────────────────────────────────────
+    st.divider()
+    st.markdown("### Smart Insights")
+    try:
+        from components.smart_insights import render_smart_insights
+        render_smart_insights(user_id)
+    except Exception:
+        st.caption("Insights will appear once you have enough check-in data.")

@@ -59,8 +59,12 @@ def main():
                        "coaching_messages", "comb_assessments",
                        "coin_transactions", "daily_insights", "thought_checks",
                        "user_journey", "user_lesson_progress", "future_self_letters",
-                       "auto_weekly_reports", "habit_celebrations"]:
-            conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
+                       "auto_weekly_reports", "habit_celebrations",
+                       "body_metrics", "weekly_challenges"]:
+            try:
+                conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
+            except Exception:
+                pass  # Table may not exist yet
         conn.execute("DELETE FROM users WHERE id = ?", (uid,))
         conn.commit()
     # Reset shared tables
@@ -696,6 +700,116 @@ def main():
             (user_id, text, delivery, delivered, created),
         )
 
+    # ── Body Metrics (weight journey) ───────────────────────────────────────
+    print("Creating body metrics data...")
+    conn.execute("""CREATE TABLE IF NOT EXISTS body_metrics (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        log_date TEXT NOT NULL,
+        weight_kg REAL,
+        height_cm REAL,
+        waist_cm REAL,
+        hip_cm REAL,
+        body_fat_pct REAL,
+        notes TEXT,
+        photo_note TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(user_id, log_date)
+    )""")
+
+    # Maria's weight: 105 kg → 65 kg over 12 months (sigmoid curve)
+    import math
+    for week in range(53):
+        log_date = START_DATE + timedelta(weeks=week)
+        if log_date > END_DATE:
+            break
+        t = week / 52.0
+        # Sigmoid weight loss curve
+        s = 1 / (1 + math.exp(-10 * (t - 0.4)))
+        weight = 105 - (40 * s) + random.gauss(0, 0.5)
+        weight = round(max(64, min(106, weight)), 1)
+        # Waist: 110cm → 72cm
+        waist = round(110 - (38 * s) + random.gauss(0, 0.5), 1)
+        waist = max(70, min(112, waist))
+        # Hip: 120cm → 95cm
+        hip = round(120 - (25 * s) + random.gauss(0, 0.5), 1)
+        hip = max(93, min(122, hip))
+        # Body fat: 42% → 22%
+        bf = round(42 - (20 * s) + random.gauss(0, 0.3), 1)
+        bf = max(20, min(43, bf))
+        # Height constant
+        height = 165.0
+
+        note = ""
+        if week == 0:
+            note = "Starting measurements. Doctor visit day."
+        elif week == 8:
+            note = "First 5kg lost! Clothes are looser."
+        elif week == 20:
+            note = "20kg down. Had to buy new running clothes."
+        elif week == 36:
+            note = "30kg lost. Blood work completely normal."
+        elif week == 52:
+            note = "40kg lost. Half-marathon body. I am a runner."
+
+        conn.execute(
+            """INSERT OR IGNORE INTO body_metrics
+               (user_id, log_date, weight_kg, height_cm, waist_cm, hip_cm, body_fat_pct, notes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (user_id, log_date.isoformat(), weight, height, waist, hip, bf, note, log_date.isoformat()),
+        )
+
+    # ── Weekly Challenges (sample completed challenges) ───────────────────
+    print("Creating weekly challenges data...")
+    conn.execute("""CREATE TABLE IF NOT EXISTS weekly_challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        week_start TEXT NOT NULL,
+        pillar_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        target_count INTEGER NOT NULL DEFAULT 5,
+        current_count INTEGER NOT NULL DEFAULT 0,
+        difficulty TEXT NOT NULL DEFAULT 'medium',
+        coin_reward INTEGER NOT NULL DEFAULT 10,
+        status TEXT NOT NULL DEFAULT 'active',
+        completed_at TEXT,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(user_id, week_start, title)
+    )""")
+
+    # Create 8 weeks of past challenges (some completed, some not)
+    challenge_templates = [
+        (1, "5-a-Day Champion", "Eat 5+ servings of fruits and vegetables", 5, "medium", 10),
+        (2, "Step It Up", "Hit 8000+ steps in a day", 5, "medium", 10),
+        (3, "Early Bird", "In bed by 10:30 PM", 5, "medium", 10),
+        (4, "Breathe Easy", "Complete a breathing exercise", 5, "easy", 5),
+        (5, "Connection Call", "Have a meaningful conversation", 4, "medium", 10),
+        (6, "Clean Days", "Stay substance-free all day", 5, "easy", 5),
+        (1, "Hydration Hero", "Drink 8 glasses of water", 5, "easy", 5),
+        (2, "Morning Mover", "Exercise before 9 AM", 4, "hard", 15),
+        (4, "Mindful Minutes", "Meditate for 10+ minutes", 4, "medium", 10),
+        (3, "Screen Sunset", "No screens 30min before bed", 5, "medium", 10),
+    ]
+
+    for i in range(8):
+        week_date = END_DATE - timedelta(weeks=8 - i)
+        week_start = week_date - timedelta(days=week_date.weekday())
+        # Pick 3 challenges for this week
+        week_challenges = random.sample(challenge_templates, 3)
+        for pid, title, desc, target, diff, reward in week_challenges:
+            # More recent weeks have higher completion
+            completion_prob = 0.6 + (i / 8) * 0.3
+            current = target if random.random() < completion_prob else random.randint(1, target - 1)
+            status = "completed" if current >= target else "expired"
+            completed_at = (week_start + timedelta(days=6)).isoformat() if status == "completed" else None
+            conn.execute(
+                """INSERT OR IGNORE INTO weekly_challenges
+                   (user_id, week_start, pillar_id, title, description, target_count, current_count, difficulty, coin_reward, status, completed_at, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (user_id, week_start.isoformat(), pid, title, desc, target, current, diff, reward, status, completed_at, week_start.isoformat()),
+            )
+
     conn.commit()
     conn.close()
 
@@ -724,8 +838,16 @@ def main():
     print("  - 6 sample daily AI insights")
     print("  - User journey (Level 7 — Lifestyle Master)")
     print("  - 3 future self letters (delivered)")
+    print("  - 53 body metrics entries (weight/waist/hip/bf%)")
+    print("  - 24 weekly challenges (8 weeks)")
     print("")
     print("  FEATURES:")
+    print("  - Premium CSS Theme (glassmorphism, animations)")
+    print("  - Hero Stats Dashboard Cards")
+    print("  - Smart Correlation Engine (habit-mood insights)")
+    print("  - Downloadable HTML Health Report")
+    print("  - Body Metrics Tracker (weight/BMI/measurements)")
+    print("  - Weekly Challenges (auto-generated)")
     print("  - Proactive Nudge Engine (dashboard)")
     print("  - Post-Check-in AI Insights")
     print("  - LifeCoin Engagement System")
@@ -737,6 +859,9 @@ def main():
     print("  - Auto Weekly Reports (weekly plan)")
     print("  - Daily Micro-Lessons (15 lessons)")
     print("  - Future Self Letters (write & receive)")
+    print("  - Analytics & Transformation Page")
+    print("  - 365-Day Habit Heatmap")
+    print("  - Achievement Badge System (22 badges)")
     print("")
     print("  Login at http://localhost:8501 to explore!")
     print("=" * 60)
