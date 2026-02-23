@@ -23,8 +23,8 @@ APPLE = {
     "bg_tertiary": "#3A3A3C",
     "label_primary": "rgba(255,255,255,1.0)",
     "label_secondary": "rgba(235,235,245,0.8)",
-    "label_tertiary": "rgba(235,235,245,0.5)",
-    "label_quaternary": "rgba(235,235,245,0.35)",
+    "label_tertiary": "rgba(235,235,245,0.6)",
+    "label_quaternary": "rgba(235,235,245,0.45)",
     "fill_tertiary": "rgba(118,118,128,0.24)",
     "separator": "rgba(84,84,88,0.6)",
     "glass_bg": "rgba(28,28,30,0.72)",
@@ -62,8 +62,8 @@ def inject_custom_css() -> None:
     --bg-tertiary: #2C2C2E;
     --label-primary: rgba(255,255,255,1.0);
     --label-secondary: rgba(235,235,245,0.8);
-    --label-tertiary: rgba(235,235,245,0.5);
-    --label-quaternary: rgba(235,235,245,0.35);
+    --label-tertiary: rgba(235,235,245,0.6);
+    --label-quaternary: rgba(235,235,245,0.45);
     --fill-tertiary: rgba(118,118,128,0.24);
     --separator: rgba(84,84,88,0.6);
     --separator-opaque: #38383A;
@@ -100,6 +100,51 @@ section.main .block-container {
     animation: anim-fade-up 0.4s cubic-bezier(0.4,0,0.2,1) both !important;
 }
 html, body, [class*="css"] { font-family: var(--font-text) !important; }
+.stApp, .stApp p, .stApp span, .stApp li, .stApp td, .stApp th,
+.stApp label, .stApp div { color: rgba(255,255,255,0.92); }
+.stApp [data-testid="stWidgetLabel"] label,
+.stApp [data-testid="stWidgetLabel"] p,
+.stApp .stRadio label,
+.stApp .stCheckbox label,
+.stApp .stSelectbox label,
+.stApp .stMultiSelect label,
+.stApp .stSlider label,
+.stApp .stNumberInput label,
+.stApp .stDateInput label,
+.stApp .stTimeInput label,
+.stApp .stTextInput label,
+.stApp .stTextArea label,
+.stApp .stFileUploader label {
+    color: rgba(235,235,245,0.85) !important;
+    font-weight: 500 !important;
+}
+.stApp .stRadio div[role="radiogroup"] label span,
+.stApp .stCheckbox label span {
+    color: rgba(235,235,245,0.9) !important;
+}
+.stApp .stSelectbox [data-baseweb="select"] span,
+.stApp [data-baseweb="select"] .css-1dimb5e-singleValue {
+    color: rgba(255,255,255,0.92) !important;
+}
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
+    color: rgba(235,235,245,0.55) !important;
+}
+.stApp [data-testid="stMarkdownContainer"] p {
+    color: rgba(255,255,255,0.88) !important;
+}
+.stApp [data-testid="stMarkdownContainer"] strong {
+    color: rgba(255,255,255,1.0) !important;
+}
+[data-testid="stSidebarNavSeparator"] span {
+    color: rgba(235,235,245,0.5) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"] span {
+    color: rgba(235,235,245,0.85) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-selected="true"] span,
+section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="page"] span {
+    color: rgba(255,255,255,1.0) !important;
+}
 .stMarkdown h1, [data-testid="stMarkdownContainer"] h1 {
     font-family: var(--font-display) !important;
     font-size: 34px !important; font-weight: 700 !important;
@@ -237,7 +282,7 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
     border-radius: 6px !important;
     font-family: var(--font-text) !important;
     font-size: 13px !important; font-weight: 600 !important;
-    color: var(--label-secondary) !important;
+    color: rgba(235,235,245,0.85) !important;
     transition: var(--ease-default) !important;
 }
 .stTabs [aria-selected="true"] {
