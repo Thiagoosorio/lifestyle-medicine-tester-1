@@ -201,10 +201,21 @@ def get_recovery_history(user_id, days=30):
            ORDER BY checkin_date""",
         (user_id, cutoff),
     ).fetchall()
+
+    # Get habit log data
+    habit_rows = conn.execute(
+        """SELECT log_date,
+                  COUNT(*) as total,
+                  SUM(CASE WHEN completed_count >= 1 THEN 1 ELSE 0 END) as done
+           FROM habit_log WHERE user_id = ? AND log_date >= ?
+           GROUP BY log_date""",
+        (user_id, cutoff),
+    ).fetchall()
     conn.close()
 
     sleep_by_date = {r["sleep_date"]: r["sleep_score"] for r in sleep_rows}
     checkin_by_date = {r["checkin_date"]: dict(r) for r in checkin_rows}
+    habits_by_date = {r["log_date"]: round(r["done"] / r["total"] * 100) if r["total"] > 0 else 50 for r in habit_rows}
 
     # Collect all dates
     all_dates = sorted(set(list(sleep_by_date.keys()) + list(checkin_by_date.keys())))
@@ -219,8 +230,9 @@ def get_recovery_history(user_id, days=30):
         activity = round(activity_raw / 10 * 100) if activity_raw else 50
         mood_raw = ci.get("mood")
         mood = round(mood_raw / 10 * 100) if mood_raw else 50
+        habits = habits_by_date.get(d, 50)
 
-        score = round(sleep * 0.35 + stress * 0.25 + activity * 0.20 + 50 * 0.10 + mood * 0.10)
+        score = round(sleep * 0.35 + stress * 0.25 + activity * 0.20 + habits * 0.10 + mood * 0.10)
         score = max(0, min(100, score))
         history.append({"date": d, "score": score})
 

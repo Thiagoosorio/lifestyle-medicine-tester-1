@@ -238,7 +238,7 @@ def _call_anthropic(system_prompt: str, messages: list) -> str:
     import anthropic
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model="claude-sonnet-4-5-20250514",
         max_tokens=1024,
         system=system_prompt,
         messages=messages,

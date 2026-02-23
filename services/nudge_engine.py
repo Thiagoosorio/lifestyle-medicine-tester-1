@@ -27,6 +27,15 @@ def get_active_nudges(user_id: int, max_nudges: int = 3) -> list:
         # 5. No check-in today
         _check_missing_checkin(conn, user_id, today, nudges)
 
+        # 6. Poor sleep quality (last 3 nights)
+        _check_poor_sleep(conn, user_id, today, nudges)
+
+        # 7. Low recovery score
+        _check_low_recovery(user_id, nudges)
+
+        # 8. Weight milestone toward goal
+        _check_weight_milestone(conn, user_id, nudges)
+
     finally:
         conn.close()
 
@@ -195,3 +204,100 @@ def _check_missing_checkin(conn, user_id, today, nudges):
             "action_label": None,  # Handled by the dashboard check-in form
             "action_page": None,
         })
+
+
+def _check_poor_sleep(conn, user_id, today, nudges):
+    """Nudge if last 3 nights have poor sleep scores (avg < 60)."""
+    try:
+        rows = conn.execute(
+            "SELECT sleep_score FROM sleep_logs WHERE user_id = ? ORDER BY sleep_date DESC LIMIT 3",
+            (user_id,),
+        ).fetchall()
+        if len(rows) >= 3:
+            avg_score = sum(r["sleep_score"] for r in rows) / len(rows)
+            if avg_score < 60:
+                nudges.append({
+                    "type": "poor_sleep",
+                    "priority": 2,
+                    "icon": ":material/bedtime_off:",
+                    "color": "warning",
+                    "title": "Sleep Quality Alert",
+                    "message": f"Your average sleep score over the last 3 nights is **{avg_score:.0f}/100**. Consider reviewing your sleep hygiene habits.",
+                    "action_label": "Sleep Tracker",
+                    "action_page": "pages/sleep_tracker.py",
+                })
+    except Exception:
+        pass
+
+
+def _check_low_recovery(user_id, nudges):
+    """Nudge if today's recovery score is below 40."""
+    try:
+        from services.recovery_service import calculate_recovery_score
+        rec = calculate_recovery_score(user_id)
+        if rec and rec["score"] < 40:
+            zone = rec["zone"]
+            nudges.append({
+                "type": "low_recovery",
+                "priority": 2,
+                "icon": ":material/hotel:",
+                "color": "error",
+                "title": "Low Recovery — Consider Resting",
+                "message": f"Your recovery score is **{rec['score']}/100** ({zone['label']}). {zone.get('recommendation', 'Consider a rest day or gentle activity.')}",
+                "action_label": "View Recovery",
+                "action_page": "pages/recovery.py",
+            })
+    except Exception:
+        pass
+
+
+def _check_weight_milestone(conn, user_id, nudges):
+    """Celebrate when user crosses a 1kg milestone toward their weight goal."""
+    try:
+        goal_row = conn.execute(
+            "SELECT goal_weight_kg FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        if not goal_row or not goal_row["goal_weight_kg"]:
+            return
+
+        goal = goal_row["goal_weight_kg"]
+
+        rows = conn.execute(
+            "SELECT weight_kg FROM body_metrics WHERE user_id = ? AND weight_kg IS NOT NULL ORDER BY log_date DESC LIMIT 2",
+            (user_id,),
+        ).fetchall()
+        if len(rows) < 2:
+            return
+
+        latest = rows[0]["weight_kg"]
+        previous = rows[1]["weight_kg"]
+        remaining = abs(latest - goal)
+
+        # Check if we crossed a whole-kg milestone toward the goal
+        if goal < latest:  # Losing weight
+            if int(previous) > int(latest) and latest > goal:
+                nudges.append({
+                    "type": "weight_milestone",
+                    "priority": 4,
+                    "icon": ":material/emoji_events:",
+                    "color": "success",
+                    "title": "Weight Milestone!",
+                    "message": f"You reached **{latest:.1f} kg** — only **{remaining:.1f} kg** to your goal of {goal:.1f} kg!",
+                    "action_label": "Body Metrics",
+                    "action_page": "pages/body_metrics.py",
+                })
+        elif goal > latest:  # Gaining weight
+            if int(previous) < int(latest) and latest < goal:
+                nudges.append({
+                    "type": "weight_milestone",
+                    "priority": 4,
+                    "icon": ":material/emoji_events:",
+                    "color": "success",
+                    "title": "Weight Milestone!",
+                    "message": f"You reached **{latest:.1f} kg** — only **{remaining:.1f} kg** to your goal of {goal:.1f} kg!",
+                    "action_label": "Body Metrics",
+                    "action_page": "pages/body_metrics.py",
+                })
+    except Exception:
+        pass

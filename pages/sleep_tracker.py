@@ -121,6 +121,15 @@ with tab_log:
         quality = st.slider("How did you sleep?", min_value=1, max_value=5, value=3,
                             help="1=Very Poor, 2=Poor, 3=Fair, 4=Good, 5=Excellent")
 
+        st.markdown("**Sleep Details**")
+        col3, col4 = st.columns(2)
+        with col3:
+            latency = st.number_input("Time to fall asleep (min)", min_value=0, max_value=120, value=10)
+            awakenings = st.number_input("Night awakenings", min_value=0, max_value=10, value=0)
+        with col4:
+            wake_dur = st.number_input("Total awake time during night (min)", min_value=0, max_value=180, value=0)
+            naps = st.number_input("Daytime naps (min)", min_value=0, max_value=180, value=0)
+
         st.markdown("**Sleep Hygiene Factors**")
         col5, col6 = st.columns(2)
         with col5:
@@ -146,11 +155,11 @@ with tab_log:
                     sleep_date=sleep_date.isoformat(),
                     bedtime=bedtime.strftime("%H:%M"),
                     wake_time=wake_time.strftime("%H:%M"),
-                    sleep_latency_min=10,
-                    awakenings=0,
-                    wake_duration_min=0,
+                    sleep_latency_min=latency,
+                    awakenings=awakenings,
+                    wake_duration_min=wake_dur,
                     sleep_quality=quality,
-                    naps_min=0,
+                    naps_min=naps,
                     caffeine_cutoff=caffeine.strftime("%H:%M") if caffeine else None,
                     screen_cutoff=screens.strftime("%H:%M") if screens else None,
                     alcohol=1 if alcohol else 0,

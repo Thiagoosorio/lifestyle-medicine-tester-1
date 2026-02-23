@@ -10,7 +10,7 @@ from components.fasting_display import (
     render_zone_progress_bar,
     render_fasting_stat_cards,
 )
-from config.fasting_data import FASTING_TYPES, FASTING_ZONES, FASTING_SAFETY
+from config.fasting_data import FASTING_TYPES, FASTING_ZONES, FASTING_SAFETY, CHRONOTYPE_FASTING_WINDOWS
 from services.fasting_service import (
     start_fast,
     end_fast,
@@ -115,6 +115,34 @@ with tab_timer:
             ft = FASTING_TYPES.get(selected_type, {})
             st.toast(f"Fast started! ({ft.get('label', selected_type)})")
             st.rerun()
+
+        # Chronotype-based recommendation
+        try:
+            from services.sleep_service import get_chronotype
+            chrono = get_chronotype(user_id)
+            if chrono:
+                ctype = chrono.get("chronotype", "")
+                cwindow = CHRONOTYPE_FASTING_WINDOWS.get(ctype)
+                if cwindow:
+                    cdata = chrono.get("data", {})
+                    e12 = cwindow["eating_12"]
+                    e16 = cwindow["eating_16_8"]
+                    chrono_html = (
+                        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["teal"]}40;'
+                        f'border-left:3px solid {A["teal"]};'
+                        f'border-radius:{A["radius_md"]};padding:14px 16px;margin-top:16px">'
+                        f'<div style="font-size:13px;font-weight:600;color:{A["teal"]};margin-bottom:6px">'
+                        f'{cdata.get("icon", "")} Personalized for Your {cdata.get("name", "")} Chronotype</div>'
+                        f'<div style="font-size:12px;color:{A["label_secondary"]};margin-bottom:6px">'
+                        f'12:12 window: <strong>{e12[0]} &ndash; {e12[1]}</strong>'
+                        f' &nbsp;&middot;&nbsp; '
+                        f'16:8 window: <strong>{e16[0]} &ndash; {e16[1]}</strong></div>'
+                        f'<div style="font-size:11px;color:{A["label_tertiary"]}">{cwindow["tip"]}</div>'
+                        f'</div>'
+                    )
+                    st.markdown(chrono_html, unsafe_allow_html=True)
+        except Exception:
+            pass
 
 # ══════════════════════════════════════════════════════════════════════════
 # Tab 2: History

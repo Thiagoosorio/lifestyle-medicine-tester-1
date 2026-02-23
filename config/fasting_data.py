@@ -180,6 +180,38 @@ FASTING_TYPES = {
 
 # ── Fasting Safety Notes ─────────────────────────────────────────────────
 
+# ── Chronotype-Based Fasting Windows ────────────────────────────────────
+# Optimal eating/fasting windows based on chronotype circadian rhythm.
+# Reference: Chronotype influence on meal timing — PMID: 31375734
+
+CHRONOTYPE_FASTING_WINDOWS = {
+    "lion": {
+        "label": "Early Bird (Lion)",
+        "eating_12": ("06:00", "18:00"),
+        "eating_16_8": ("07:00", "15:00"),
+        "tip": "Your energy peaks in the morning. Front-load meals early and finish eating by mid-afternoon for best metabolic alignment.",
+    },
+    "bear": {
+        "label": "Balanced (Bear)",
+        "eating_12": ("08:00", "20:00"),
+        "eating_16_8": ("10:00", "18:00"),
+        "tip": "You follow a solar schedule. A classic 10-6 eating window works well. Aim for your largest meal at lunch.",
+    },
+    "wolf": {
+        "label": "Night Owl (Wolf)",
+        "eating_12": ("10:00", "22:00"),
+        "eating_16_8": ("12:00", "20:00"),
+        "tip": "Your metabolism runs later. A noon-to-8pm eating window lets you skip breakfast naturally. Avoid eating after 10pm.",
+    },
+    "dolphin": {
+        "label": "Light Sleeper (Dolphin)",
+        "eating_12": ("08:00", "19:00"),
+        "eating_16_8": ("09:00", "17:00"),
+        "tip": "Your circadian rhythm is sensitive. Keep a gentle fasting schedule and avoid extended fasts (>18h) which may worsen sleep.",
+    },
+}
+
+
 FASTING_SAFETY = {
     "contraindications": [
         "Pregnancy or breastfeeding",

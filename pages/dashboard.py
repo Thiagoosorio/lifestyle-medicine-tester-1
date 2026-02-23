@@ -8,6 +8,10 @@ from components.custom_theme import APPLE, render_hero_stats, render_hero_banner
 from services.nudge_engine import get_active_nudges
 from services.coin_service import get_coin_balance, award_daily_coins
 from db.database import get_connection
+from services.sleep_service import get_sleep_history as _get_sleep_hist
+from services.recovery_service import calculate_recovery_score as _calc_recovery
+from services.body_metrics_service import get_latest_metrics as _get_latest_bm
+from services.fasting_service import get_active_fast as _get_active_fast
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -121,14 +125,55 @@ else:
 
     coins = get_coin_balance(user_id)
 
+    # ── Extra health stats ────────────────────────────────────────────────
+    _sleep_val = "--"
+    try:
+        _sl = _get_sleep_hist(user_id, days=1)
+        if _sl:
+            _sleep_val = f"{_sl[0].get('sleep_score', 0)}/100"
+    except Exception:
+        pass
+
+    _recovery_val = "--"
+    _recovery_color = "#64D2FF"
+    try:
+        _rec = _calc_recovery(user_id)
+        if _rec:
+            _recovery_val = str(_rec["score"])
+            _recovery_color = _rec["zone"]["color"]
+    except Exception:
+        pass
+
+    _weight_val = "--"
+    try:
+        _bm = _get_latest_bm(user_id)
+        if _bm and _bm.get("weight_kg"):
+            _weight_val = f"{_bm['weight_kg']:.1f}kg"
+    except Exception:
+        pass
+
     # ── Hero Stat Cards (Apple Health colors) ────────────────────────────
-    render_hero_stats([
+    _hero_cards = [
         {"label": "Current Streak", "value": f"{streak} days", "icon": "\U0001f525", "color": "#FA2D55"},
         {"label": "Habits Today", "value": f"{habits_done}/{habits_total}", "icon": "\u2705", "color": "#34C759"},
         {"label": "Active Goals", "value": str(active_goals), "icon": "\U0001f3af", "color": "#5E5CE6"},
         {"label": "Wheel Score", "value": f"{get_total_score(scores)}/60", "icon": "\U0001f3a1", "color": "#BF5AF2"},
+        {"label": "Sleep Score", "value": _sleep_val, "icon": "\U0001f319", "color": "#5E5CE6"},
+        {"label": "Recovery", "value": _recovery_val, "icon": "\u2764\ufe0f", "color": _recovery_color},
+        {"label": "Weight", "value": _weight_val, "icon": "\u2696\ufe0f", "color": "#64D2FF"},
         {"label": "LifeCoins", "value": str(coins), "icon": "\u2b50", "color": "#FFD60A"},
-    ])
+    ]
+
+    # If actively fasting, replace LifeCoins with fast timer
+    try:
+        _af = _get_active_fast(user_id)
+        if _af:
+            _elapsed = _af.get("elapsed_hours", 0)
+            _hero_cards[-1] = {"label": "Fasting", "value": f"{_elapsed:.1f}h", "icon": "\u23f1\ufe0f", "color": "#FF9F0A"}
+    except Exception:
+        pass
+
+    render_hero_stats(_hero_cards)
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 

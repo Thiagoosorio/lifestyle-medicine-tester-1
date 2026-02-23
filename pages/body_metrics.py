@@ -2,26 +2,15 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import date, timedelta
-from db.database import get_connection
-
-# ── Database Setup ──────────────────────────────────────────────────────────
-conn = get_connection()
-conn.execute("""CREATE TABLE IF NOT EXISTS body_metrics (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    log_date TEXT NOT NULL,
-    weight_kg REAL,
-    height_cm REAL,
-    waist_cm REAL,
-    hip_cm REAL,
-    body_fat_pct REAL,
-    notes TEXT,
-    photo_note TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    UNIQUE(user_id, log_date)
-)""")
-conn.commit()
-conn.close()
+from services.body_metrics_service import (
+    log_body_metrics,
+    get_body_metrics_history,
+    get_latest_height,
+    delete_body_metrics,
+    get_goal_weight,
+    set_goal_weight,
+    compute_bmi,
+)
 
 user_id = st.session_state.user_id
 
@@ -38,14 +27,6 @@ PLOTLY_LAYOUT_DEFAULTS = dict(
         xanchor="center", x=0.5, font=dict(size=11),
     ),
 )
-
-
-def compute_bmi(weight_kg, height_cm):
-    """Compute BMI from weight (kg) and height (cm)."""
-    if not weight_kg or not height_cm or height_cm <= 0:
-        return None
-    height_m = height_cm / 100.0
-    return round(weight_kg / (height_m ** 2), 1)
 
 
 def bmi_category(bmi):
@@ -93,32 +74,6 @@ def waist_hip_zone(ratio, gender="unknown"):
         return ("High Risk", "#F44336")
 
 
-def load_all_entries(uid):
-    """Load all body metric entries for a user, sorted by date."""
-    c = get_connection()
-    try:
-        rows = c.execute(
-            "SELECT * FROM body_metrics WHERE user_id = ? ORDER BY log_date ASC",
-            (uid,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        c.close()
-
-
-def get_latest_height(uid):
-    """Get the most recent height entry for a user."""
-    c = get_connection()
-    try:
-        row = c.execute(
-            "SELECT height_cm FROM body_metrics WHERE user_id = ? AND height_cm IS NOT NULL ORDER BY log_date DESC LIMIT 1",
-            (uid,),
-        ).fetchone()
-        return row["height_cm"] if row else None
-    finally:
-        c.close()
-
-
 # ── Page Title ──────────────────────────────────────────────────────────────
 st.title("Body Metrics Tracker")
 st.markdown("Track your weight, body measurements, and composition over time.")
@@ -129,12 +84,12 @@ if "body_height_cm" not in st.session_state:
     if stored_height:
         st.session_state.body_height_cm = stored_height
 
-# Goal weight in session
+# Goal weight from DB (persistent)
 if "goal_weight_kg" not in st.session_state:
-    st.session_state.goal_weight_kg = None
+    st.session_state.goal_weight_kg = get_goal_weight(user_id)
 
 # Load all data
-entries = load_all_entries(user_id)
+entries = get_body_metrics_history(user_id)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. LOG ENTRY FORM
@@ -199,27 +154,17 @@ with st.form("body_metrics_form", clear_on_submit=True):
             if height_cm_input:
                 st.session_state.body_height_cm = height_cm_input
 
-            conn = get_connection()
-            try:
-                conn.execute(
-                    """INSERT OR REPLACE INTO body_metrics
-                       (user_id, log_date, weight_kg, height_cm, waist_cm, hip_cm, body_fat_pct, notes, photo_note)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        user_id,
-                        log_date.isoformat(),
-                        weight_kg,
-                        height_cm_input if height_cm_input else None,
-                        waist_cm if waist_cm else None,
-                        hip_cm if hip_cm else None,
-                        body_fat_pct if body_fat_pct else None,
-                        notes if notes else None,
-                        photo_note if photo_note else None,
-                    ),
-                )
-                conn.commit()
-            finally:
-                conn.close()
+            log_body_metrics(
+                user_id=user_id,
+                log_date=log_date.isoformat(),
+                weight_kg=weight_kg,
+                height_cm=height_cm_input if height_cm_input else None,
+                waist_cm=waist_cm if waist_cm else None,
+                hip_cm=hip_cm if hip_cm else None,
+                body_fat_pct=body_fat_pct if body_fat_pct else None,
+                notes=notes if notes else None,
+                photo_note=photo_note if photo_note else None,
+            )
             st.success("Entry saved!")
             st.rerun()
 
@@ -234,6 +179,7 @@ with st.expander("Settings: Goal Weight & Height"):
             placeholder="e.g. 75.0",
         )
         if st.button("Set Goal Weight"):
+            set_goal_weight(user_id, new_goal)
             st.session_state.goal_weight_kg = new_goal
             st.success(f"Goal weight set to {new_goal} kg")
             st.rerun()
@@ -250,7 +196,7 @@ with st.expander("Settings: Goal Weight & Height"):
             st.rerun()
 
 # Reload entries after potential save
-entries = load_all_entries(user_id)
+entries = get_body_metrics_history(user_id)
 
 if not entries:
     st.info("No body metrics logged yet. Use the form above to record your first entry!")
@@ -793,12 +739,7 @@ with st.expander("View / Delete Entries"):
                 st.markdown(" | ".join(parts))
             with ecol2:
                 if st.button("Delete", key=f"del_{entry['id']}", type="secondary"):
-                    conn = get_connection()
-                    try:
-                        conn.execute("DELETE FROM body_metrics WHERE id = ? AND user_id = ?", (entry["id"], user_id))
-                        conn.commit()
-                    finally:
-                        conn.close()
+                    delete_body_metrics(user_id, entry["id"])
                     st.rerun()
     else:
         st.caption("No entries yet.")

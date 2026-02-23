@@ -67,6 +67,7 @@ else:
             ],
             "Account": [
                 st.Page("pages/settings_page.py", title="Settings", icon=":material/settings:"),
+                st.Page("pages/garmin_import.py", title="Garmin Connect", icon=":material/watch:"),
             ],
         }
     )

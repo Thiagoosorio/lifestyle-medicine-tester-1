@@ -33,6 +33,34 @@ def _migrate(conn):
         "ALTER TABLE research_evidence ADD COLUMN journal_tier TEXT",
         "ALTER TABLE research_evidence ADD COLUMN domain TEXT",
     ]
+    # Phase 6: ensure new tables exist for older DBs
+    table_migrations = [
+        """CREATE TABLE IF NOT EXISTS body_metrics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            log_date TEXT NOT NULL, weight_kg REAL, height_cm REAL,
+            waist_cm REAL, hip_cm REAL, body_fat_pct REAL,
+            notes TEXT, photo_note TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, log_date))""",
+        """CREATE TABLE IF NOT EXISTS user_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            goal_weight_kg REAL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id))""",
+        """CREATE TABLE IF NOT EXISTS garmin_connections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            garmin_email TEXT NOT NULL, garmin_token TEXT, last_sync TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id))""",
+    ]
+    for sql in table_migrations:
+        try:
+            conn.execute(sql)
+        except Exception:
+            pass
     for sql in migrations:
         try:
             conn.execute(sql)

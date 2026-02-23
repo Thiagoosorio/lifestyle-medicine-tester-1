@@ -58,6 +58,10 @@ def generate_health_report(user_id: int, period: str = "month") -> str:
         _section_mood_energy(data),
         _section_habit_performance(data),
         _section_goals_progress(data),
+        _section_sleep_recovery(data),
+        _section_body_composition(data),
+        _section_biomarkers(data),
+        _section_nutrition_fasting(data),
         _section_key_insights(data),
         _section_recommendations(data),
         _section_footer(),
@@ -196,8 +200,74 @@ def _fetch_all_data(user_id, start, end, prev_start, prev_end):
         ).fetchone()
         coin_balance = coin_row["bal"] if coin_row else 0
 
+        # ── Phase 2 data (each wrapped so missing tables don't crash) ────
+        sleep_logs = []
+        try:
+            sleep_logs = [dict(r) for r in conn.execute(
+                "SELECT * FROM sleep_logs WHERE user_id = ? AND sleep_date BETWEEN ? AND ? ORDER BY sleep_date",
+                (user_id, s, e),
+            ).fetchall()]
+        except Exception:
+            pass
+
+        body_metrics_list = []
+        try:
+            body_metrics_list = [dict(r) for r in conn.execute(
+                "SELECT * FROM body_metrics WHERE user_id = ? AND log_date BETWEEN ? AND ? ORDER BY log_date",
+                (user_id, s, e),
+            ).fetchall()]
+        except Exception:
+            pass
+
+        biomarker_results = []
+        try:
+            biomarker_results = [dict(r) for r in conn.execute(
+                """SELECT br.value, br.lab_date, br.lab_name, br.notes,
+                          b.name, b.category, b.unit, b.standard_low, b.standard_high,
+                          b.optimal_low, b.optimal_high
+                   FROM biomarker_results br JOIN biomarkers b ON br.biomarker_id = b.id
+                   WHERE br.user_id = ? AND br.lab_date BETWEEN ? AND ?
+                   ORDER BY b.category, b.name""",
+                (user_id, s, e),
+            ).fetchall()]
+        except Exception:
+            pass
+
+        fasting_sessions = []
+        try:
+            fasting_sessions = [dict(r) for r in conn.execute(
+                "SELECT * FROM fasting_sessions WHERE user_id = ? AND date(start_time) BETWEEN ? AND ? ORDER BY start_time",
+                (user_id, s, e),
+            ).fetchall()]
+        except Exception:
+            pass
+
+        calorie_summary = []
+        try:
+            calorie_summary = [dict(r) for r in conn.execute(
+                "SELECT * FROM calorie_daily_summary WHERE user_id = ? AND summary_date BETWEEN ? AND ? ORDER BY summary_date",
+                (user_id, s, e),
+            ).fetchall()]
+        except Exception:
+            pass
+
     finally:
         conn.close()
+
+    # Phase 2 computed data (needs service layer)
+    recovery_history = []
+    try:
+        from services.recovery_service import get_recovery_history
+        recovery_history = get_recovery_history(user_id, days=(end - start).days + 1) or []
+    except Exception:
+        pass
+
+    chronotype_info = None
+    try:
+        from services.sleep_service import get_chronotype
+        chronotype_info = get_chronotype(user_id)
+    except Exception:
+        pass
 
     # Build the habit_log lookup: {habit_id: set_of_completed_dates}
     hl_lookup = {}
@@ -224,6 +294,13 @@ def _fetch_all_data(user_id, start, end, prev_start, prev_end):
         "latest_wheel": latest_wheel,
         "prev_wheel": prev_wheel,
         "coin_balance": coin_balance,
+        "sleep_logs": sleep_logs,
+        "body_metrics": body_metrics_list,
+        "biomarker_results": biomarker_results,
+        "fasting_sessions": fasting_sessions,
+        "calorie_summary": calorie_summary,
+        "recovery_history": recovery_history,
+        "chronotype_info": chronotype_info,
     }
 
 
@@ -756,6 +833,309 @@ def _section_goals_progress(data):
     </div>'''
 
 
+def _section_sleep_recovery(data):
+    sleep_logs = data.get("sleep_logs", [])
+    recovery_history = data.get("recovery_history", [])
+    chronotype = data.get("chronotype_info")
+
+    if not sleep_logs and not recovery_history:
+        return ''
+
+    parts = []
+
+    # Sleep summary cards
+    if sleep_logs:
+        scores = [s["sleep_score"] for s in sleep_logs if s.get("sleep_score")]
+        durations = [s["total_sleep_min"] for s in sleep_logs if s.get("total_sleep_min")]
+        efficiencies = [s["sleep_efficiency"] for s in sleep_logs if s.get("sleep_efficiency")]
+
+        avg_score = _avg(scores)
+        avg_dur_h = round(sum(durations) / len(durations) / 60, 1) if durations else None
+        avg_eff = _avg(efficiencies)
+
+        sc_color = "#4CAF50" if (avg_score or 0) >= 75 else ("#FF9800" if (avg_score or 0) >= 50 else "#F44336")
+
+        parts.append(
+            '<div class="health-metrics-grid">'
+            f'<div class="hm-card"><div class="hm-value" style="color:{sc_color};">{avg_score or "N/A"}</div>'
+            '<div class="hm-label">Avg Sleep Score</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{avg_dur_h or "N/A"}h</div>'
+            '<div class="hm-label">Avg Duration</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{f"{avg_eff:.0f}%" if avg_eff else "N/A"}</div>'
+            '<div class="hm-label">Avg Efficiency</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{len(sleep_logs)}</div>'
+            '<div class="hm-label">Nights Logged</div></div></div>'
+        )
+
+    # Chronotype badge
+    if chronotype:
+        cdata = chronotype.get("data", {})
+        parts.append(
+            '<div class="chrono-badge">'
+            f'<span style="font-size:18px;">{_esc(cdata.get("icon", ""))}</span> '
+            f'<strong>{_esc(cdata.get("name", ""))}</strong> Chronotype'
+            f' &mdash; Ideal bedtime {_esc(chronotype.get("ideal_bedtime", ""))}'
+            f' / wake {_esc(chronotype.get("ideal_waketime", ""))}'
+            '</div>'
+        )
+
+    # Recovery summary
+    if recovery_history:
+        rec_scores = [r["score"] for r in recovery_history if r.get("score") is not None]
+        avg_rec = _avg(rec_scores) if rec_scores else None
+        rec_color = "#4CAF50" if (avg_rec or 0) >= 70 else ("#FF9800" if (avg_rec or 0) >= 40 else "#F44336")
+
+        recent = recovery_history[-7:]
+        rec_rows = []
+        for r in recent:
+            sc = r.get("score", 0)
+            c = "#4CAF50" if sc >= 70 else ("#FF9800" if sc >= 40 else "#F44336")
+            rec_rows.append(
+                f'<tr><td>{r["date"]}</td>'
+                f'<td style="text-align:center;color:{c};font-weight:700;">{sc}</td>'
+                f'<td>{_progress_bar_html(sc, c)}</td></tr>'
+            )
+
+        parts.append(
+            '<div style="margin-top:16px;">'
+            f'<h3 style="font-size:15px;color:#1a1a2e;margin-bottom:10px;">Recovery Score '
+            f'(avg: <span style="color:{rec_color};font-weight:700;">{avg_rec or "N/A"}</span>)</h3>'
+            '<table class="data-table">'
+            '<thead><tr><th>Date</th><th style="text-align:center;">Score</th><th style="width:40%;">Level</th></tr></thead>'
+            f'<tbody>{"".join(rec_rows)}</tbody></table></div>'
+        )
+
+    return (
+        '<div class="section page-break-before">'
+        '<h2 class="section-title">Sleep &amp; Recovery</h2>'
+        f'{"".join(parts)}'
+        '</div>'
+    )
+
+
+def _section_body_composition(data):
+    metrics = data.get("body_metrics", [])
+    if not metrics:
+        return ''
+
+    latest = metrics[-1]
+    weight = latest.get("weight_kg")
+    height = latest.get("height_cm")
+    # Fall back to most recent height from any entry
+    if not height:
+        for m in reversed(metrics):
+            if m.get("height_cm"):
+                height = m["height_cm"]
+                break
+    waist = latest.get("waist_cm")
+    hip = latest.get("hip_cm")
+    body_fat = latest.get("body_fat_pct")
+
+    bmi = round(weight / (height / 100) ** 2, 1) if weight and height and height > 0 else None
+    bmi_label, bmi_color = "", "#9e9e9e"
+    if bmi:
+        if bmi < 18.5:
+            bmi_label, bmi_color = "Underweight", "#FF9800"
+        elif bmi < 25:
+            bmi_label, bmi_color = "Normal", "#4CAF50"
+        elif bmi < 30:
+            bmi_label, bmi_color = "Overweight", "#FF9800"
+        else:
+            bmi_label, bmi_color = "Obese", "#F44336"
+
+    whr = round(waist / hip, 2) if waist and hip and hip > 0 else None
+
+    weight_change = ""
+    if len(metrics) >= 2 and metrics[0].get("weight_kg") and metrics[-1].get("weight_kg"):
+        diff = metrics[-1]["weight_kg"] - metrics[0]["weight_kg"]
+        sign = "+" if diff > 0 else ""
+        wc_color = "#4CAF50" if diff <= 0 else "#FF9800"
+        weight_change = f' <span style="color:{wc_color};font-weight:600;">({sign}{diff:.1f}kg)</span>'
+
+    cards = (
+        '<div class="health-metrics-grid">'
+        f'<div class="hm-card"><div class="hm-value">{f"{weight:.1f}" if weight else "N/A"}'
+        f' <span style="font-size:14px;">kg</span></div>'
+        f'<div class="hm-label">Latest Weight{weight_change}</div></div>'
+        f'<div class="hm-card"><div class="hm-value" style="color:{bmi_color};">{bmi or "N/A"}</div>'
+        f'<div class="hm-label">BMI{f" ({bmi_label})" if bmi_label else ""}</div></div>'
+        f'<div class="hm-card"><div class="hm-value">{whr or "N/A"}</div>'
+        '<div class="hm-label">Waist-Hip Ratio</div></div>'
+        f'<div class="hm-card"><div class="hm-value">{f"{body_fat:.1f}%" if body_fat else "N/A"}</div>'
+        '<div class="hm-label">Body Fat</div></div></div>'
+    )
+
+    # Weight trend table (last 10)
+    weight_rows = []
+    for m in metrics[-10:]:
+        w = m.get("weight_kg")
+        if w:
+            h = m.get("height_cm") or height
+            entry_bmi = f'{round(w / (h / 100) ** 2, 1)}' if h and h > 0 else ""
+            weight_rows.append(
+                f'<tr><td>{m["log_date"]}</td>'
+                f'<td style="font-weight:600;">{w:.1f} kg</td>'
+                f'<td>{entry_bmi}</td></tr>'
+            )
+
+    trend_table = ""
+    if weight_rows:
+        trend_table = (
+            '<div style="margin-top:16px;">'
+            '<h3 style="font-size:15px;color:#1a1a2e;margin-bottom:10px;">Weight History</h3>'
+            '<table class="data-table">'
+            '<thead><tr><th>Date</th><th>Weight</th><th>BMI</th></tr></thead>'
+            f'<tbody>{"".join(weight_rows)}</tbody></table></div>'
+        )
+
+    return (
+        '<div class="section">'
+        '<h2 class="section-title">Body Composition</h2>'
+        f'{cards}{trend_table}'
+        '</div>'
+    )
+
+
+def _section_biomarkers(data):
+    results = data.get("biomarker_results", [])
+    if not results:
+        return ''
+
+    categories = {}
+    for r in results:
+        cat = r.get("category", "Other")
+        categories.setdefault(cat, []).append(r)
+
+    rows = []
+    optimal_count = 0
+    for cat in sorted(categories.keys()):
+        rows.append(
+            f'<tr><td colspan="5" style="background:#f0f4ff;font-weight:700;color:#1a1a2e;'
+            f'padding:10px 12px;font-size:13px;">{_esc(cat)}</td></tr>'
+        )
+        for r in categories[cat]:
+            value = r.get("value")
+            unit = r.get("unit", "")
+            low, high = r.get("standard_low"), r.get("standard_high")
+            opt_low, opt_high = r.get("optimal_low"), r.get("optimal_high")
+
+            status, status_color = "Normal", "#4CAF50"
+            if value is not None:
+                if opt_low is not None and opt_high is not None and opt_low <= value <= opt_high:
+                    status, status_color = "Optimal", "#2196F3"
+                    optimal_count += 1
+                elif low is not None and value < low:
+                    status, status_color = "Low", "#F44336"
+                elif high is not None and value > high:
+                    status, status_color = "High", "#F44336"
+
+            ref = ""
+            if low is not None and high is not None:
+                ref = f"{low}-{high}"
+            elif low is not None:
+                ref = f"&gt;{low}"
+            elif high is not None:
+                ref = f"&lt;{high}"
+
+            rows.append(
+                f'<tr><td>{_esc(r.get("name", ""))}</td>'
+                f'<td style="font-weight:600;">{value if value is not None else "N/A"} {_esc(unit)}</td>'
+                f'<td>{ref} {_esc(unit)}</td>'
+                f'<td style="color:{status_color};font-weight:600;">{status}</td>'
+                f'<td style="font-size:12px;color:#999;">{r.get("lab_date", "")}</td></tr>'
+            )
+
+    total = len(results)
+    return (
+        '<div class="section page-break-before">'
+        '<h2 class="section-title">Biomarkers</h2>'
+        f'<p style="margin-bottom:12px;">Tested: <strong>{total}</strong> markers'
+        f' &mdash; <strong>{optimal_count}</strong> in optimal range</p>'
+        '<table class="data-table">'
+        '<thead><tr><th>Marker</th><th>Value</th><th>Reference</th><th>Status</th><th>Date</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table></div>'
+    )
+
+
+def _section_nutrition_fasting(data):
+    cal_data = data.get("calorie_summary", [])
+    fasting = data.get("fasting_sessions", [])
+
+    if not cal_data and not fasting:
+        return ''
+
+    parts = []
+
+    if cal_data:
+        n = len(cal_data)
+        avg_cal = round(sum(c.get("total_calories", 0) for c in cal_data) / n)
+        avg_pro = round(sum(c.get("total_protein_g", 0) for c in cal_data) / n)
+        avg_carb = round(sum(c.get("total_carbs_g", 0) for c in cal_data) / n)
+        avg_fat = round(sum(c.get("total_fat_g", 0) for c in cal_data) / n)
+        avg_fiber = round(sum(c.get("total_fiber_g", 0) for c in cal_data) / n)
+
+        total_macro_cal = (avg_pro * 4) + (avg_carb * 4) + (avg_fat * 9)
+        pro_pct = round(avg_pro * 4 / total_macro_cal * 100) if total_macro_cal > 0 else 0
+        carb_pct = round(avg_carb * 4 / total_macro_cal * 100) if total_macro_cal > 0 else 0
+        fat_pct = round(avg_fat * 9 / total_macro_cal * 100) if total_macro_cal > 0 else 0
+
+        macro_bar = (
+            '<p style="font-size:13px;font-weight:600;color:#555;margin-top:12px;">Macro Breakdown</p>'
+            '<div style="display:flex;height:24px;border-radius:12px;overflow:hidden;margin:8px 0 4px 0;">'
+            f'<div style="width:{pro_pct}%;background:#5C6BC0;"></div>'
+            f'<div style="width:{carb_pct}%;background:#26A69A;"></div>'
+            f'<div style="width:{fat_pct}%;background:#FFA726;"></div></div>'
+            '<div style="display:flex;gap:16px;font-size:12px;color:#666;margin-bottom:4px;">'
+            f'<span><span style="color:#5C6BC0;">&#9632;</span> Protein {pro_pct}% ({avg_pro}g)</span>'
+            f'<span><span style="color:#26A69A;">&#9632;</span> Carbs {carb_pct}% ({avg_carb}g)</span>'
+            f'<span><span style="color:#FFA726;">&#9632;</span> Fat {fat_pct}% ({avg_fat}g)</span></div>'
+        )
+
+        parts.append(
+            '<h3 style="font-size:15px;color:#1a1a2e;margin-bottom:10px;">Nutrition</h3>'
+            '<div class="health-metrics-grid">'
+            f'<div class="hm-card"><div class="hm-value">{avg_cal}</div>'
+            '<div class="hm-label">Avg Calories/day</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{avg_pro}g</div>'
+            '<div class="hm-label">Avg Protein</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{avg_fiber}g</div>'
+            '<div class="hm-label">Avg Fiber</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{n}</div>'
+            '<div class="hm-label">Days Logged</div></div></div>'
+            f'{macro_bar}'
+        )
+
+    if fasting:
+        completed = [f for f in fasting if f.get("completed")]
+        total_f = len(fasting)
+        comp_rate = round(len(completed) / total_f * 100) if total_f > 0 else 0
+        hrs = [f.get("actual_hours", 0) for f in fasting if f.get("actual_hours")]
+        avg_hrs = round(sum(hrs) / len(hrs), 1) if hrs else 0
+        longest = max(hrs) if hrs else 0
+        comp_color = "#4CAF50" if comp_rate >= 80 else ("#FF9800" if comp_rate >= 50 else "#F44336")
+
+        parts.append(
+            '<div style="margin-top:20px;">'
+            '<h3 style="font-size:15px;color:#1a1a2e;margin-bottom:10px;">Fasting</h3>'
+            '<div class="health-metrics-grid">'
+            f'<div class="hm-card"><div class="hm-value">{total_f}</div>'
+            '<div class="hm-label">Total Fasts</div></div>'
+            f'<div class="hm-card"><div class="hm-value" style="color:{comp_color};">{comp_rate}%</div>'
+            '<div class="hm-label">Completion Rate</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{avg_hrs}h</div>'
+            '<div class="hm-label">Avg Duration</div></div>'
+            f'<div class="hm-card"><div class="hm-value">{longest:.1f}h</div>'
+            '<div class="hm-label">Longest Fast</div></div></div></div>'
+        )
+
+    return (
+        '<div class="section">'
+        '<h2 class="section-title">Nutrition &amp; Fasting</h2>'
+        f'{"".join(parts)}'
+        '</div>'
+    )
+
+
 def _section_key_insights(data):
     checkins = data["checkins"]
     if len(checkins) < 5:
@@ -1213,6 +1593,46 @@ body {{
 }}
 .attention-box ul {{ padding-left: 20px; margin-top: 6px; }}
 
+/* ── Health Metrics Cards ──────────────────────────────────────────── */
+.health-metrics-grid {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}}
+.hm-card {{
+    background: #f8f9fb;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    border: 1px solid #eaecf0;
+}}
+.hm-value {{
+    font-size: 26px;
+    font-weight: 800;
+    color: #1a1a2e;
+    line-height: 1.1;
+}}
+.hm-label {{
+    font-size: 11px;
+    color: #666;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}}
+.chrono-badge {{
+    background: #f0f7ff;
+    border: 1px solid #d0d9f0;
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #444;
+    margin: 8px 0;
+}}
+
 /* ── Footer ──────────────────────────────────────────────────────────── */
 .footer {{
     background: #f8f9fb;
@@ -1270,6 +1690,7 @@ body {{
     .header-meta {{ text-align: center; }}
     .section {{ padding: 18px 20px; }}
     .summary-grid {{ grid-template-columns: 1fr 1fr; }}
+    .health-metrics-grid {{ grid-template-columns: 1fr 1fr; }}
     .wheel-table {{ font-size: 12px; }}
 }}
 </style>

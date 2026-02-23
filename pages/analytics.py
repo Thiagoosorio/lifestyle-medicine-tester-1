@@ -19,8 +19,9 @@ user_id = st.session_state.user_id
 st.title("Analytics & Transformation")
 st.caption("Your complete health journey — visualized")
 
-tab_journey, tab_heatmap, tab_trends, tab_badges = st.tabs(
-    ["Transformation Journey", "Habit Heatmap", "Long-Term Trends", "Achievements"]
+tab_journey, tab_heatmap, tab_trends, tab_badges, tab_health, tab_body, tab_nutrition = st.tabs(
+    ["Transformation Journey", "Habit Heatmap", "Long-Term Trends", "Achievements",
+     "Health Metrics", "Body & Labs", "Nutrition"]
 )
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -543,3 +544,319 @@ with tab_badges:
                         unsafe_allow_html=True,
                     )
         st.markdown("")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 5: HEALTH METRICS (Sleep, Recovery, Fasting)
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_health:
+    st.markdown("### Health Metrics")
+
+    _health_range = st.selectbox("Period", ["30 Days", "90 Days", "All Time"], index=0, key="health_range")
+    _health_days = {"30 Days": 30, "90 Days": 90, "All Time": 9999}[_health_range]
+
+    # Sleep score trend
+    try:
+        from services.sleep_service import get_all_sleep_history
+        _sleep_all = get_all_sleep_history(user_id)
+        if _sleep_all:
+            _cutoff = (date.today() - timedelta(days=_health_days)).isoformat()
+            _sleep_filtered = [s for s in _sleep_all if s["sleep_date"] >= _cutoff]
+            if _sleep_filtered:
+                st.markdown("#### Sleep Score Trend")
+                _s_dates = [s["sleep_date"] for s in _sleep_filtered]
+                _s_scores = [s.get("sleep_score", 0) for s in _sleep_filtered]
+                _s_dur = [s.get("total_sleep_min", 0) / 60 for s in _sleep_filtered]
+
+                fig_sleep = go.Figure()
+                fig_sleep.add_trace(go.Scatter(
+                    x=_s_dates, y=_s_scores, mode="lines+markers",
+                    name="Sleep Score", line=dict(color="#BF5AF2", width=2),
+                    marker=dict(size=4),
+                ))
+                fig_sleep.add_trace(go.Scatter(
+                    x=_s_dates, y=_s_dur, mode="lines",
+                    name="Duration (h)", line=dict(color="#0A84FF", width=2, dash="dot"),
+                    yaxis="y2",
+                ))
+                fig_sleep.update_layout(
+                    height=320, margin=dict(t=20, b=40, l=40, r=40),
+                    yaxis=dict(title="Score", range=[0, 105]),
+                    yaxis2=dict(title="Hours", overlaying="y", side="right", range=[0, 12]),
+                    legend=dict(orientation="h", y=-0.15, xanchor="center", x=0.5),
+                )
+                st.plotly_chart(fig_sleep, use_container_width=True)
+    except Exception:
+        pass
+
+    # Recovery trend
+    try:
+        from services.recovery_service import get_recovery_history
+        _rec_hist = get_recovery_history(user_id, days=_health_days)
+        if _rec_hist and len(_rec_hist) >= 3:
+            st.markdown("#### Recovery Score Trend")
+            fig_rec = go.Figure()
+            fig_rec.add_trace(go.Scatter(
+                x=[r["date"] for r in _rec_hist],
+                y=[r["score"] for r in _rec_hist],
+                mode="lines+markers",
+                line=dict(color="#30D158", width=2),
+                marker=dict(size=4, color=[
+                    "#30D158" if r["score"] >= 80 else "#FFD60A" if r["score"] >= 60 else "#FF453A"
+                    for r in _rec_hist
+                ]),
+                fill="tozeroy", fillcolor="rgba(48,209,88,0.08)",
+            ))
+            fig_rec.add_hline(y=80, line_dash="dot", line_color="#30D158", opacity=0.4)
+            fig_rec.add_hline(y=60, line_dash="dot", line_color="#FFD60A", opacity=0.4)
+            fig_rec.update_layout(
+                height=280, margin=dict(t=20, b=40, l=40, r=20),
+                yaxis=dict(title="Recovery Score", range=[0, 105]),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_rec, use_container_width=True)
+    except Exception:
+        pass
+
+    # Fasting history
+    try:
+        from services.fasting_service import get_fasting_history, get_fasting_stats
+        _fasts = get_fasting_history(user_id, limit=50)
+        if _fasts and len(_fasts) >= 3:
+            st.markdown("#### Fasting History")
+            _f_stats = get_fasting_stats(user_id, days=_health_days)
+            if _f_stats:
+                _fc1, _fc2, _fc3 = st.columns(3)
+                with _fc1:
+                    st.metric("Total Fasts", _f_stats.get("total_fasts", 0))
+                with _fc2:
+                    st.metric("Avg Duration", f"{_f_stats.get('avg_hours', 0):.1f}h")
+                with _fc3:
+                    st.metric("Completion Rate", f"{_f_stats.get('completion_rate', 0):.0f}%")
+
+            _cutoff = (date.today() - timedelta(days=_health_days)).isoformat()
+            _fasts_f = [f for f in reversed(_fasts) if f.get("start_time", "")[:10] >= _cutoff]
+            if _fasts_f:
+                fig_fast = go.Figure()
+                fig_fast.add_trace(go.Bar(
+                    x=[f["start_time"][:10] for f in _fasts_f],
+                    y=[f.get("actual_hours", 0) for f in _fasts_f],
+                    marker_color=["#30D158" if f.get("completed") else "#FF9F0A" for f in _fasts_f],
+                ))
+                fig_fast.update_layout(
+                    height=250, margin=dict(t=20, b=40, l=40, r=20),
+                    yaxis=dict(title="Hours"),
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_fast, use_container_width=True)
+    except Exception:
+        pass
+
+    if not any([
+        locals().get("_sleep_filtered"),
+        locals().get("_rec_hist"),
+        locals().get("_fasts"),
+    ]):
+        st.info("No health metrics data yet. Log sleep, check in daily, and try fasting to see data here.")
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 6: BODY & LABS
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_body:
+    st.markdown("### Body Composition & Lab Results")
+
+    # Weight trend
+    try:
+        from services.body_metrics_service import get_body_metrics_history, get_goal_weight, compute_bmi as _compute_bmi
+        _bm_hist = get_body_metrics_history(user_id)
+        if _bm_hist:
+            st.markdown("#### Weight Trend")
+            _bm_df = pd.DataFrame(_bm_hist)
+            _bm_df["log_date"] = pd.to_datetime(_bm_df["log_date"])
+            _weight_data = _bm_df[_bm_df["weight_kg"].notna()]
+
+            if len(_weight_data) >= 1:
+                fig_wt = go.Figure()
+                fig_wt.add_trace(go.Scatter(
+                    x=_weight_data["log_date"], y=_weight_data["weight_kg"],
+                    mode="lines+markers", name="Weight",
+                    line=dict(color="#2196F3", width=2),
+                    marker=dict(size=6),
+                ))
+                _gw = get_goal_weight(user_id)
+                if _gw:
+                    fig_wt.add_hline(y=_gw, line_dash="dash", line_color="#4CAF50",
+                                     annotation_text=f"Goal: {_gw}kg")
+                fig_wt.update_layout(
+                    height=300, margin=dict(t=20, b=40, l=40, r=20),
+                    yaxis=dict(title="Weight (kg)"),
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_wt, use_container_width=True)
+
+            # BMI trend
+            _heights = _bm_df[_bm_df["height_cm"].notna()]
+            if len(_heights) > 0 and len(_weight_data) >= 2:
+                _h = _heights.iloc[-1]["height_cm"]
+                _bm_df["bmi"] = _bm_df["weight_kg"].apply(lambda w: _compute_bmi(w, _h))
+                _bmi_data = _bm_df[_bm_df["bmi"].notna()]
+                if len(_bmi_data) >= 2:
+                    st.markdown("#### BMI Trend")
+                    fig_bmi = go.Figure()
+                    fig_bmi.add_trace(go.Scatter(
+                        x=_bmi_data["log_date"], y=_bmi_data["bmi"],
+                        mode="lines+markers", line=dict(color="#FF9800", width=2),
+                        marker=dict(size=5),
+                    ))
+                    fig_bmi.add_hline(y=25, line_dash="dot", line_color="#FF9800", opacity=0.4)
+                    fig_bmi.add_hline(y=18.5, line_dash="dot", line_color="#FFC107", opacity=0.4)
+                    fig_bmi.update_layout(
+                        height=260, margin=dict(t=20, b=40, l=40, r=20),
+                        yaxis=dict(title="BMI"),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_bmi, use_container_width=True)
+        else:
+            st.info("No body metrics data yet. Log weight on the Body Metrics page.")
+    except Exception:
+        pass
+
+    # Biomarkers
+    try:
+        from services.biomarker_service import get_biomarker_results
+        _bio = get_biomarker_results(user_id)
+        if _bio:
+            st.markdown("#### Latest Biomarker Results")
+            for b in _bio[:15]:
+                _val = b.get("value", 0)
+                _name = b.get("name", b.get("code", ""))
+                _unit = b.get("unit", "")
+                _status = b.get("status", "normal")
+                _sc = "#30D158" if _status == "optimal" else "#FFD60A" if _status == "normal" else "#FF453A"
+                _row = (
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;'
+                    f'padding:8px 12px;margin-bottom:4px;background:rgba(28,28,30,0.8);'
+                    f'border-radius:8px;border-left:3px solid {_sc}">'
+                    f'<span style="font-size:13px;color:rgba(255,255,255,0.8)">{_name}</span>'
+                    f'<span style="font-size:14px;font-weight:600;color:{_sc}">{_val} {_unit}</span>'
+                    f'</div>'
+                )
+                st.markdown(_row, unsafe_allow_html=True)
+    except Exception:
+        pass
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 7: NUTRITION
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab_nutrition:
+    st.markdown("### Nutrition Analytics")
+
+    _nut_range = st.selectbox("Period", ["7 Days", "30 Days", "90 Days"], index=1, key="nut_range")
+    _nut_days = {"7 Days": 7, "30 Days": 30, "90 Days": 90}[_nut_range]
+
+    # Calorie trend
+    try:
+        from services.calorie_service import get_daily_totals
+        _cal_data = get_daily_totals(user_id, days=_nut_days)
+        if _cal_data:
+            st.markdown("#### Daily Calorie Intake")
+            _cal_dates = [c["summary_date"] for c in _cal_data]
+            _cal_vals = [c.get("total_calories", 0) for c in _cal_data]
+
+            fig_cal = go.Figure()
+            fig_cal.add_trace(go.Bar(
+                x=_cal_dates, y=_cal_vals,
+                marker_color="#FF9F0A", opacity=0.8,
+            ))
+            fig_cal.update_layout(
+                height=280, margin=dict(t=20, b=40, l=40, r=20),
+                yaxis=dict(title="Calories"),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_cal, use_container_width=True)
+
+            # Macro breakdown
+            _has_macros = any(c.get("total_protein_g", 0) > 0 for c in _cal_data)
+            if _has_macros:
+                st.markdown("#### Macro Breakdown Over Time")
+                fig_mac = go.Figure()
+                fig_mac.add_trace(go.Scatter(
+                    x=_cal_dates,
+                    y=[c.get("total_protein_g", 0) for c in _cal_data],
+                    mode="lines", name="Protein (g)", line=dict(color="#FF453A", width=2),
+                    stackgroup="macros",
+                ))
+                fig_mac.add_trace(go.Scatter(
+                    x=_cal_dates,
+                    y=[c.get("total_carbs_g", 0) for c in _cal_data],
+                    mode="lines", name="Carbs (g)", line=dict(color="#FFD60A", width=2),
+                    stackgroup="macros",
+                ))
+                fig_mac.add_trace(go.Scatter(
+                    x=_cal_dates,
+                    y=[c.get("total_fat_g", 0) for c in _cal_data],
+                    mode="lines", name="Fat (g)", line=dict(color="#0A84FF", width=2),
+                    stackgroup="macros",
+                ))
+                fig_mac.update_layout(
+                    height=280, margin=dict(t=20, b=40, l=40, r=20),
+                    yaxis=dict(title="Grams"),
+                    legend=dict(orientation="h", y=-0.15, xanchor="center", x=0.5),
+                )
+                st.plotly_chart(fig_mac, use_container_width=True)
+
+            # Averages
+            _avg_cal = sum(_cal_vals) / len(_cal_vals) if _cal_vals else 0
+            _avg_prot = sum(c.get("total_protein_g", 0) for c in _cal_data) / len(_cal_data) if _cal_data else 0
+            _avg_carb = sum(c.get("total_carbs_g", 0) for c in _cal_data) / len(_cal_data) if _cal_data else 0
+            _avg_fat = sum(c.get("total_fat_g", 0) for c in _cal_data) / len(_cal_data) if _cal_data else 0
+            _nc1, _nc2, _nc3, _nc4 = st.columns(4)
+            with _nc1:
+                st.metric("Avg Calories", f"{_avg_cal:.0f}")
+            with _nc2:
+                st.metric("Avg Protein", f"{_avg_prot:.0f}g")
+            with _nc3:
+                st.metric("Avg Carbs", f"{_avg_carb:.0f}g")
+            with _nc4:
+                st.metric("Avg Fat", f"{_avg_fat:.0f}g")
+        else:
+            st.info("No nutrition data yet. Log meals on the Nutrition page.")
+    except Exception:
+        st.info("No nutrition data yet. Log meals on the Nutrition page.")
+
+    # FODMAP exposure (if SIBO data exists)
+    try:
+        from services.sibo_service import get_food_history as _sibo_food_hist
+        _sibo_foods = _sibo_food_hist(user_id, days=_nut_days)
+        if _sibo_foods and len(_sibo_foods) >= 5:
+            import json as _json
+            st.markdown("#### FODMAP Exposure by Group")
+            _group_counts = {}
+            for f in _sibo_foods:
+                _groups = f.get("fodmap_groups")
+                if _groups:
+                    try:
+                        _parsed = _json.loads(_groups) if isinstance(_groups, str) else _groups
+                        for g in _parsed:
+                            _group_counts[g] = _group_counts.get(g, 0) + 1
+                    except Exception:
+                        pass
+            if _group_counts:
+                fig_fodmap = go.Figure()
+                _g_names = list(_group_counts.keys())
+                _g_vals = list(_group_counts.values())
+                _fodmap_colors = {
+                    "fructans": "#FF9F0A", "gos": "#FF6482", "lactose": "#64D2FF",
+                    "fructose": "#30D158", "sorbitol": "#BF5AF2", "mannitol": "#5E5CE6",
+                }
+                fig_fodmap.add_trace(go.Bar(
+                    x=_g_names, y=_g_vals,
+                    marker_color=[_fodmap_colors.get(g, "#888") for g in _g_names],
+                ))
+                fig_fodmap.update_layout(
+                    height=250, margin=dict(t=20, b=40, l=40, r=20),
+                    yaxis=dict(title="Food Entries"),
+                    showlegend=False,
+                )
+                st.plotly_chart(fig_fodmap, use_container_width=True)
+    except Exception:
+        pass
