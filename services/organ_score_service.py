@@ -89,6 +89,11 @@ def _mgdl_to_mmol_chol(mg: float) -> float:
     return mg / 38.67
 
 
+def _mgdl_to_umol_bilirubin(mg: float) -> float:
+    """Convert bilirubin mg/dL to umol/L."""
+    return mg * 17.1
+
+
 def _ngdl_to_pmol_ft4(ngdl: float) -> float:
     """Convert Free T4 from ng/dL to pmol/L."""
     return ngdl * 12.871
@@ -875,6 +880,222 @@ def calc_lpa_risk(lpa: float) -> float | None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# KIDNEY: KFRE (Kidney Failure Risk Equation)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _kfre_linear_predictor(age: float, sex: str, egfr: float,
+                            acr: float) -> float | None:
+    """KFRE 4-variable linear predictor (centered).
+
+    Recalibrated coefficients from Tangri N et al. JAMA 2016;315(2):164-74.
+    PMID: 26757465. Pooled international data (n=721,357, 30 countries).
+    C-statistic 0.90.
+
+    Parameters:
+        age: years
+        sex: 'male' or 'female'
+        egfr: eGFR in mL/min/1.73m2
+        acr: urine albumin-to-creatinine ratio in mg/g
+    """
+    if egfr is None or egfr <= 0 or acr is None or acr <= 0:
+        return None
+    if age is None or age <= 0:
+        return None
+
+    male = 1.0 if sex == "male" else 0.0
+    ln_acr = math.log(acr)
+
+    # 4-variable recalibrated model (North American calibration)
+    lp = (
+        -0.2201 * (age / 10.0 - 7.036)
+        + 0.2467 * (male - 0.5642)
+        - 0.5567 * (egfr / 5.0 - 7.222)
+        + 0.4510 * (ln_acr - 5.137)
+    )
+    return lp
+
+
+def calc_kfre_2yr(age: float, sex: str, egfr: float,
+                   acr: float) -> float | None:
+    """KFRE 2-year kidney failure risk (%).
+
+    Uses 4-variable recalibrated equation.
+    PMID: 26757465 — Tangri N et al. JAMA 2016.
+    Baseline survival at 2 years = 0.9832.
+    """
+    lp = _kfre_linear_predictor(age, sex, egfr, acr)
+    if lp is None:
+        return None
+    risk = 1.0 - 0.9832 ** math.exp(lp)
+    return round(max(0, min(risk * 100, 100)), 1)
+
+
+def calc_kfre_5yr(age: float, sex: str, egfr: float,
+                   acr: float) -> float | None:
+    """KFRE 5-year kidney failure risk (%).
+
+    Uses 4-variable recalibrated equation.
+    PMID: 26757465 — Tangri N et al. JAMA 2016.
+    Baseline survival at 5 years = 0.9365.
+    """
+    lp = _kfre_linear_predictor(age, sex, egfr, acr)
+    if lp is None:
+        return None
+    risk = 1.0 - 0.9365 ** math.exp(lp)
+    return round(max(0, min(risk * 100, 100)), 1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CARDIOVASCULAR: CHA₂DS₂-VASc (Stroke Risk in Atrial Fibrillation)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_cha2ds2_vasc(age: float, sex: str, chf: bool, hypertension: bool,
+                       diabetes: bool, stroke_tia: bool, vascular: bool) -> int | None:
+    """CHA₂DS₂-VASc Score (0-9) for stroke risk in atrial fibrillation.
+
+    C: Congestive heart failure → +1
+    H: Hypertension → +1
+    A₂: Age ≥75 → +2
+    D: Diabetes → +1
+    S₂: Stroke/TIA/thromboembolism → +2
+    V: Vascular disease (prior MI, PAD, aortic plaque) → +1
+    A: Age 65-74 → +1
+    Sc: Sex category (female) → +1
+
+    PMID: 19762550 — Lip GYH et al. Chest 2010.
+    ESC 2024 AF guideline (PMID: 39210723).
+    """
+    if age is None:
+        return None
+
+    score = 0
+    if chf:
+        score += 1
+    if hypertension:
+        score += 1
+    if age >= 75:
+        score += 2
+    elif age >= 65:
+        score += 1
+    if diabetes:
+        score += 1
+    if stroke_tia:
+        score += 2
+    if vascular:
+        score += 1
+    if sex == "female":
+        score += 1
+
+    return score
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# LIVER: aMAP (HCC Risk in Chronic Liver Disease)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_amap(age: float, sex: str, bilirubin_mgdl: float,
+              albumin_gdl: float, platelets: float) -> float | None:
+    """aMAP Score = (0.06*Age + 0.89*Male + 0.48*(0.66*log10(Bili_umol) + (-0.085)*Alb_gL)
+                     + (-0.01)*Platelets + 7.4) / 14.77 * 100
+
+    Age in years. Sex: male=1. Bilirubin in umol/L. Albumin in g/L.
+    Platelets in 10^9/L.
+
+    Input: bilirubin_mgdl, albumin_gdl → converted internally.
+
+    PMID: 32707225 — Fan R et al. J Hepatol 2020.
+    """
+    if bilirubin_mgdl is None or bilirubin_mgdl <= 0:
+        return None
+    if albumin_gdl is None or albumin_gdl <= 0:
+        return None
+    if platelets is None or platelets <= 0:
+        return None
+    if age is None or age <= 0:
+        return None
+
+    male = 1.0 if sex == "male" else 0.0
+    bili_umol = _mgdl_to_umol_bilirubin(bilirubin_mgdl)
+    alb_gl = albumin_gdl * 10.0  # g/dL → g/L
+
+    # ALBI-like component
+    albi_component = 0.66 * math.log10(max(bili_umol, 0.1)) + (-0.085) * alb_gl
+
+    score = (0.06 * age + 0.89 * male + 0.48 * albi_component
+             + (-0.01) * platelets + 7.4) / 14.77 * 100
+
+    return round(max(0, min(score, 100)), 1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# NEUROLOGICAL: CAIDE Dementia Risk Score
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_caide(age: float, sex: str, education_years: int,
+               systolic_bp: float, bmi: float, total_chol_mgdl: float,
+               physical_activity: str) -> int | None:
+    """CAIDE Dementia Risk Score (0-15 points).
+
+    Predicts 20-year risk of dementia from midlife (40-65) risk factors.
+
+    Points:
+    - Age: <47→0, 47-53→3, >53→4
+    - Education: >=10 yrs→0, 7-9 yrs→2, 0-6 yrs→3
+    - Sex: female→0, male→1
+    - Systolic BP: <=140→0, >140→2
+    - BMI: <=30→0, >30→2
+    - Total cholesterol: <=6.5 mmol/L (251 mg/dL)→0, >6.5→2
+    - Physical activity: active→0, inactive→1
+
+    PMID: 16914401 — Kivipelto M et al. Lancet Neurol 2006.
+    Validated: Exalto LG et al. JNNP 2014 (PMID: 24249786).
+    """
+    if age is None:
+        return None
+
+    score = 0
+
+    # Age (designed for midlife assessment)
+    if age < 47:
+        score += 0
+    elif age <= 53:
+        score += 3
+    else:
+        score += 4
+
+    # Education
+    if education_years is not None:
+        if education_years >= 10:
+            score += 0
+        elif education_years >= 7:
+            score += 2
+        else:
+            score += 3
+
+    # Sex
+    if sex == "male":
+        score += 1
+
+    # Systolic BP
+    if systolic_bp is not None and systolic_bp > 140:
+        score += 2
+
+    # BMI
+    if bmi is not None and bmi > 30:
+        score += 2
+
+    # Total cholesterol: >6.5 mmol/L = ~251 mg/dL
+    if total_chol_mgdl is not None and total_chol_mgdl > 251:
+        score += 2
+
+    # Physical activity
+    if physical_activity == "inactive":
+        score += 1
+
+    return score
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # TIER 2: DERIVED / EXPERIMENTAL FORMULAS
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1429,6 +1650,45 @@ def _build_phenoage_args(bio, clin):
         "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": wbc,
     }
 
+def _build_kfre_args(bio, clin):
+    # Compute eGFR from creatinine for KFRE input
+    egfr = calc_ckd_epi_2021(bio.get("creatinine", 0), clin.get("age", 0), clin.get("sex", "male"))
+    return {
+        "age": clin.get("age"), "sex": clin.get("sex"),
+        "egfr": egfr, "acr": bio.get("uacr"),
+    }
+
+def _build_cha2ds2_vasc_args(bio, clin):
+    # Hypertension: SBP >=140 or on BP medication
+    sbp = clin.get("systolic_bp")
+    hypertension = (sbp is not None and sbp >= 140) or bool(clin.get("on_bp_medication"))
+    return {
+        "age": clin.get("age"), "sex": clin.get("sex"),
+        "chf": bool(clin.get("congestive_heart_failure")),
+        "hypertension": hypertension,
+        "diabetes": bool(clin.get("diabetes_status")),
+        "stroke_tia": bool(clin.get("prior_stroke_tia")),
+        "vascular": bool(clin.get("vascular_disease")),
+    }
+
+def _build_amap_args(bio, clin):
+    return {
+        "age": clin.get("age"), "sex": clin.get("sex"),
+        "bilirubin_mgdl": bio.get("total_bilirubin"),
+        "albumin_gdl": bio.get("albumin"),
+        "platelets": bio.get("platelets"),
+    }
+
+def _build_caide_args(bio, clin):
+    return {
+        "age": clin.get("age"), "sex": clin.get("sex"),
+        "education_years": clin.get("education_years"),
+        "systolic_bp": clin.get("systolic_bp"),
+        "bmi": clin.get("bmi"),
+        "total_chol_mgdl": bio.get("total_cholesterol"),
+        "physical_activity": clin.get("physical_activity_level", "active"),
+    }
+
 
 FORMULA_DISPATCH = {
     "calc_fib4": (calc_fib4, _build_fib4_args),
@@ -1464,6 +1724,11 @@ FORMULA_DISPATCH = {
     "calc_pni": (calc_pni, _build_pni_args),
     "calc_tfqi": (calc_tfqi, _build_tfqi_args),
     "calc_phenoage": (calc_phenoage, _build_phenoage_args),
+    "calc_kfre_2yr": (calc_kfre_2yr, _build_kfre_args),
+    "calc_kfre_5yr": (calc_kfre_5yr, _build_kfre_args),
+    "calc_cha2ds2_vasc": (calc_cha2ds2_vasc, _build_cha2ds2_vasc_args),
+    "calc_amap": (calc_amap, _build_amap_args),
+    "calc_caide": (calc_caide, _build_caide_args),
 }
 
 

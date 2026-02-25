@@ -138,6 +138,8 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
                 "age": "Date of Birth", "sex": "Sex", "bmi": "Height & Weight",
                 "systolic_bp": "Blood Pressure", "smoking_status": "Smoking Status",
                 "diabetes_status": "Diabetes Status", "on_bp_medication": "BP Medication",
+                "education_years": "Education Years", "physical_activity_level": "Physical Activity Level",
+                "height_cm": "Height", "weight_kg": "Weight",
             }
             named = [labels.get(c, c) for c in missing_clinical]
             missing_items.append(f"**Clinical data needed:** {', '.join(named)}")
@@ -414,6 +416,52 @@ def render_clinical_profile_form(user_id: int):
                 help="Regular use of oral steroid tablets",
             )
 
+        st.markdown("#### Cardiovascular / Stroke History (for CHA\u2082DS\u2082-VASc)")
+        st.caption("Check all conditions that apply. These enable stroke risk scoring in atrial fibrillation.")
+        col_cv1, col_cv2, col_cv3 = st.columns(3)
+        with col_cv1:
+            chf = st.checkbox(
+                "Congestive heart failure",
+                value=bool(profile.get("congestive_heart_failure", 0)),
+                help="History of heart failure / reduced ejection fraction",
+            )
+        with col_cv2:
+            stroke_tia = st.checkbox(
+                "Prior stroke / TIA",
+                value=bool(profile.get("prior_stroke_tia", 0)),
+                help="History of stroke, TIA, or thromboembolism — adds 2 points",
+            )
+        with col_cv3:
+            vasc = st.checkbox(
+                "Vascular disease",
+                value=bool(profile.get("vascular_disease", 0)),
+                help="Prior MI, peripheral artery disease, or aortic plaque",
+            )
+
+        st.markdown("#### Dementia Risk Factors (for CAIDE)")
+        st.caption("Education and physical activity level used in the CAIDE Dementia Risk Score.")
+        col_dem1, col_dem2 = st.columns(2)
+        with col_dem1:
+            edu_years = st.number_input(
+                "Education (total years)",
+                min_value=0, max_value=30,
+                value=int(profile.get("education_years") or 12),
+                step=1,
+                help="CAIDE: >=10 yrs (0 pts), 7-9 yrs (2 pts), 0-6 yrs (3 pts)",
+            )
+        with col_dem2:
+            activity_options = ["active", "inactive"]
+            activity_labels = ["Active (regular exercise)", "Inactive (sedentary)"]
+            current_activity = profile.get("physical_activity_level", "active") or "active"
+            act_idx = activity_options.index(current_activity) if current_activity in activity_options else 0
+            phys_activity = st.selectbox(
+                "Physical activity level",
+                options=activity_options,
+                format_func=lambda x: activity_labels[activity_options.index(x)],
+                index=act_idx,
+                help="CAIDE: active (0 pts), inactive (1 pt)",
+            )
+
         submitted = st.form_submit_button("Save Clinical Profile", use_container_width=True)
         if submitted:
             from models.clinical_profile import save_profile
@@ -444,6 +492,11 @@ def render_clinical_profile_form(user_id: int):
                 "corticosteroid_use": 1 if cortico else 0,
                 "sbp_variability": sbp_var if sbp_var > 0 else None,
                 "cigarettes_per_day": cigs,
+                "congestive_heart_failure": 1 if chf else 0,
+                "prior_stroke_tia": 1 if stroke_tia else 0,
+                "vascular_disease": 1 if vasc else 0,
+                "education_years": edu_years,
+                "physical_activity_level": phys_activity,
             }
             save_profile(user_id, data)
             st.success("Clinical profile saved.")

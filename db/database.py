@@ -47,6 +47,13 @@ def _migrate(conn):
         "ALTER TABLE user_clinical_profile ADD COLUMN corticosteroid_use INTEGER DEFAULT 0",
         "ALTER TABLE user_clinical_profile ADD COLUMN sbp_variability REAL",
         "ALTER TABLE user_clinical_profile ADD COLUMN cigarettes_per_day INTEGER DEFAULT 0",
+        # CHA2DS2-VASc fields
+        "ALTER TABLE user_clinical_profile ADD COLUMN congestive_heart_failure INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN prior_stroke_tia INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN vascular_disease INTEGER DEFAULT 0",
+        # CAIDE Dementia Risk fields
+        "ALTER TABLE user_clinical_profile ADD COLUMN education_years INTEGER",
+        "ALTER TABLE user_clinical_profile ADD COLUMN physical_activity_level TEXT DEFAULT 'active'",
     ]
     # Phase 6: ensure new tables exist for older DBs
     table_migrations = [

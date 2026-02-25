@@ -31,9 +31,12 @@ def save_profile(user_id: int, data: dict):
                 severe_mental_illness, erectile_dysfunction,
                 atypical_antipsychotic, corticosteroid_use,
                 sbp_variability, cigarettes_per_day,
+                congestive_heart_failure, prior_stroke_tia, vascular_disease,
+                education_years, physical_activity_level,
                 updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?,
                        datetime('now'))
                ON CONFLICT(user_id)
                DO UPDATE SET
@@ -61,6 +64,11 @@ def save_profile(user_id: int, data: dict):
                    corticosteroid_use = excluded.corticosteroid_use,
                    sbp_variability = excluded.sbp_variability,
                    cigarettes_per_day = excluded.cigarettes_per_day,
+                   congestive_heart_failure = excluded.congestive_heart_failure,
+                   prior_stroke_tia = excluded.prior_stroke_tia,
+                   vascular_disease = excluded.vascular_disease,
+                   education_years = excluded.education_years,
+                   physical_activity_level = excluded.physical_activity_level,
                    updated_at = datetime('now')""",
             (user_id,
              data.get("date_of_birth"),
@@ -86,7 +94,12 @@ def save_profile(user_id: int, data: dict):
              data.get("atypical_antipsychotic", 0),
              data.get("corticosteroid_use", 0),
              data.get("sbp_variability"),
-             data.get("cigarettes_per_day", 0)),
+             data.get("cigarettes_per_day", 0),
+             data.get("congestive_heart_failure", 0),
+             data.get("prior_stroke_tia", 0),
+             data.get("vascular_disease", 0),
+             data.get("education_years"),
+             data.get("physical_activity_level", "active")),
         )
         conn.commit()
     finally:

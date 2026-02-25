@@ -739,6 +739,126 @@ ORGAN_SCORE_DEFINITIONS = [
         "description": "Biological age estimate from 9 blood biomarkers + chronological age. Output is PhenoAge minus chronological age (acceleration). Positive = older than expected. Based on 10-year mortality Gompertz model.",
         "sort_order": 70,
     },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # KIDNEY — KFRE (Kidney Failure Risk Equation)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "kfre_5yr",
+        "name": "KFRE 5-Year Kidney Failure Risk",
+        "organ_system": "kidney",
+        "tier": "validated",
+        "formula_key": "calc_kfre_5yr",
+        "required_biomarkers": ["creatinine", "uacr"],
+        "required_clinical": ["age", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 3.0, "label": "Low 5-year kidney failure risk (<3%)", "severity": "optimal"},
+                {"min": 3.0, "max": 5.0, "label": "Mild 5-year kidney failure risk (3-5%)", "severity": "normal"},
+                {"min": 5.0, "max": 15.0, "label": "Moderate 5-year kidney failure risk (5-15%)", "severity": "elevated"},
+                {"min": 15.0, "max": 40.0, "label": "High 5-year kidney failure risk (15-40%) — nephrology referral", "severity": "high"},
+                {"min": 40.0, "label": "Very high 5-year kidney failure risk (>=40%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "26757465",
+        "citation_text": "Tangri N et al. JAMA 2016;315(2):164-74. Recalibrated 4-variable KFRE (n=721,357, 30 countries). C-statistic 0.90. KDIGO 2024 Grade 1A recommendation (PMID: 38490803).",
+        "description": "Kidney Failure Risk Equation — 5-year risk of progression to kidney failure (requiring dialysis or transplant). Uses age, sex, eGFR, and UACR. KDIGO 2024 recommends KFRE for all CKD G3a-G5 patients. Risk >=5% triggers nephrology referral.",
+        "sort_order": 12,
+    },
+    {
+        "code": "kfre_2yr",
+        "name": "KFRE 2-Year Kidney Failure Risk",
+        "organ_system": "kidney",
+        "tier": "validated",
+        "formula_key": "calc_kfre_2yr",
+        "required_biomarkers": ["creatinine", "uacr"],
+        "required_clinical": ["age", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 2.0, "label": "Low 2-year kidney failure risk (<2%)", "severity": "optimal"},
+                {"min": 2.0, "max": 5.0, "label": "Mild 2-year kidney failure risk (2-5%)", "severity": "normal"},
+                {"min": 5.0, "max": 10.0, "label": "Moderate 2-year kidney failure risk (5-10%)", "severity": "elevated"},
+                {"min": 10.0, "max": 40.0, "label": "High 2-year kidney failure risk (10-40%) — plan for RRT", "severity": "high"},
+                {"min": 40.0, "label": "Very high 2-year kidney failure risk (>=40%) — imminent RRT", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "26757465",
+        "citation_text": "Tangri N et al. JAMA 2016;315(2):164-74. Recalibrated 4-variable KFRE. Original: PMID: 21482743 (JAMA 2011). KDIGO 2024 recommends 2-year KFRE >=10% to plan for renal replacement therapy.",
+        "description": "Kidney Failure Risk Equation — 2-year risk. Used for dialysis/transplant planning. KDIGO 2024 recommends 2-year KFRE >=10% to trigger preparation for renal replacement therapy.",
+        "sort_order": 13,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # CARDIOVASCULAR — CHA₂DS₂-VASc (Stroke Risk in AF)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "cha2ds2_vasc",
+        "name": "CHA\u2082DS\u2082-VASc Score",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_cha2ds2_vasc",
+        "required_biomarkers": [],
+        "required_clinical": ["age", "sex", "diabetes_status", "systolic_bp"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0, "label": "Low stroke risk — no anticoagulation needed", "severity": "optimal"},
+                {"min": 1, "max": 1, "label": "Low-moderate risk — consider anticoagulation (especially if not female sex point alone)", "severity": "normal"},
+                {"min": 2, "max": 3, "label": "Moderate stroke risk — anticoagulation recommended", "severity": "elevated"},
+                {"min": 4, "max": 5, "label": "High stroke risk — anticoagulation strongly recommended", "severity": "high"},
+                {"min": 6, "label": "Very high stroke risk (>=6/9) — anticoagulation essential", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "19762550",
+        "citation_text": "Lip GYH et al. Chest 2010;137(2):263-72. Refinement of CHADS2 with vascular disease, age 65-74, and female sex. ESC 2024 AF guideline (PMID: 39210723) and AHA/ACC 2023 mandate CHA2DS2-VASc for anticoagulation decisions.",
+        "description": "CHA\u2082DS\u2082-VASc predicts annual stroke risk in atrial fibrillation. Score 0 (male) or 1 (female) = low risk. Score >=2 = anticoagulation recommended. Requires AF status, heart failure, stroke/TIA history, and vascular disease in clinical profile.",
+        "sort_order": 29,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # LIVER — aMAP (HCC Risk in Chronic Liver Disease)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "amap_hcc",
+        "name": "aMAP Score (HCC Risk)",
+        "organ_system": "liver",
+        "tier": "validated",
+        "formula_key": "calc_amap",
+        "required_biomarkers": ["total_bilirubin", "albumin", "platelets"],
+        "required_clinical": ["age", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 50, "label": "Low HCC risk (annual incidence 0-0.2%)", "severity": "optimal"},
+                {"min": 50, "max": 60, "label": "Medium HCC risk (annual incidence 0.4-1%) — consider surveillance", "severity": "elevated"},
+                {"min": 60, "label": "High HCC risk (annual incidence 1.6-4.3%) — surveillance recommended", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "32707225",
+        "citation_text": "Fan R et al. J Hepatol 2020;73(2):281-93. Derivation: n=17,374 (11 global cohorts). C-statistic 0.82. Validated across HBV, HCV, NAFLD, and alcohol-related liver disease. AASLD 2023 acknowledged.",
+        "description": "aMAP (age-Male-ALBI-Platelets) predicts hepatocellular carcinoma risk in patients with chronic liver disease. Uses age, sex, bilirubin, albumin, and platelets. Score >60 triggers HCC surveillance per expert consensus.",
+        "sort_order": 5,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # NEUROLOGICAL — CAIDE Dementia Risk Score
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "caide_dementia",
+        "name": "CAIDE Dementia Risk Score",
+        "organ_system": "neurological",
+        "tier": "validated",
+        "formula_key": "calc_caide",
+        "required_biomarkers": ["total_cholesterol"],
+        "required_clinical": ["age", "sex", "systolic_bp", "bmi", "education_years", "physical_activity_level"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 5, "label": "Low 20-year dementia risk (~1%)", "severity": "optimal"},
+                {"min": 6, "max": 7, "label": "Moderate-low dementia risk (~1.9%)", "severity": "normal"},
+                {"min": 8, "max": 9, "label": "Moderate dementia risk (~4.2%)", "severity": "elevated"},
+                {"min": 10, "max": 11, "label": "Moderate-high dementia risk (~7.4%)", "severity": "high"},
+                {"min": 12, "label": "High 20-year dementia risk (~16.4%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "16914401",
+        "citation_text": "Kivipelto M et al. Lancet Neurol 2006;5(9):735-41. CAIDE study (n=1,449, 20-year follow-up). C-statistic 0.77. Validated: Exalto LG et al. J Neurol Neurosurg Psychiatry 2014 (PMID: 24249786). Endorsed for midlife risk stratification.",
+        "description": "CAIDE (Cardiovascular Risk Factors, Aging, and Dementia) predicts 20-year dementia risk from midlife risk factors. Point-based score (0-15) using age, education, sex, SBP, BMI, cholesterol, and physical activity. Modifiable risk factors enable targeted prevention.",
+        "sort_order": 80,
+    },
 ]
 
 # Organ system display metadata
@@ -751,4 +871,5 @@ ORGAN_SYSTEMS = {
     "thyroid": {"name": "Thyroid Function", "icon": "&#129507;", "color": "#9370DB", "sort_order": 6},
     "hematologic": {"name": "Hematologic & Iron", "icon": "&#129656;", "color": "#B22222", "sort_order": 7},
     "biological_age": {"name": "Biological Age", "icon": "&#9200;", "color": "#6750A4", "sort_order": 8},
+    "neurological": {"name": "Neurological / Dementia Risk", "icon": "&#129504;", "color": "#5C6BC0", "sort_order": 9},
 }

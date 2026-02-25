@@ -474,6 +474,24 @@ BIOMARKER_DEFINITIONS = [
         "clinical_note": "Low (<20%) suggests iron deficiency. High (>45%) may indicate iron overload/hemochromatosis.",
         "pillar_id": 1, "sort_order": 93,
     },
+    {
+        "code": "total_bilirubin", "name": "Total Bilirubin", "category": "liver",
+        "unit": "mg/dL", "standard_low": 0.1, "standard_high": 1.2,
+        "optimal_low": 0.2, "optimal_high": 1.0,
+        "critical_low": None, "critical_high": 3.0,
+        "description": "Breakdown product of heme metabolism. Elevated in liver disease, hemolysis, and Gilbert's syndrome.",
+        "clinical_note": "Mildly elevated (1-3 mg/dL) may be Gilbert's syndrome (benign). >3 mg/dL warrants hepatic workup. Used in aMAP HCC risk score.",
+        "pillar_id": None, "sort_order": 76,
+    },
+    {
+        "code": "alkaline_phosphatase", "name": "Alkaline Phosphatase (ALP)", "category": "liver",
+        "unit": "U/L", "standard_low": 44, "standard_high": 147,
+        "optimal_low": 50, "optimal_high": 120,
+        "critical_low": None, "critical_high": 500,
+        "description": "Enzyme found in liver, bone, and bile ducts. Elevated in cholestasis, bone disease, and pregnancy.",
+        "clinical_note": "Interpret alongside GGT: both elevated = hepatobiliary cause; ALP alone = consider bone origin.",
+        "pillar_id": None, "sort_order": 77,
+    },
 ]
 
 # Category display order and labels

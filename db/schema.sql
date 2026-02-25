@@ -911,6 +911,13 @@ CREATE TABLE IF NOT EXISTS user_clinical_profile (
     corticosteroid_use INTEGER DEFAULT 0,
     sbp_variability REAL,
     cigarettes_per_day INTEGER DEFAULT 0,
+    -- CHA2DS2-VASc fields
+    congestive_heart_failure INTEGER DEFAULT 0,
+    prior_stroke_tia INTEGER DEFAULT 0,
+    vascular_disease INTEGER DEFAULT 0,
+    -- CAIDE Dementia Risk fields
+    education_years INTEGER,
+    physical_activity_level TEXT DEFAULT 'active' CHECK (physical_activity_level IN ('active', 'inactive')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
