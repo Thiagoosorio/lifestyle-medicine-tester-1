@@ -126,7 +126,6 @@ def _render_exercise_library_card(exercise):
 render_hero_banner(
     "Strength Training Library",
     "50 exercises with proper form guides, cues, and common mistakes to avoid.",
-    icon="&#127947;",
 )
 
 # ══════════════════════════════════════════════════════════════════════════════
