@@ -435,6 +435,282 @@ def calc_nlr(neutrophils: float, lymphocytes: float) -> float | None:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# QRISK3 (2017) — NICE-mandated UK CVD risk calculator
+# Full coefficients from https://qrisk.org/src.php (LGPL v3)
+# PMID: 28536104 — Hippisley-Cox J et al. BMJ 2017;357:j2099
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_qrisk3(age: float, sex: str, bmi: float, ethnicity: int,
+                smoking_cat: int, systolic_bp: float, sbp_sd: float,
+                tc_hdl_ratio: float, on_bp_med: bool,
+                fh_cvd: bool, diabetes_type1: bool, diabetes_type2: bool,
+                atrial_fib: bool, rheumatoid: bool, renal: bool,
+                migraine: bool, sle: bool, mental_illness: bool,
+                antipsychotic: bool, corticosteroid: bool,
+                erectile_dys: bool, townsend: float = 0.0) -> float | None:
+    """QRISK3 10-year CVD risk (%).
+
+    Implements both male and female Cox proportional hazards models
+    with fractional polynomial transformations and interaction terms.
+
+    Valid for ages 25-84. Ethnicity: 1=White, 2=Indian, 3=Pakistani,
+    4=Bangladeshi, 5=Other Asian, 6=Black Caribbean, 7=Black African,
+    8=Chinese, 9=Other. Smoking: 0=non, 1=ex, 2=light, 3=moderate, 4=heavy.
+
+    Source: qrisk.org/src.php (LGPL v3, ClinRisk Ltd)
+    PMID: 28536104 — Hippisley-Cox J et al. BMJ 2017.
+    """
+    if age < 25 or age > 84:
+        return None
+    if bmi <= 0 or systolic_bp <= 0 or tc_hdl_ratio <= 0:
+        return None
+
+    if sex == "female":
+        return _qrisk3_female(
+            age, bmi, ethnicity, smoking_cat, systolic_bp, sbp_sd,
+            tc_hdl_ratio, on_bp_med, fh_cvd, diabetes_type1, diabetes_type2,
+            atrial_fib, rheumatoid, renal, migraine, sle, mental_illness,
+            antipsychotic, corticosteroid, townsend,
+        )
+    else:
+        return _qrisk3_male(
+            age, bmi, ethnicity, smoking_cat, systolic_bp, sbp_sd,
+            tc_hdl_ratio, on_bp_med, fh_cvd, diabetes_type1, diabetes_type2,
+            atrial_fib, rheumatoid, renal, migraine, sle, mental_illness,
+            antipsychotic, corticosteroid, erectile_dys, townsend,
+        )
+
+
+def _qrisk3_female(age, bmi, ethrisk, smoke_cat, sbp, sbp5, rati,
+                    b_treatedhyp, fh_cvd, b_type1, b_type2,
+                    b_AF, b_ra, b_renal, b_migraine, b_sle, b_semi,
+                    b_atypicalantipsy, b_corticosteroids, town):
+    """QRISK3 female model. Coefficients from qrisk.org/src.php."""
+    # Ethnicity coefficients (index 0 unused, 1=White=reference)
+    Iethrisk = [0, 0,
+        0.2804031433299542500000000,   # Indian
+        0.5629899414207539800000000,   # Pakistani
+        0.2959000085111651600000000,   # Bangladeshi
+        0.0727853798779825450000000,   # Other Asian
+        -0.1707213550885731700000000,  # Black Caribbean
+        -0.3937104331487497100000000,  # Black African
+        -0.3263249528353027200000000,  # Chinese
+        -0.1712705688324178400000000,  # Other
+    ]
+    # Smoking coefficients (0=non, 1=ex, 2=light, 3=moderate, 4=heavy)
+    Ismoke = [0,
+        0.1338683378654626200000000,
+        0.5620085801243853700000000,
+        0.6674959337750254700000000,
+        0.8494817764483084700000000,
+    ]
+
+    # Fractional polynomial transforms — Female: age powers (-2, 1), BMI powers (-2, -2)
+    dage = age / 10.0
+    age_1 = dage ** (-2)
+    age_2 = dage
+
+    dbmi = bmi / 10.0
+    bmi_1 = dbmi ** (-2)
+    bmi_2 = (dbmi ** (-2)) * math.log(dbmi)
+
+    # Centering
+    age_1 -= 0.053274843841791
+    age_2 -= 4.332503318786621
+    bmi_1 -= 0.154946178197861
+    bmi_2 -= 0.144462317228317
+    rati_c = rati - 3.476326465606690
+    sbp_c = sbp - 123.130012512207030
+    sbp5_c = sbp5 - 9.002537727355957
+    town_c = town - 0.392308831214905
+
+    # Continuous terms
+    a = (
+        Iethrisk[ethrisk]
+        + Ismoke[smoke_cat]
+        + age_1 * (-8.1388109247726188000000000)
+        + age_2 * 0.7973337668969909800000000
+        + bmi_1 * 0.2923609227546005200000000
+        + bmi_2 * (-4.1513300213837665000000000)
+        + rati_c * 0.1533803582080255400000000
+        + sbp_c * 0.0131314884071034240000000
+        + sbp5_c * 0.0078894541014586095000000
+        + town_c * 0.0772237905885901080000000
+    )
+
+    # Boolean terms
+    a += (b_AF) * 1.5923354969269663000000000
+    a += (b_atypicalantipsy) * 0.2523764207011555700000000
+    a += (b_corticosteroids) * 0.5952072530460185100000000
+    a += (b_migraine) * 0.3012672608703450000000000
+    a += (b_ra) * 0.2136480343518194200000000
+    a += (b_renal) * 0.6519456949384583300000000
+    a += (b_semi) * 0.1255530805882017800000000
+    a += (b_sle) * 0.7588093865426769300000000
+    a += (b_treatedhyp) * 0.5093159368342300400000000
+    a += (b_type1) * 1.7267977510537347000000000
+    a += (b_type2) * 1.0688773244615468000000000
+    a += (fh_cvd) * 0.4544531902089621300000000
+
+    # age_1 interaction terms
+    a += age_1 * (smoke_cat == 1) * (-4.7057161785851891000000000)
+    a += age_1 * (smoke_cat == 2) * (-2.7430383403573337000000000)
+    a += age_1 * (smoke_cat == 3) * (-0.8660808882939218200000000)
+    a += age_1 * (smoke_cat == 4) * 0.9024156236971064800000000
+    a += age_1 * (b_AF) * 19.9380348895465610000000000
+    a += age_1 * (b_corticosteroids) * (-0.9840804523593628100000000)
+    a += age_1 * (b_migraine) * 1.7634979587872999000000000
+    a += age_1 * (b_renal) * (-3.5874047731694114000000000)
+    a += age_1 * (b_sle) * 19.6903037386382920000000000
+    a += age_1 * (b_treatedhyp) * 11.8728097339218120000000000
+    a += age_1 * (b_type1) * (-1.2444332714320747000000000)
+    a += age_1 * (b_type2) * 6.8652342000009599000000000
+    a += age_1 * bmi_1 * 23.8026234121417420000000000
+    a += age_1 * bmi_2 * (-71.1849476920870070000000000)
+    a += age_1 * (fh_cvd) * 0.9946780794043512700000000
+    a += age_1 * sbp_c * 0.0341318423386154850000000
+    a += age_1 * town_c * (-1.0301180802035639000000000)
+
+    # age_2 interaction terms
+    a += age_2 * (smoke_cat == 1) * (-0.0755892446431930260000000)
+    a += age_2 * (smoke_cat == 2) * (-0.1195119287486707400000000)
+    a += age_2 * (smoke_cat == 3) * (-0.1036630639757192300000000)
+    a += age_2 * (smoke_cat == 4) * (-0.1399185359171838900000000)
+    a += age_2 * (b_AF) * (-0.0761826510111625050000000)
+    a += age_2 * (b_corticosteroids) * (-0.1200536494674247200000000)
+    a += age_2 * (b_migraine) * (-0.0655869178986998590000000)
+    a += age_2 * (b_renal) * (-0.2268887308644250700000000)
+    a += age_2 * (b_sle) * 0.0773479496790162730000000
+    a += age_2 * (b_treatedhyp) * 0.0009685782358817443600000
+    a += age_2 * (b_type1) * (-0.2872406462448894900000000)
+    a += age_2 * (b_type2) * (-0.0971122525906954890000000)
+    a += age_2 * bmi_1 * 0.5236995893366442900000000
+    a += age_2 * bmi_2 * 0.0457441901223237590000000
+    a += age_2 * (fh_cvd) * (-0.0768850516984230380000000)
+    a += age_2 * sbp_c * (-0.0015082501423272358000000)
+    a += age_2 * town_c * (-0.0315934146749623290000000)
+
+    # Cox model: 10-year risk
+    survivor_10 = 0.988876402378082
+    score = 100.0 * (1.0 - survivor_10 ** math.exp(a))
+    return round(max(0, min(score, 100)), 1)
+
+
+def _qrisk3_male(age, bmi, ethrisk, smoke_cat, sbp, sbp5, rati,
+                  b_treatedhyp, fh_cvd, b_type1, b_type2,
+                  b_AF, b_ra, b_renal, b_migraine, b_sle, b_semi,
+                  b_atypicalantipsy, b_corticosteroids, b_impotence2, town):
+    """QRISK3 male model. Coefficients from qrisk.org/src.php."""
+    Iethrisk = [0, 0,
+        0.2771924876030827900000000,
+        0.4744636071493126800000000,
+        0.5296172991968937100000000,
+        0.0351001591862990170000000,
+        -0.3580789966932791900000000,
+        -0.4005648523216514000000000,
+        -0.4152279288983017300000000,
+        -0.2632134813474996700000000,
+    ]
+    Ismoke = [0,
+        0.1912822286338898300000000,
+        0.5524158819264555200000000,
+        0.6383505302750607200000000,
+        0.7898381988185801900000000,
+    ]
+
+    # Fractional polynomial transforms — Male: age powers (-1, 3), BMI powers (-2, -2)
+    dage = age / 10.0
+    age_1 = dage ** (-1)
+    age_2 = dage ** 3
+
+    dbmi = bmi / 10.0
+    bmi_1 = dbmi ** (-2)
+    bmi_2 = (dbmi ** (-2)) * math.log(dbmi)
+
+    # Centering
+    age_1 -= 0.234766781330109
+    age_2 -= 77.284080505371094
+    bmi_1 -= 0.149176135659218
+    bmi_2 -= 0.141913309693336
+    rati_c = rati - 4.300998687744141
+    sbp_c = sbp - 128.571578979492190
+    sbp5_c = sbp5 - 8.756621360778809
+    town_c = town - 0.526304900646210
+
+    # Continuous terms
+    a = (
+        Iethrisk[ethrisk]
+        + Ismoke[smoke_cat]
+        + age_1 * (-17.8397816660055750000000000)
+        + age_2 * 0.0022964880605765492000000
+        + bmi_1 * 2.4562776660536358000000000
+        + bmi_2 * (-8.3011122314711354000000000)
+        + rati_c * 0.1734019685632711100000000
+        + sbp_c * 0.0129101265425533050000000
+        + sbp5_c * 0.0102519142912904560000000
+        + town_c * 0.0332682012772872950000000
+    )
+
+    # Boolean terms
+    a += (b_AF) * 0.8820923692805465700000000
+    a += (b_atypicalantipsy) * 0.1304687985517351300000000
+    a += (b_corticosteroids) * 0.4548539975044554300000000
+    a += (b_impotence2) * 0.2225185908670538300000000
+    a += (b_migraine) * 0.2558417807415991300000000
+    a += (b_ra) * 0.2097065801395656700000000
+    a += (b_renal) * 0.7185326128827438400000000
+    a += (b_semi) * 0.1213303988204716400000000
+    a += (b_sle) * 0.4401572174457522000000000
+    a += (b_treatedhyp) * 0.5165987108269547400000000
+    a += (b_type1) * 1.2343425521675175000000000
+    a += (b_type2) * 0.8594207143093222100000000
+    a += (fh_cvd) * 0.5405546900939015600000000
+
+    # age_1 interaction terms
+    a += age_1 * (smoke_cat == 1) * (-0.2101113393351634600000000)
+    a += age_1 * (smoke_cat == 2) * 0.7526867644750319100000000
+    a += age_1 * (smoke_cat == 3) * 0.9931588755640579100000000
+    a += age_1 * (smoke_cat == 4) * 2.1331163414389076000000000
+    a += age_1 * (b_AF) * 3.4896675530623207000000000
+    a += age_1 * (b_corticosteroids) * 1.1708133653489108000000000
+    a += age_1 * (b_impotence2) * (-1.5064009857454310000000000)
+    a += age_1 * (b_migraine) * 2.3491159871402441000000000
+    a += age_1 * (b_renal) * (-0.5065671632722369400000000)
+    a += age_1 * (b_treatedhyp) * 6.5114581098532671000000000
+    a += age_1 * (b_type1) * 5.3379864878006531000000000
+    a += age_1 * (b_type2) * 3.6461817406221311000000000
+    a += age_1 * bmi_1 * 31.0049529560338860000000000
+    a += age_1 * bmi_2 * (-111.2915718439164300000000000)
+    a += age_1 * (fh_cvd) * 2.7808628508531887000000000
+    a += age_1 * sbp_c * 0.0188585244698658530000000
+    a += age_1 * town_c * (-0.1007554870063731000000000)
+
+    # age_2 interaction terms
+    a += age_2 * (smoke_cat == 1) * (-0.0004985487027532612100000)
+    a += age_2 * (smoke_cat == 2) * (-0.0007987563331738541400000)
+    a += age_2 * (smoke_cat == 3) * (-0.0008370618426625129600000)
+    a += age_2 * (smoke_cat == 4) * (-0.0007840031915563728900000)
+    a += age_2 * (b_AF) * (-0.0003499560834063604900000)
+    a += age_2 * (b_corticosteroids) * (-0.0002496045095297166000000)
+    a += age_2 * (b_impotence2) * (-0.0011058218441227373000000)
+    a += age_2 * (b_migraine) * 0.0001989644604147863100000
+    a += age_2 * (b_renal) * (-0.0018325930166498813000000)
+    a += age_2 * (b_treatedhyp) * 0.0006383805310416501300000
+    a += age_2 * (b_type1) * 0.0006409780808752897000000
+    a += age_2 * (b_type2) * (-0.0002469569558886831500000)
+    a += age_2 * bmi_1 * 0.0050380102356322029000000
+    a += age_2 * bmi_2 * (-0.0130744830025243190000000)
+    a += age_2 * (fh_cvd) * (-0.0002479180990739603700000)
+    a += age_2 * sbp_c * (-0.0000127187419158845700000)
+    a += age_2 * town_c * (-0.0000932996423232728880000)
+
+    # Cox model: 10-year risk
+    survivor_10 = 0.977268040180206
+    score = 100.0 * (1.0 - survivor_10 ** math.exp(a))
+    return round(max(0, min(score, 100)), 1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # CARDIOVASCULAR: ADDITIONAL VALIDATED SCORES
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1024,6 +1300,80 @@ def _build_iron_composite_args(bio, clin):
 def _build_cbc_composite_args(bio, clin):
     return {"hemoglobin": bio.get("hemoglobin"), "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": bio.get("wbc"), "platelets": bio.get("platelets")}
 
+def _build_qrisk3_args(bio, clin):
+    # Map ethnicity string to QRISK3 integer code
+    eth_map = {
+        "white": 1, "indian": 2, "pakistani": 3, "bangladeshi": 4,
+        "other_asian": 5, "black_caribbean": 6, "black_african": 7,
+        "chinese": 8, "other": 9,
+    }
+    ethnicity = eth_map.get(clin.get("ethnicity", "white"), 1)
+
+    # Map smoking status + cigarettes_per_day to QRISK3 smoking category
+    # 0=non, 1=ex, 2=light(1-9), 3=moderate(10-19), 4=heavy(20+)
+    smoke_status = clin.get("smoking_status", "never")
+    cigs = clin.get("cigarettes_per_day", 0) or 0
+    if smoke_status == "never":
+        smoke_cat = 0
+    elif smoke_status == "former":
+        smoke_cat = 1
+    elif smoke_status == "current":
+        if cigs >= 20:
+            smoke_cat = 4
+        elif cigs >= 10:
+            smoke_cat = 3
+        elif cigs >= 1:
+            smoke_cat = 2
+        else:
+            smoke_cat = 3  # Default current smoker to moderate if cigs unknown
+    else:
+        smoke_cat = 0
+
+    # Diabetes type
+    dm_type = clin.get("diabetes_type", "none") or "none"
+    b_type1 = dm_type == "type1"
+    b_type2 = dm_type == "type2"
+
+    # TC/HDL ratio — compute from biomarkers
+    tc = bio.get("total_cholesterol")
+    hdl = bio.get("hdl_cholesterol")
+    tc_hdl_ratio = tc / hdl if tc and hdl and hdl > 0 else None
+
+    # SBP variability — use stored value or default to 0 (centering value handles it)
+    sbp_sd = clin.get("sbp_variability") or 0.0
+
+    # BMI
+    height = clin.get("height_cm")
+    weight = clin.get("weight_kg")
+    bmi_val = clin.get("bmi")
+    if not bmi_val and height and weight and height > 0:
+        bmi_val = weight / ((height / 100.0) ** 2)
+
+    return {
+        "age": clin.get("age"),
+        "sex": clin.get("sex"),
+        "bmi": bmi_val,
+        "ethnicity": ethnicity,
+        "smoking_cat": smoke_cat,
+        "systolic_bp": clin.get("systolic_bp"),
+        "sbp_sd": sbp_sd,
+        "tc_hdl_ratio": tc_hdl_ratio,
+        "on_bp_med": bool(clin.get("on_bp_medication")),
+        "fh_cvd": bool(clin.get("family_history_chd")),
+        "diabetes_type1": b_type1,
+        "diabetes_type2": b_type2,
+        "atrial_fib": bool(clin.get("atrial_fibrillation")),
+        "rheumatoid": bool(clin.get("rheumatoid_arthritis")),
+        "renal": bool(clin.get("chronic_kidney_disease")),
+        "migraine": bool(clin.get("migraine")),
+        "sle": bool(clin.get("sle")),
+        "mental_illness": bool(clin.get("severe_mental_illness")),
+        "antipsychotic": bool(clin.get("atypical_antipsychotic")),
+        "corticosteroid": bool(clin.get("corticosteroid_use")),
+        "erectile_dys": bool(clin.get("erectile_dysfunction")),
+        "townsend": 0.0,  # UK-specific; default to national average
+    }
+
 def _build_framingham_cvd_args(bio, clin):
     return {
         "age": clin.get("age"), "sex": clin.get("sex"),
@@ -1100,6 +1450,7 @@ FORMULA_DISPATCH = {
     "calc_spina_gd": (calc_spina_gd, _build_spina_gd_args),
     "calc_iron_status_composite": (calc_iron_status_composite, _build_iron_composite_args),
     "calc_cbc_composite": (calc_cbc_composite, _build_cbc_composite_args),
+    "calc_qrisk3": (calc_qrisk3, _build_qrisk3_args),
     "calc_framingham_cvd": (calc_framingham_cvd, _build_framingham_cvd_args),
     "calc_non_hdl_c": (calc_non_hdl_c, _build_non_hdl_c_args),
     "calc_castelli_ratio": (calc_castelli_ratio, _build_castelli_ratio_args),

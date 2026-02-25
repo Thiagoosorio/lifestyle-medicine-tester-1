@@ -24,8 +24,17 @@ def save_profile(user_id: int, data: dict):
             """INSERT INTO user_clinical_profile
                (user_id, date_of_birth, sex, height_cm, weight_kg,
                 smoking_status, diabetes_status, systolic_bp, diastolic_bp,
-                on_bp_medication, on_statin, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                on_bp_medication, on_statin,
+                ethnicity, diabetes_type, family_history_chd,
+                atrial_fibrillation, rheumatoid_arthritis,
+                chronic_kidney_disease, migraine, sle,
+                severe_mental_illness, erectile_dysfunction,
+                atypical_antipsychotic, corticosteroid_use,
+                sbp_variability, cigarettes_per_day,
+                updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                       datetime('now'))
                ON CONFLICT(user_id)
                DO UPDATE SET
                    date_of_birth = excluded.date_of_birth,
@@ -38,6 +47,20 @@ def save_profile(user_id: int, data: dict):
                    diastolic_bp = excluded.diastolic_bp,
                    on_bp_medication = excluded.on_bp_medication,
                    on_statin = excluded.on_statin,
+                   ethnicity = excluded.ethnicity,
+                   diabetes_type = excluded.diabetes_type,
+                   family_history_chd = excluded.family_history_chd,
+                   atrial_fibrillation = excluded.atrial_fibrillation,
+                   rheumatoid_arthritis = excluded.rheumatoid_arthritis,
+                   chronic_kidney_disease = excluded.chronic_kidney_disease,
+                   migraine = excluded.migraine,
+                   sle = excluded.sle,
+                   severe_mental_illness = excluded.severe_mental_illness,
+                   erectile_dysfunction = excluded.erectile_dysfunction,
+                   atypical_antipsychotic = excluded.atypical_antipsychotic,
+                   corticosteroid_use = excluded.corticosteroid_use,
+                   sbp_variability = excluded.sbp_variability,
+                   cigarettes_per_day = excluded.cigarettes_per_day,
                    updated_at = datetime('now')""",
             (user_id,
              data.get("date_of_birth"),
@@ -49,7 +72,21 @@ def save_profile(user_id: int, data: dict):
              data.get("systolic_bp"),
              data.get("diastolic_bp"),
              data.get("on_bp_medication", 0),
-             data.get("on_statin", 0)),
+             data.get("on_statin", 0),
+             data.get("ethnicity", "white"),
+             data.get("diabetes_type", "none"),
+             data.get("family_history_chd", 0),
+             data.get("atrial_fibrillation", 0),
+             data.get("rheumatoid_arthritis", 0),
+             data.get("chronic_kidney_disease", 0),
+             data.get("migraine", 0),
+             data.get("sle", 0),
+             data.get("severe_mental_illness", 0),
+             data.get("erectile_dysfunction", 0),
+             data.get("atypical_antipsychotic", 0),
+             data.get("corticosteroid_use", 0),
+             data.get("sbp_variability"),
+             data.get("cigarettes_per_day", 0)),
         )
         conn.commit()
     finally:

@@ -32,6 +32,21 @@ def _migrate(conn):
         "ALTER TABLE habits ADD COLUMN implementation_intention TEXT",
         "ALTER TABLE research_evidence ADD COLUMN journal_tier TEXT",
         "ALTER TABLE research_evidence ADD COLUMN domain TEXT",
+        # QRISK3 clinical profile fields
+        "ALTER TABLE user_clinical_profile ADD COLUMN ethnicity TEXT DEFAULT 'white'",
+        "ALTER TABLE user_clinical_profile ADD COLUMN diabetes_type TEXT DEFAULT 'none'",
+        "ALTER TABLE user_clinical_profile ADD COLUMN family_history_chd INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN atrial_fibrillation INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN rheumatoid_arthritis INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN chronic_kidney_disease INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN migraine INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN sle INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN severe_mental_illness INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN erectile_dysfunction INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN atypical_antipsychotic INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN corticosteroid_use INTEGER DEFAULT 0",
+        "ALTER TABLE user_clinical_profile ADD COLUMN sbp_variability REAL",
+        "ALTER TABLE user_clinical_profile ADD COLUMN cigarettes_per_day INTEGER DEFAULT 0",
     ]
     # Phase 6: ensure new tables exist for older DBs
     table_migrations = [

@@ -896,6 +896,21 @@ CREATE TABLE IF NOT EXISTS user_clinical_profile (
     diastolic_bp    REAL,
     on_bp_medication INTEGER DEFAULT 0,
     on_statin       INTEGER DEFAULT 0,
+    -- QRISK3 additional fields
+    ethnicity       TEXT DEFAULT 'white',
+    diabetes_type   TEXT DEFAULT 'none',
+    family_history_chd INTEGER DEFAULT 0,
+    atrial_fibrillation INTEGER DEFAULT 0,
+    rheumatoid_arthritis INTEGER DEFAULT 0,
+    chronic_kidney_disease INTEGER DEFAULT 0,
+    migraine        INTEGER DEFAULT 0,
+    sle             INTEGER DEFAULT 0,
+    severe_mental_illness INTEGER DEFAULT 0,
+    erectile_dysfunction INTEGER DEFAULT 0,
+    atypical_antipsychotic INTEGER DEFAULT 0,
+    corticosteroid_use INTEGER DEFAULT 0,
+    sbp_variability REAL,
+    cigarettes_per_day INTEGER DEFAULT 0,
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

@@ -171,6 +171,30 @@ ORGAN_SCORE_DEFINITIONS = [
         "sort_order": 21,
     },
     # ═══════════════════════════════════════════════════════════════════════════
+    # CARDIOVASCULAR — QRISK3 (NICE-mandated UK CVD risk)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "qrisk3",
+        "name": "QRISK3 10-Year CVD Risk",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_qrisk3",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol"],
+        "required_clinical": ["age", "sex", "height_cm", "weight_kg", "systolic_bp", "smoking_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 10.0, "label": "Low 10-year CVD risk (<10%)", "severity": "optimal"},
+                {"min": 10.0, "max": 20.0, "label": "Intermediate CVD risk (10-20%)", "severity": "elevated"},
+                {"min": 20.0, "max": 30.0, "label": "High CVD risk (20-30%) — consider statin", "severity": "high"},
+                {"min": 30.0, "label": "Very high CVD risk (>=30%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "28536104",
+        "citation_text": "Hippisley-Cox J et al. BMJ 2017;357:j2099. Derivation: n=7.89M, validation: n=2.67M (QResearch UK). [Q1, top 10%]. C-statistic 0.86 (F) / 0.83 (M). NICE NG238 mandated.",
+        "description": "QRISK3 predicts 10-year risk of first CVD event (MI, stroke, TIA). NICE-mandated in the UK. Uses 22 predictors including ethnicity, SBP variability, comorbidities, and medications. Score >=10% triggers statin consideration per NICE NG238.",
+        "sort_order": 19,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
     # CARDIOVASCULAR — Tier 1 (additional validated scores)
     # ═══════════════════════════════════════════════════════════════════════════
     {

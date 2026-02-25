@@ -220,20 +220,9 @@ def render_clinical_profile_form(user_id: int):
         "need data beyond blood labs (e.g., cardiovascular risk calculators)."
     )
 
-    CLINICAL_INPUT_SCORES = {
-        "date_of_birth": ["CKD-EPI eGFR", "FIB-4", "NAFLD Fibrosis Score", "ASCVD Risk", "AHA PREVENT"],
-        "sex": ["CKD-EPI eGFR", "ASCVD Risk", "AHA PREVENT"],
-        "height_cm": ["NAFLD Fibrosis Score (BMI)", "AHA PREVENT (BMI)"],
-        "weight_kg": ["NAFLD Fibrosis Score (BMI)", "AHA PREVENT (BMI)"],
-        "systolic_bp": ["ASCVD Risk", "AHA PREVENT"],
-        "smoking_status": ["ASCVD Risk", "AHA PREVENT"],
-        "diabetes_status": ["ASCVD Risk", "AHA PREVENT", "NAFLD Fibrosis Score"],
-        "on_bp_medication": ["ASCVD Risk", "AHA PREVENT"],
-    }
-
     with st.form(key="clinical_profile_form"):
         st.markdown("#### Demographics")
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
             dob_val = None
             if profile.get("date_of_birth"):
@@ -247,7 +236,7 @@ def render_clinical_profile_form(user_id: int):
                 value=dob_val,
                 min_value=date(1920, 1, 1),
                 max_value=date.today(),
-                help="Required for: " + ", ".join(CLINICAL_INPUT_SCORES["date_of_birth"]),
+                help="Required for: eGFR, FIB-4, ASCVD, PREVENT, Framingham, QRISK3",
             )
 
         with col2:
@@ -260,26 +249,39 @@ def render_clinical_profile_form(user_id: int):
                 options=sex_options,
                 format_func=lambda x: sex_labels[sex_options.index(x)],
                 index=sex_idx,
-                help="Required for: " + ", ".join(CLINICAL_INPUT_SCORES["sex"]),
+                help="Required for: eGFR, ASCVD, PREVENT, QRISK3",
+            )
+
+        with col3:
+            ethnicity_options = ["white", "indian", "pakistani", "bangladeshi", "other_asian", "black_caribbean", "black_african", "chinese", "other"]
+            ethnicity_labels = ["White / Not stated", "Indian", "Pakistani", "Bangladeshi", "Other Asian", "Black Caribbean", "Black African", "Chinese", "Other"]
+            current_eth = profile.get("ethnicity", "white") or "white"
+            eth_idx = ethnicity_options.index(current_eth) if current_eth in ethnicity_options else 0
+            ethnicity = st.selectbox(
+                "Ethnicity",
+                options=ethnicity_options,
+                format_func=lambda x: ethnicity_labels[ethnicity_options.index(x)],
+                index=eth_idx,
+                help="Used by QRISK3 for ethnicity-calibrated risk",
             )
 
         st.markdown("#### Body Measurements")
-        col3, col4 = st.columns(2)
-        with col3:
+        col3a, col4a = st.columns(2)
+        with col3a:
             height_cm = st.number_input(
                 "Height (cm)",
                 min_value=50.0, max_value=250.0,
                 value=profile.get("height_cm") or 170.0,
                 step=0.5,
-                help="Required for BMI calculation (NAFLD-FS, PREVENT)",
+                help="Required for BMI calculation (NAFLD-FS, PREVENT, QRISK3)",
             )
-        with col4:
+        with col4a:
             weight_kg = st.number_input(
                 "Weight (kg)",
                 min_value=20.0, max_value=300.0,
                 value=profile.get("weight_kg") or 70.0,
                 step=0.5,
-                help="Required for BMI calculation (NAFLD-FS, PREVENT)",
+                help="Required for BMI calculation (NAFLD-FS, PREVENT, QRISK3)",
             )
 
         if height_cm and weight_kg and height_cm > 0:
@@ -287,14 +289,14 @@ def render_clinical_profile_form(user_id: int):
             st.caption(f"Computed BMI: **{computed_bmi}** kg/m\u00b2")
 
         st.markdown("#### Blood Pressure")
-        col5, col6, col7 = st.columns(3)
+        col5, col6, col7, col7b = st.columns(4)
         with col5:
             systolic = st.number_input(
                 "Systolic BP (mmHg)",
                 min_value=60.0, max_value=250.0,
                 value=profile.get("systolic_bp") or 120.0,
                 step=1.0,
-                help="Required for: ASCVD Risk, AHA PREVENT",
+                help="Required for: ASCVD, PREVENT, Framingham, QRISK3",
             )
         with col6:
             diastolic = st.number_input(
@@ -309,10 +311,18 @@ def render_clinical_profile_form(user_id: int):
                 value=bool(profile.get("on_bp_medication", 0)),
                 help="Taking antihypertensive medication",
             )
+        with col7b:
+            sbp_var = st.number_input(
+                "SBP variability (SD)",
+                min_value=0.0, max_value=40.0,
+                value=profile.get("sbp_variability") or 0.0,
+                step=0.5,
+                help="Standard deviation of repeated SBP readings. Used by QRISK3. Leave 0 if unknown.",
+            )
 
-        st.markdown("#### Risk Factors")
-        col8, col9 = st.columns(2)
-        with col8:
+        st.markdown("#### Smoking")
+        col8a, col8b = st.columns(2)
+        with col8a:
             smoke_options = ["", "never", "former", "current"]
             smoke_labels = ["Select...", "Never smoker", "Former smoker", "Current smoker"]
             current_smoke = profile.get("smoking_status", "")
@@ -322,36 +332,118 @@ def render_clinical_profile_form(user_id: int):
                 options=smoke_options,
                 format_func=lambda x: smoke_labels[smoke_options.index(x)],
                 index=smoke_idx,
-                help="Required for: ASCVD Risk, AHA PREVENT",
+                help="Required for: ASCVD, PREVENT, Framingham, QRISK3",
             )
-        with col9:
-            diabetes = st.checkbox(
-                "Diabetes / Impaired Fasting Glucose",
-                value=bool(profile.get("diabetes_status", 0)),
-                help="Required for: ASCVD Risk, AHA PREVENT, NAFLD Fibrosis Score",
+        with col8b:
+            cigs = st.number_input(
+                "Cigarettes per day (if current smoker)",
+                min_value=0, max_value=60,
+                value=int(profile.get("cigarettes_per_day", 0) or 0),
+                step=1,
+                help="QRISK3 uses: light (1-9), moderate (10-19), heavy (20+)",
             )
 
-        col10, _ = st.columns(2)
-        with col10:
+        st.markdown("#### Diabetes")
+        col_dt1, col_dt2 = st.columns(2)
+        with col_dt1:
+            dm_type_options = ["none", "type2", "type1"]
+            dm_type_labels = ["No diabetes", "Type 2 diabetes", "Type 1 diabetes"]
+            current_dm_type = profile.get("diabetes_type", "none") or "none"
+            dm_idx = dm_type_options.index(current_dm_type) if current_dm_type in dm_type_options else 0
+            diabetes_type = st.selectbox(
+                "Diabetes Type",
+                options=dm_type_options,
+                format_func=lambda x: dm_type_labels[dm_type_options.index(x)],
+                index=dm_idx,
+                help="QRISK3 distinguishes Type 1 vs Type 2. Other scores use any diabetes.",
+            )
+        with col_dt2:
             on_statin = st.checkbox(
                 "On statin therapy",
                 value=bool(profile.get("on_statin", 0)),
             )
 
+        st.markdown("#### Medical History (for QRISK3)")
+        st.caption("Check all conditions that apply. These enable more accurate QRISK3 cardiovascular risk prediction.")
+        col_mh1, col_mh2, col_mh3 = st.columns(3)
+        with col_mh1:
+            fh_chd = st.checkbox(
+                "Family history of CHD (<60)",
+                value=bool(profile.get("family_history_chd", 0)),
+                help="First-degree relative with coronary heart disease under age 60",
+            )
+            af = st.checkbox(
+                "Atrial fibrillation",
+                value=bool(profile.get("atrial_fibrillation", 0)),
+            )
+            ra = st.checkbox(
+                "Rheumatoid arthritis",
+                value=bool(profile.get("rheumatoid_arthritis", 0)),
+            )
+            ckd = st.checkbox(
+                "Chronic kidney disease (stage 3-5)",
+                value=bool(profile.get("chronic_kidney_disease", 0)),
+            )
+        with col_mh2:
+            migraine = st.checkbox(
+                "Migraine",
+                value=bool(profile.get("migraine", 0)),
+            )
+            sle_val = st.checkbox(
+                "Systemic lupus (SLE)",
+                value=bool(profile.get("sle", 0)),
+            )
+            smi = st.checkbox(
+                "Severe mental illness",
+                value=bool(profile.get("severe_mental_illness", 0)),
+                help="Schizophrenia, bipolar disorder, or severe depression",
+            )
+            ed = st.checkbox(
+                "Erectile dysfunction",
+                value=bool(profile.get("erectile_dysfunction", 0)),
+                help="Males only — used in QRISK3 male model",
+            )
+        with col_mh3:
+            antipsych = st.checkbox(
+                "Atypical antipsychotic use",
+                value=bool(profile.get("atypical_antipsychotic", 0)),
+            )
+            cortico = st.checkbox(
+                "Oral corticosteroid use",
+                value=bool(profile.get("corticosteroid_use", 0)),
+                help="Regular use of oral steroid tablets",
+            )
+
         submitted = st.form_submit_button("Save Clinical Profile", use_container_width=True)
         if submitted:
             from models.clinical_profile import save_profile
+            # Derive diabetes_status from diabetes_type for backward compat
+            dm_status = 1 if diabetes_type in ("type1", "type2") else 0
             data = {
                 "date_of_birth": str(dob) if dob else None,
                 "sex": sex if sex else None,
                 "height_cm": height_cm,
                 "weight_kg": weight_kg,
                 "smoking_status": smoking if smoking else None,
-                "diabetes_status": 1 if diabetes else 0,
+                "diabetes_status": dm_status,
                 "systolic_bp": systolic,
                 "diastolic_bp": diastolic,
                 "on_bp_medication": 1 if on_bp_med else 0,
                 "on_statin": 1 if on_statin else 0,
+                "ethnicity": ethnicity,
+                "diabetes_type": diabetes_type,
+                "family_history_chd": 1 if fh_chd else 0,
+                "atrial_fibrillation": 1 if af else 0,
+                "rheumatoid_arthritis": 1 if ra else 0,
+                "chronic_kidney_disease": 1 if ckd else 0,
+                "migraine": 1 if migraine else 0,
+                "sle": 1 if sle_val else 0,
+                "severe_mental_illness": 1 if smi else 0,
+                "erectile_dysfunction": 1 if ed else 0,
+                "atypical_antipsychotic": 1 if antipsych else 0,
+                "corticosteroid_use": 1 if cortico else 0,
+                "sbp_variability": sbp_var if sbp_var > 0 else None,
+                "cigarettes_per_day": cigs,
             }
             save_profile(user_id, data)
             st.success("Clinical profile saved.")
