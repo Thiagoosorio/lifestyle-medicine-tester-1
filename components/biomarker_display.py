@@ -91,10 +91,22 @@ def render_biomarker_range_bar(result, definition=None):
         f'color:{cls_display["color"]}">{value}</div>'
     )
 
+    # Build reference range text
+    range_parts = []
+    if std_low is not None and std_high is not None:
+        range_parts.append(f"Ref: {std_low}-{std_high} {unit}")
+    elif std_high is not None:
+        range_parts.append(f"Ref: &lt;{std_high} {unit}")
+    elif std_low is not None:
+        range_parts.append(f"Ref: &gt;{std_low} {unit}")
+    if opt_low is not None and opt_high is not None:
+        range_parts.append(f"Optimal: {opt_low}-{opt_high}")
+    range_text = " &middot; ".join(range_parts)
+
     bar_html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
         f'border-radius:{A["radius_md"]};padding:14px 16px 32px 16px;margin-bottom:8px">'
-        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
         f'<div style="font-family:{A["font_display"]};font-size:14px;font-weight:600;'
         f'color:{A["label_primary"]}">{name}</div>'
         f'<div style="display:flex;align-items:center;gap:6px">'
@@ -105,6 +117,8 @@ def render_biomarker_range_bar(result, definition=None):
         f'color:{cls_display["color"]}">{cls_display["label"]}</span>'
         f'</div>'
         f'</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:8px">'
+        f'{range_text}</div>'
         f'<div style="position:relative;height:14px;background:{A["bg_tertiary"]};'
         f'border-radius:7px;overflow:visible">'
         f'{zones_html}'
@@ -164,8 +178,8 @@ def render_biomarker_summary_strip(summary):
     items = [
         ("Optimal", summary.get("optimal", 0), "#30D158"),
         ("Normal", summary.get("normal", 0), "#64D2FF"),
-        ("Low", summary.get("low", 0), "#FFD60A"),
-        ("High", summary.get("high", 0), "#FF9F0A"),
+        ("Borderline", summary.get("borderline", 0), "#FFD60A"),
+        ("Abnormal", summary.get("abnormal", 0), "#FF453A"),
         ("Critical", summary.get("critical", 0), "#FF453A"),
     ]
     cards = ""

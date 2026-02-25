@@ -54,14 +54,14 @@ with tab_dashboard:
         with col_summary:
             render_biomarker_summary_strip(summary)
             total = summary["total"]
-            optimal = summary["optimal"]
-            pct = round(optimal / total * 100) if total else 0
+            in_range = summary["optimal"] + summary["normal"]
+            pct = round(in_range / total * 100) if total else 0
             info_html = (
                 f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
                 f'border-radius:{A["radius_md"]};padding:14px;margin-top:8px">'
                 f'<div style="font-size:13px;color:{A["label_secondary"]}">'
-                f'<span style="font-weight:600;color:{A["label_primary"]}">{optimal}/{total}</span>'
-                f' markers in optimal range ({pct}%)'
+                f'<span style="font-weight:600;color:{A["label_primary"]}">{in_range}/{total}</span>'
+                f' markers in range ({pct}%)'
                 f'</div>'
                 f'</div>'
             )

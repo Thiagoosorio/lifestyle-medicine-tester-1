@@ -120,7 +120,16 @@ def get_results_for_biomarker(user_id, biomarker_id):
 
 def classify_result(value, definition):
     """Classify a result value against its definition ranges.
-    Returns: 'critical_low', 'low', 'normal', 'optimal', 'high', 'critical_high'
+
+    Uses deviation-based severity for out-of-range values:
+    - Within optimal range → 'optimal' (green)
+    - Within standard range → 'normal' (blue)
+    - Out of range, deviation ≤ 20% → 'borderline_low'/'borderline_high' (yellow)
+    - Out of range, deviation > 20% → 'low'/'high' (red)
+    - Beyond critical threshold → 'critical_low'/'critical_high' (red)
+
+    Returns: 'critical_low', 'low', 'borderline_low', 'normal', 'optimal',
+             'borderline_high', 'high', 'critical_high', 'unknown'
     """
     if value is None:
         return "unknown"
@@ -156,19 +165,44 @@ def classify_result(value, definition):
     if in_standard:
         return "normal"
 
-    # Outside standard
+    # Outside standard — classify severity by deviation percentage
     if std_low is not None and value < std_low:
+        if std_low > 0:
+            deviation_pct = (std_low - value) / std_low * 100
+        else:
+            deviation_pct = 100
+        if deviation_pct <= 20:
+            return "borderline_low"
         return "low"
-    return "high"
+
+    if std_high is not None and value > std_high:
+        if std_high > 0:
+            deviation_pct = (value - std_high) / std_high * 100
+        else:
+            deviation_pct = 100
+        if deviation_pct <= 20:
+            return "borderline_high"
+        return "high"
+
+    return "normal"
 
 
 def get_classification_display(classification):
-    """Return display properties for a classification."""
+    """Return display properties for a classification.
+
+    Color scheme follows clinical lab reporting best practice:
+    - Green: optimal range
+    - Blue: normal/standard range
+    - Yellow: borderline — slightly out of range (≤ 20% deviation)
+    - Red: abnormal — significantly out of range (> 20% deviation or critical)
+    """
     displays = {
         "optimal": {"label": "Optimal", "color": "#30D158", "icon": "&#10004;"},
         "normal": {"label": "Normal", "color": "#64D2FF", "icon": "&#9679;"},
-        "low": {"label": "Low", "color": "#FFD60A", "icon": "&#9660;"},
-        "high": {"label": "High", "color": "#FF9F0A", "icon": "&#9650;"},
+        "borderline_low": {"label": "Borderline Low", "color": "#FFD60A", "icon": "&#9660;"},
+        "borderline_high": {"label": "Borderline High", "color": "#FFD60A", "icon": "&#9650;"},
+        "low": {"label": "Low", "color": "#FF453A", "icon": "&#9660;"},
+        "high": {"label": "High", "color": "#FF453A", "icon": "&#9650;"},
         "critical_low": {"label": "Critical Low", "color": "#FF453A", "icon": "&#10071;"},
         "critical_high": {"label": "Critical High", "color": "#FF453A", "icon": "&#10071;"},
         "unknown": {"label": "Unknown", "color": "#AEAEB2", "icon": "&#8212;"},
@@ -182,8 +216,10 @@ def score_single_result(value, definition):
     scores = {
         "optimal": 100,
         "normal": 70,
-        "low": 40,
-        "high": 40,
+        "borderline_low": 50,
+        "borderline_high": 50,
+        "low": 25,
+        "high": 25,
         "critical_low": 10,
         "critical_high": 10,
         "unknown": 0,
@@ -217,15 +253,20 @@ def calculate_biomarker_score(user_id):
 def get_biomarker_summary(user_id):
     """Get summary counts by classification for the latest results."""
     results = get_latest_results(user_id)
-    summary = {"optimal": 0, "normal": 0, "low": 0, "high": 0, "critical": 0, "total": len(results)}
+    summary = {
+        "optimal": 0, "normal": 0, "borderline": 0,
+        "abnormal": 0, "critical": 0, "total": len(results),
+    }
     for r in results:
         cls = classify_result(r["value"], r)
         if cls == "optimal":
             summary["optimal"] += 1
         elif cls == "normal":
             summary["normal"] += 1
+        elif cls in ("borderline_low", "borderline_high"):
+            summary["borderline"] += 1
         elif cls in ("low", "high"):
-            summary[cls] += 1
+            summary["abnormal"] += 1
         elif cls.startswith("critical"):
             summary["critical"] += 1
     return summary
