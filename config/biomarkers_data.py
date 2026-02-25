@@ -398,6 +398,82 @@ BIOMARKER_DEFINITIONS = [
         "clinical_note": "Deficiency common in elderly, vegetarians, and those with GI disease. Excess competes with copper.",
         "pillar_id": 1, "sort_order": 91,
     },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # ADDITIONAL BIOMARKERS FOR ORGAN HEALTH SCORES
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "albumin", "name": "Albumin", "category": "liver",
+        "unit": "g/dL", "standard_low": 3.5, "standard_high": 5.5,
+        "optimal_low": 4.0, "optimal_high": 5.0,
+        "critical_low": 2.5, "critical_high": None,
+        "description": "Major plasma protein synthesized by the liver. Marker of liver synthetic function and nutritional status.",
+        "clinical_note": "Low albumin indicates chronic liver disease, malnutrition, or nephrotic syndrome. Used in NAFLD-FS and Glasgow Prognostic Score.",
+        "pillar_id": 1, "sort_order": 63,
+    },
+    {
+        "code": "uacr", "name": "Urine Albumin-to-Creatinine Ratio", "category": "kidney",
+        "unit": "mg/g", "standard_low": None, "standard_high": 30,
+        "optimal_low": None, "optimal_high": 10,
+        "critical_low": None, "critical_high": 300,
+        "description": "Measures albumin leakage into urine. Sensitive early marker of kidney damage.",
+        "clinical_note": "KDIGO 2024: A1 (<30), A2 (30-300), A3 (>300). Used in KDIGO CKD Risk Category.",
+        "pillar_id": None, "sort_order": 73,
+    },
+    {
+        "code": "neutrophils_abs", "name": "Neutrophils (Absolute)", "category": "blood_count",
+        "unit": "K/uL", "standard_low": 1.5, "standard_high": 8.0,
+        "optimal_low": 2.0, "optimal_high": 6.0,
+        "critical_low": 0.5, "critical_high": 20.0,
+        "description": "Absolute neutrophil count from CBC with differential.",
+        "clinical_note": "Used in NLR and SII inflammatory indices. Low = neutropenia risk. High = acute infection/inflammation.",
+        "pillar_id": None, "sort_order": 84,
+    },
+    {
+        "code": "lymphocytes_abs", "name": "Lymphocytes (Absolute)", "category": "blood_count",
+        "unit": "K/uL", "standard_low": 1.0, "standard_high": 4.8,
+        "optimal_low": 1.5, "optimal_high": 3.5,
+        "critical_low": 0.5, "critical_high": 10.0,
+        "description": "Absolute lymphocyte count from CBC with differential.",
+        "clinical_note": "Used in NLR and SII inflammatory indices. Low lymphocytes associated with immune compromise.",
+        "pillar_id": None, "sort_order": 85,
+    },
+    {
+        "code": "mcv", "name": "MCV (Mean Corpuscular Volume)", "category": "blood_count",
+        "unit": "fL", "standard_low": 80, "standard_high": 100,
+        "optimal_low": 82, "optimal_high": 95,
+        "critical_low": 60, "critical_high": 120,
+        "description": "Average red blood cell volume. Low = microcytic (iron deficiency), high = macrocytic (B12/folate deficiency).",
+        "clinical_note": "Key for anemia classification. Low MCV → iron studies. High MCV → B12/folate levels.",
+        "pillar_id": None, "sort_order": 86,
+    },
+    {
+        "code": "rdw", "name": "RDW (Red Cell Distribution Width)", "category": "blood_count",
+        "unit": "%", "standard_low": 11.5, "standard_high": 14.5,
+        "optimal_low": 11.5, "optimal_high": 13.5,
+        "critical_low": None, "critical_high": 20.0,
+        "description": "Measures variation in red blood cell size. Elevated in mixed anemias and inflammatory states.",
+        "clinical_note": "Elevated RDW is an independent predictor of all-cause mortality (PMID: 20442389).",
+        "pillar_id": None, "sort_order": 87,
+    },
+    {
+        "code": "tibc", "name": "TIBC (Total Iron-Binding Capacity)", "category": "minerals",
+        "unit": "ug/dL", "standard_low": 250, "standard_high": 370,
+        "optimal_low": 260, "optimal_high": 350,
+        "critical_low": None, "critical_high": 500,
+        "description": "Indirect measure of transferrin. High TIBC suggests iron deficiency.",
+        "clinical_note": "Interpret alongside ferritin and serum iron. High TIBC + low ferritin = iron deficiency anemia.",
+        "pillar_id": 1, "sort_order": 92,
+    },
+    {
+        "code": "transferrin_sat", "name": "Transferrin Saturation", "category": "minerals",
+        "unit": "%", "standard_low": 20, "standard_high": 50,
+        "optimal_low": 25, "optimal_high": 45,
+        "critical_low": 10, "critical_high": 60,
+        "description": "Percentage of transferrin saturated with iron. Key marker for iron status assessment.",
+        "clinical_note": "Low (<20%) suggests iron deficiency. High (>45%) may indicate iron overload/hemochromatosis.",
+        "pillar_id": 1, "sort_order": 93,
+    },
 ]
 
 # Category display order and labels

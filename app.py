@@ -44,6 +44,7 @@ else:
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
                 st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
                 st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),
+                st.Page("pages/organ_health.py", title="Organ Scores", icon=":material/monitor_heart:"),
                 st.Page("pages/sleep_tracker.py", title="Sleep", icon=":material/bedtime:"),
                 st.Page("pages/nutrition_logger.py", title="Nutrition", icon=":material/restaurant:"),
                 st.Page("pages/diet_assessment.py", title="Diet Pattern", icon=":material/eco:"),

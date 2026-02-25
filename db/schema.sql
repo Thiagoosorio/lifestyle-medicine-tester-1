@@ -877,3 +877,58 @@ CREATE TABLE IF NOT EXISTS sibo_user_state (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id)
 );
+
+-- ═══════════════════════════════════════════════════════════════
+-- ORGAN HEALTH SCORES
+-- ═══════════════════════════════════════════════════════════════
+
+-- Clinical/demographic inputs needed for certain scores
+CREATE TABLE IF NOT EXISTS user_clinical_profile (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL UNIQUE REFERENCES users(id),
+    date_of_birth   TEXT,
+    sex             TEXT CHECK (sex IN ('male', 'female')),
+    height_cm       REAL,
+    weight_kg       REAL,
+    smoking_status  TEXT CHECK (smoking_status IN ('never', 'former', 'current')),
+    diabetes_status INTEGER DEFAULT 0,
+    systolic_bp     REAL,
+    diastolic_bp    REAL,
+    on_bp_medication INTEGER DEFAULT 0,
+    on_statin       INTEGER DEFAULT 0,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Organ score definitions (seeded from config)
+CREATE TABLE IF NOT EXISTS organ_score_definitions (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    code                TEXT NOT NULL UNIQUE,
+    name                TEXT NOT NULL,
+    organ_system        TEXT NOT NULL,
+    tier                TEXT NOT NULL CHECK (tier IN ('validated', 'derived')),
+    formula_key         TEXT NOT NULL,
+    required_biomarkers TEXT NOT NULL,   -- JSON array of biomarker codes
+    required_clinical   TEXT,            -- JSON array of clinical profile fields
+    interpretation      TEXT NOT NULL,   -- JSON: ranges with labels + severity
+    citation_pmid       TEXT,
+    citation_text       TEXT,
+    description         TEXT,
+    sort_order          INTEGER DEFAULT 0
+);
+
+-- Computed organ score results (append-only log)
+CREATE TABLE IF NOT EXISTS organ_score_results (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    score_def_id    INTEGER NOT NULL REFERENCES organ_score_definitions(id),
+    value           REAL NOT NULL,
+    label           TEXT NOT NULL,
+    severity        TEXT NOT NULL CHECK (severity IN ('optimal','normal','elevated','high','critical')),
+    input_snapshot  TEXT NOT NULL,       -- JSON of all inputs used
+    lab_date        TEXT NOT NULL,
+    computed_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, score_def_id, lab_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_organscore_user ON organ_score_results(user_id, computed_at);
+CREATE INDEX IF NOT EXISTS idx_organscore_def ON organ_score_results(score_def_id);

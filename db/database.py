@@ -88,3 +88,8 @@ def _seed_science_data():
         seed_food_database()
     except Exception:
         pass
+    try:
+        from services.organ_score_service import seed_organ_score_definitions
+        seed_organ_score_definitions()
+    except Exception:
+        pass

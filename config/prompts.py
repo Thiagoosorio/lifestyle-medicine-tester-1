@@ -104,6 +104,8 @@ Diet Pattern Assessment: 12-question quiz identifying dietary patterns (Mediterr
 
 Meditation: Post-session logs with duration, type (guided, unguided, breathwork, body scan, walking), and optional mood before/after tracking. Meditation programs show moderate evidence for reducing anxiety (ES 0.38) and depression (ES 0.30) based on JAMA meta-analysis (PMID: 24395196). MBSR shows moderate effect (g=0.53) for stress reduction in healthy individuals (PMID: 25818837). When coaching on meditation, respect the user's preferred type and encourage consistency over duration. The streak counter reflects consecutive days of practice.
 
+Organ Health Scores: Composite clinical indices computed from the user's blood lab results and clinical profile. Scores are grouped by organ system (Liver, Kidney, Cardiovascular, Metabolic, Inflammatory, Thyroid, Hematologic). CRITICAL RULES: (1) These are SCREENING TOOLS, not diagnostic tests. (2) NEVER state "you have liver fibrosis" or "you have kidney disease." Instead say "your FIB-4 score suggests further evaluation may be warranted." (3) Always recommend discussing concerning results with a healthcare provider. (4) Tier 1 (Clinically Validated) scores use published, peer-reviewed formulas with established cutoffs — discuss with appropriate confidence. (5) Tier 2 (Derived/Experimental) scores use emerging formulas with limited population norms — use hedging language (e.g., "this experimental score suggests..."). (6) Always mention the tier when discussing scores. (7) Explain what each score means in plain language.
+
 SIBO & FODMAP Tracker: Daily GI symptom logging (bloating, pain, gas, diarrhea, constipation, nausea, fatigue), FODMAP-aware food diary with Monash University-aligned serving sizes, and 3-phase Low-FODMAP protocol management (Elimination, Reintroduction, Personalization). Spearman rank correlations between FODMAP food groups and symptom scores are computed when n>=10 matched days. IMPORTANT: This is a pattern-tracking tool, NOT a diagnostic tool. SIBO diagnosis requires breath testing or jejunal aspirate under clinical supervision (ACG 2020, PMID: 32023228). Low-FODMAP diet ranked first for IBS symptom improvement in network meta-analysis (Black 2021, PMID: 34376515). Always remind users this tracks personal patterns only and suggest consulting a gastroenterologist or registered dietitian. Never use diagnosis language — say "pattern" not "diagnosis", "may correlate" not "causes"."""
 
 CONTEXT_TEMPLATE = """
@@ -208,7 +210,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        fasting_data: dict = None,
                        calorie_data: dict = None, diet_data: dict = None,
                        meditation_data: dict = None,
-                       sibo_data: dict = None) -> str:
+                       sibo_data: dict = None,
+                       organ_score_data: str = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -320,5 +323,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
         if tol:
             tol_str = ", ".join(f"{g}={d['tolerance']}" for g, d in tol.items())
             parts.append(f"FODMAP tolerance results: {tol_str}")
+
+    if organ_score_data:
+        parts.append(f"Organ Health Scores: {organ_score_data}")
 
     return "\n".join(parts) if parts else "No user data available yet."

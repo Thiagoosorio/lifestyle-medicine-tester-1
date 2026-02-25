@@ -5,17 +5,16 @@ from datetime import date
 
 
 def seed_biomarker_definitions():
-    """Populate biomarker_definitions from config (idempotent)."""
-    conn = get_connection()
-    existing = conn.execute("SELECT COUNT(*) FROM biomarker_definitions").fetchone()[0]
-    if existing > 0:
-        conn.close()
-        return
+    """Populate biomarker_definitions from config (idempotent).
 
+    Uses INSERT OR IGNORE so new biomarkers added to config are picked up
+    on existing databases without duplicating existing rows.
+    """
     from config.biomarkers_data import BIOMARKER_DEFINITIONS
+    conn = get_connection()
     for bm in BIOMARKER_DEFINITIONS:
         conn.execute(
-            """INSERT INTO biomarker_definitions
+            """INSERT OR IGNORE INTO biomarker_definitions
                (code, name, category, unit, standard_low, standard_high,
                 optimal_low, optimal_high, critical_low, critical_high,
                 description, clinical_note, pillar_id, sort_order)

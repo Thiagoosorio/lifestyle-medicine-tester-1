@@ -101,6 +101,15 @@ def _assemble_user_context(user_id: int) -> str:
     except Exception:
         pass
 
+    organ_score_data = None
+    try:
+        from services.organ_score_service import get_organ_score_summary
+        organ_summary = get_organ_score_summary(user_id)
+        if organ_summary:
+            organ_score_data = organ_summary
+    except Exception:
+        pass
+
     sibo_data = None
     try:
         from services.sibo_service import get_symptom_averages as sibo_sym_avg, get_current_phase as sibo_phase, get_tolerance_summary as sibo_tol
@@ -176,6 +185,7 @@ def _assemble_user_context(user_id: int) -> str:
         diet_data=diet_data,
         meditation_data=meditation_data,
         sibo_data=sibo_data,
+        organ_score_data=organ_score_data,
     )
 
 
