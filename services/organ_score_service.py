@@ -84,6 +84,11 @@ def _mgdl_to_mmol_tg(mg: float) -> float:
     return mg / 88.57
 
 
+def _mgdl_to_mmol_chol(mg: float) -> float:
+    """Convert cholesterol mg/dL to mmol/L."""
+    return mg / 38.67
+
+
 def _ngdl_to_pmol_ft4(ngdl: float) -> float:
     """Convert Free T4 from ng/dL to pmol/L."""
     return ngdl * 12.871
@@ -427,6 +432,170 @@ def calc_nlr(neutrophils: float, lymphocytes: float) -> float | None:
     if lymphocytes is None or lymphocytes <= 0:
         return None
     return round(neutrophils / lymphocytes, 2)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CARDIOVASCULAR: ADDITIONAL VALIDATED SCORES
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_framingham_cvd(age: float, sex: str, total_chol: float, hdl: float,
+                        systolic_bp: float, on_bp_med: bool, smoking: bool,
+                        diabetes: bool) -> float | None:
+    """Framingham General CVD 10-year risk %.
+
+    Sex-specific Cox proportional hazards model. Valid ages 30-74.
+    Predicts composite CVD: CHD, stroke, PVD, and heart failure.
+
+    PMID: 18212285 — D'Agostino RB Sr et al. Circulation 2008.
+    Coefficients from Table 4 (simplified office-based model).
+    """
+    if age < 30 or age > 74:
+        return None
+    if total_chol <= 0 or hdl <= 0 or systolic_bp <= 0:
+        return None
+
+    ln_age = math.log(age)
+    ln_tc = math.log(total_chol)
+    ln_hdl = math.log(hdl)
+    ln_sbp = math.log(systolic_bp)
+    smoke_val = 1.0 if smoking else 0.0
+    dm_val = 1.0 if diabetes else 0.0
+
+    if sex == "female":
+        if on_bp_med:
+            beta = (
+                2.32888 * ln_age
+                + 1.20904 * ln_tc
+                - 0.70833 * ln_hdl
+                + 2.82263 * ln_sbp
+                + 0.52873 * smoke_val
+                + 0.69154 * dm_val
+            )
+        else:
+            beta = (
+                2.32888 * ln_age
+                + 1.20904 * ln_tc
+                - 0.70833 * ln_hdl
+                + 2.76157 * ln_sbp
+                + 0.52873 * smoke_val
+                + 0.69154 * dm_val
+            )
+        baseline_survival = 0.95012
+        mean_beta = 26.1931
+    else:
+        if on_bp_med:
+            beta = (
+                3.06117 * ln_age
+                + 1.12370 * ln_tc
+                - 0.93263 * ln_hdl
+                + 1.99881 * ln_sbp
+                + 0.65451 * smoke_val
+                + 0.57367 * dm_val
+            )
+        else:
+            beta = (
+                3.06117 * ln_age
+                + 1.12370 * ln_tc
+                - 0.93263 * ln_hdl
+                + 1.93303 * ln_sbp
+                + 0.65451 * smoke_val
+                + 0.57367 * dm_val
+            )
+        baseline_survival = 0.88936
+        mean_beta = 23.9802
+
+    risk = 1.0 - baseline_survival ** math.exp(beta - mean_beta)
+    return round(max(0, min(risk * 100, 100)), 1)
+
+
+def calc_non_hdl_c(total_chol: float, hdl: float) -> float | None:
+    """Non-HDL Cholesterol = Total Cholesterol - HDL (mg/dL).
+
+    Captures all atherogenic lipoproteins (LDL + VLDL + IDL + Lp(a)).
+    AHA/ACC 2019 secondary treatment target (30 mg/dL above LDL goal).
+
+    PMID: 30586774 — Grundy SM et al. Circulation 2019.
+    """
+    if total_chol <= 0 or hdl <= 0:
+        return None
+    result = total_chol - hdl
+    if result < 0:
+        return None
+    return round(result, 0)
+
+
+def calc_castelli_ratio(total_chol: float, hdl: float) -> float | None:
+    """Castelli Risk Index I = Total Cholesterol / HDL Cholesterol.
+
+    Framingham-derived. Ratio >5.0 doubles CHD risk.
+
+    PMID: 6825228 — Castelli WP et al. Can Med Assoc J 1986.
+    """
+    if total_chol <= 0 or hdl <= 0:
+        return None
+    return round(total_chol / hdl, 2)
+
+
+def calc_aip(tg_mgdl: float, hdl_mgdl: float) -> float | None:
+    """Atherogenic Index of Plasma = log10(TG / HDL) in mmol/L.
+
+    Both TG and HDL input in mg/dL, converted to mmol/L internally.
+    Reflects LDL particle size distribution.
+
+    PMID: 16526201 — Dobiasova M, Frohlich J. Clin Biochem 2001.
+    """
+    if tg_mgdl <= 0 or hdl_mgdl <= 0:
+        return None
+    tg_mmol = _mgdl_to_mmol_tg(tg_mgdl)
+    hdl_mmol = _mgdl_to_mmol_chol(hdl_mgdl)
+    if hdl_mmol <= 0:
+        return None
+    return round(math.log10(tg_mmol / hdl_mmol), 3)
+
+
+def calc_tg_hdl_ratio(tg_mgdl: float, hdl_mgdl: float) -> float | None:
+    """TG/HDL Ratio (mg/dL units).
+
+    Surrogate for insulin resistance and small dense LDL particles.
+    Ratio >3.5 strongly associated with atherogenic dyslipidemia.
+
+    PMID: 39062066 — Shin JH et al. Lipids Health Dis 2024.
+    Original: PMID: 9323100 — Gaziano JM et al. Circulation 1997.
+    """
+    if tg_mgdl <= 0 or hdl_mgdl <= 0:
+        return None
+    return round(tg_mgdl / hdl_mgdl, 2)
+
+
+def calc_remnant_cholesterol(total_chol: float, hdl: float,
+                              ldl: float) -> float | None:
+    """Remnant Cholesterol = TC - HDL - LDL (mg/dL).
+
+    Represents cholesterol in triglyceride-rich lipoproteins (VLDL + IDL).
+    Each 39 mg/dL increase → 2.8x causal risk of IHD (Mendelian randomization).
+
+    PMID: 23886913 — Varbo A et al. Eur Heart J 2013.
+    """
+    if total_chol <= 0 or hdl <= 0 or ldl <= 0:
+        return None
+    remnant = total_chol - hdl - ldl
+    if remnant < 0:
+        return None
+    return round(remnant, 0)
+
+
+def calc_lpa_risk(lpa: float) -> float | None:
+    """Lp(a) Risk Categorization (mg/dL).
+
+    EAS 2022: Desirable <30, Borderline 30-50, Elevated >50 mg/dL.
+    AHA/ACC 2019: >=50 mg/dL (125 nmol/L) = ASCVD risk-enhancing factor.
+    Returns the Lp(a) value itself — interpretation ranges handle categorization.
+
+    PMID: 36036785 — Kronenberg F et al. Eur Heart J 2022.
+    """
+    if lpa is None or lpa < 0:
+        return None
+    return round(lpa, 1)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -855,6 +1024,34 @@ def _build_iron_composite_args(bio, clin):
 def _build_cbc_composite_args(bio, clin):
     return {"hemoglobin": bio.get("hemoglobin"), "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": bio.get("wbc"), "platelets": bio.get("platelets")}
 
+def _build_framingham_cvd_args(bio, clin):
+    return {
+        "age": clin.get("age"), "sex": clin.get("sex"),
+        "total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol"),
+        "systolic_bp": clin.get("systolic_bp"),
+        "on_bp_med": bool(clin.get("on_bp_medication")),
+        "smoking": clin.get("smoking_status") == "current",
+        "diabetes": bool(clin.get("diabetes_status")),
+    }
+
+def _build_non_hdl_c_args(bio, clin):
+    return {"total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol")}
+
+def _build_castelli_ratio_args(bio, clin):
+    return {"total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol")}
+
+def _build_aip_args(bio, clin):
+    return {"tg_mgdl": bio.get("triglycerides"), "hdl_mgdl": bio.get("hdl_cholesterol")}
+
+def _build_tg_hdl_ratio_args(bio, clin):
+    return {"tg_mgdl": bio.get("triglycerides"), "hdl_mgdl": bio.get("hdl_cholesterol")}
+
+def _build_remnant_cholesterol_args(bio, clin):
+    return {"total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol"), "ldl": bio.get("ldl_cholesterol")}
+
+def _build_lpa_risk_args(bio, clin):
+    return {"lpa": bio.get("lpa")}
+
 def _build_hsi_args(bio, clin):
     return {"alt": bio.get("alt"), "ast": bio.get("ast"), "bmi": clin.get("bmi"), "sex": clin.get("sex"), "diabetes": clin.get("diabetes_status", 0)}
 
@@ -903,6 +1100,13 @@ FORMULA_DISPATCH = {
     "calc_spina_gd": (calc_spina_gd, _build_spina_gd_args),
     "calc_iron_status_composite": (calc_iron_status_composite, _build_iron_composite_args),
     "calc_cbc_composite": (calc_cbc_composite, _build_cbc_composite_args),
+    "calc_framingham_cvd": (calc_framingham_cvd, _build_framingham_cvd_args),
+    "calc_non_hdl_c": (calc_non_hdl_c, _build_non_hdl_c_args),
+    "calc_castelli_ratio": (calc_castelli_ratio, _build_castelli_ratio_args),
+    "calc_aip": (calc_aip, _build_aip_args),
+    "calc_tg_hdl_ratio": (calc_tg_hdl_ratio, _build_tg_hdl_ratio_args),
+    "calc_remnant_cholesterol": (calc_remnant_cholesterol, _build_remnant_cholesterol_args),
+    "calc_lpa_risk": (calc_lpa_risk, _build_lpa_risk_args),
     "calc_hsi": (calc_hsi, _build_hsi_args),
     "calc_quicki": (calc_quicki, _build_quicki_args),
     "calc_plr": (calc_plr, _build_plr_args),

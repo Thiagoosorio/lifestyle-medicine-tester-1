@@ -171,6 +171,157 @@ ORGAN_SCORE_DEFINITIONS = [
         "sort_order": 21,
     },
     # ═══════════════════════════════════════════════════════════════════════════
+    # CARDIOVASCULAR — Tier 1 (additional validated scores)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "framingham_cvd",
+        "name": "Framingham General CVD (2008)",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_framingham_cvd",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol"],
+        "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 10.0, "label": "Low 10-year general CVD risk (<10%)", "severity": "optimal"},
+                {"min": 10.0, "max": 20.0, "label": "Intermediate CVD risk (10-20%)", "severity": "elevated"},
+                {"min": 20.0, "max": 30.0, "label": "High CVD risk (20-30%)", "severity": "high"},
+                {"min": 30.0, "label": "Very high CVD risk (>=30%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "18212285",
+        "citation_text": "D'Agostino RB Sr et al. Circulation 2008;117(6):743-53. Framingham Heart Study (n=8,491). [Q1, top 10%]. Includes CHD, stroke, PVD, and HF — broader than ASCVD PCE.",
+        "description": "Framingham General Cardiovascular Disease 10-year risk. Sex-specific Cox model. Predicts CHD, stroke, PVD, and heart failure. Valid ages 30-74.",
+        "sort_order": 22,
+    },
+    {
+        "code": "non_hdl_c",
+        "name": "Non-HDL Cholesterol",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_non_hdl_c",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 130, "label": "Optimal (<130 mg/dL)", "severity": "optimal"},
+                {"min": 130, "max": 160, "label": "Near optimal (130-159 mg/dL)", "severity": "normal"},
+                {"min": 160, "max": 190, "label": "Borderline high (160-189 mg/dL)", "severity": "elevated"},
+                {"min": 190, "max": 220, "label": "High (190-219 mg/dL)", "severity": "high"},
+                {"min": 220, "label": "Very high (>=220 mg/dL)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "30586774",
+        "citation_text": "Grundy SM et al. Circulation 2019;139(25):e1082-e1143. AHA/ACC Cholesterol Guideline. [Q1, top 10%]. Non-HDL-C = secondary target after LDL-C.",
+        "description": "Non-HDL Cholesterol = Total Cholesterol - HDL. Captures all atherogenic lipoprotein particles (LDL + VLDL + IDL + Lp(a)). AHA/ACC secondary treatment target.",
+        "sort_order": 23,
+    },
+    {
+        "code": "castelli_ratio",
+        "name": "Cardiac Risk Ratio (Castelli Index I)",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_castelli_ratio",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 3.5, "label": "Low cardiovascular risk", "severity": "optimal"},
+                {"min": 3.5, "max": 5.0, "label": "Moderate cardiovascular risk", "severity": "normal"},
+                {"min": 5.0, "max": 6.0, "label": "High cardiovascular risk", "severity": "elevated"},
+                {"min": 6.0, "label": "Very high cardiovascular risk", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "6825228",
+        "citation_text": "Castelli WP et al. Can Med Assoc J 1986;134(8):863-7. Framingham Study. Ratio >5.0 doubles CHD risk. [Q1]",
+        "description": "Total Cholesterol / HDL Cholesterol ratio. Framingham-derived. Risk ratio >5.0 associated with doubled CHD risk. Simple, widely used atherogenic index.",
+        "sort_order": 24,
+    },
+    {
+        "code": "aip",
+        "name": "Atherogenic Index of Plasma (AIP)",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_aip",
+        "required_biomarkers": ["triglycerides", "hdl_cholesterol"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.11, "label": "Low atherogenic risk", "severity": "optimal"},
+                {"min": 0.11, "max": 0.21, "label": "Intermediate atherogenic risk", "severity": "normal"},
+                {"min": 0.21, "max": 0.40, "label": "Increased atherogenic risk", "severity": "elevated"},
+                {"min": 0.40, "label": "High atherogenic risk", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "16526201",
+        "citation_text": "Dobiasova M, Frohlich J. Clin Biochem 2001;34(7):583-8. AIP = log10(TG/HDL) in mmol/L. Validated: Dobiasova M. Clin Chem Lab Med 2004;42(12):1369-71. PMID: 15576299",
+        "description": "AIP = log10(TG/HDL) with both in mmol/L. Reflects LDL particle size — higher AIP correlates with small dense LDL. Validated predictor of coronary artery disease.",
+        "sort_order": 25,
+    },
+    {
+        "code": "tg_hdl_ratio",
+        "name": "TG/HDL Ratio",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_tg_hdl_ratio",
+        "required_biomarkers": ["triglycerides", "hdl_cholesterol"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 2.0, "label": "Low risk — likely large buoyant LDL", "severity": "optimal"},
+                {"min": 2.0, "max": 3.5, "label": "Moderate risk", "severity": "normal"},
+                {"min": 3.5, "max": 5.0, "label": "High risk — likely small dense LDL", "severity": "elevated"},
+                {"min": 5.0, "label": "Very high risk — insulin resistance likely", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "39062066",
+        "citation_text": "Shin JH et al. Lipids Health Dis 2024;23(1):243. Meta-analysis: TG/HDL ratio predicts CVD events and insulin resistance. [Q1]. Original: Gaziano JM et al. Circulation 1997. PMID: 9323100",
+        "description": "Triglyceride-to-HDL ratio in mg/dL. Surrogate for insulin resistance and small dense LDL particles. Ratio >3.5 strongly associated with atherogenic dyslipidemia.",
+        "sort_order": 26,
+    },
+    {
+        "code": "remnant_cholesterol",
+        "name": "Remnant Cholesterol",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_remnant_cholesterol",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol", "ldl_cholesterol"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 24, "label": "Normal remnant cholesterol", "severity": "optimal"},
+                {"min": 24, "max": 35, "label": "Elevated remnant cholesterol", "severity": "elevated"},
+                {"min": 35, "label": "High remnant cholesterol — increased CVD risk", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "23886913",
+        "citation_text": "Varbo A et al. Eur Heart J 2013;34(24):1826-33. Copenhagen General Population Study (n=73,513). Each 39 mg/dL increase → 2.8x causal risk of IHD. [Q1, top 10%]",
+        "description": "Remnant Cholesterol = TC - HDL - LDL (mg/dL). Represents cholesterol in triglyceride-rich lipoproteins (VLDL, IDL, chylomicron remnants). Causal risk factor for CHD via Mendelian randomization.",
+        "sort_order": 27,
+    },
+    {
+        "code": "lpa_risk",
+        "name": "Lp(a) Risk Category",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_lpa_risk",
+        "required_biomarkers": ["lpa"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 30, "label": "Desirable Lp(a) — low added CVD risk", "severity": "optimal"},
+                {"min": 30, "max": 50, "label": "Borderline Lp(a)", "severity": "normal"},
+                {"min": 50, "max": 75, "label": "Intermediate Lp(a) — consider risk enhancer", "severity": "elevated"},
+                {"min": 75, "max": 125, "label": "Elevated Lp(a) — risk-enhancing factor", "severity": "high"},
+                {"min": 125, "label": "Very high Lp(a) — major ASCVD risk enhancer", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "36036785",
+        "citation_text": "Kronenberg F et al. Eur Heart J 2022;43(39):3925-46. EAS Consensus Statement. [Q1, top 10%]. >50 mg/dL (125 nmol/L) = risk-enhancing factor per AHA/ACC 2019.",
+        "description": "Lp(a) risk categorization per EAS 2022 and AHA/ACC 2019. Genetically determined, not modifiable by statins. Values in mg/dL. Each 50 nmol/L (~20 mg/dL) increase raises ASCVD risk ~20%.",
+        "sort_order": 28,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
     # METABOLIC — Tier 1
     # ═══════════════════════════════════════════════════════════════════════════
     {
