@@ -113,6 +113,15 @@ def _migrate(conn):
             token_expires_at INTEGER, last_sync TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id))""",
+        # Exercise prescription programs
+        """CREATE TABLE IF NOT EXISTS exercise_programs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            level TEXT NOT NULL,
+            schedule TEXT NOT NULL,
+            goal TEXT NOT NULL DEFAULT 'hypertrophy',
+            program_json TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')))""",
     ]
     for sql in table_migrations:
         try:

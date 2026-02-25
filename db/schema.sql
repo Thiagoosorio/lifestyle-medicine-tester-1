@@ -1023,3 +1023,20 @@ CREATE TABLE IF NOT EXISTS strava_connections (
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id)
 );
+
+-- ═══════════════════════════════════════════════════════════════
+-- EXERCISE PRESCRIPTION PROGRAMS
+-- ═══════════════════════════════════════════════════════════════
+
+-- Saved training programs (PPL / periodized)
+CREATE TABLE IF NOT EXISTS exercise_programs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    level           TEXT NOT NULL,
+    schedule        TEXT NOT NULL,
+    goal            TEXT NOT NULL DEFAULT 'hypertrophy',
+    program_json    TEXT NOT NULL,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercise_programs_user ON exercise_programs(user_id, created_at);
