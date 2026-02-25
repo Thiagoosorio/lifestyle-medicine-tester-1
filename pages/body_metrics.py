@@ -32,7 +32,7 @@ PLOTLY_LAYOUT_DEFAULTS = dict(
 def bmi_category(bmi):
     """Return (label, color) for a BMI value."""
     if bmi is None:
-        return ("--", "#888888")
+        return ("--", "#AEAEB2")
     if bmi < 18.5:
         return ("Underweight", "#FFC107")
     if bmi < 25.0:
@@ -45,7 +45,7 @@ def bmi_category(bmi):
 def bmi_bar_color(bmi):
     """Return color for BMI bar chart segment."""
     if bmi is None:
-        return "#888888"
+        return "#AEAEB2"
     if bmi < 18.5:
         return "#FFC107"
     if bmi < 25.0:
@@ -58,7 +58,7 @@ def bmi_bar_color(bmi):
 def waist_hip_zone(ratio, gender="unknown"):
     """Return (label, color) health zone for waist-to-hip ratio."""
     if ratio is None:
-        return ("--", "#888888")
+        return ("--", "#AEAEB2")
     # General guidelines (WHO)
     if gender == "female":
         if ratio <= 0.80:
@@ -399,13 +399,13 @@ if len(weight_df) >= 1:
             title="Weight (kg)",
             range=[y_min, y_max],
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.5)",
+            color="rgba(255,255,255,0.7)",
         ),
         xaxis=dict(
             title="Date",
             showgrid=False,
             tickformat="%b %d",
-            color="rgba(255,255,255,0.5)",
+            color="rgba(255,255,255,0.7)",
         ),
         hovermode="x unified",
     )
@@ -467,11 +467,11 @@ if has_waist or has_hip or has_bf:
     layout_updates = dict(
         **PLOTLY_LAYOUT_DEFAULTS,
         height=380,
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.5)"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.7)"),
         yaxis=dict(
             title="Measurement (cm)",
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.5)",
+            color="rgba(255,255,255,0.7)",
         ),
         hovermode="x unified",
     )
@@ -553,9 +553,9 @@ if len(bmi_df) >= 1 and height:
             title="BMI",
             range=[bmi_y_min, bmi_y_max + 2],
             showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.5)",
+            color="rgba(255,255,255,0.7)",
         ),
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.5)"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.7)"),
         bargap=0.3,
     )
 
@@ -652,7 +652,7 @@ if len(df) >= 2:
     with col_spacer:
         st.markdown(
             "<div style='display:flex;align-items:center;justify-content:center;height:100%;padding-top:60px;'>"
-            "<span style='font-size:2em;color:#888;'>&#10132;</span></div>",
+            "<span style='font-size:2em;color:#AEAEB2;'>&#10132;</span></div>",
             unsafe_allow_html=True,
         )
 

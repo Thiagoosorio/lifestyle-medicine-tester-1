@@ -173,7 +173,7 @@ FASTING_TYPES = {
         "eating_window": None,
         "difficulty": 0,
         "description": "Set your own fasting duration.",
-        "color": "#8E8E93",
+        "color": "#AEAEB2",
     },
 }
 

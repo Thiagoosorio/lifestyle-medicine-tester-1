@@ -40,7 +40,7 @@ def render_stage_timeline(stages_history: list):
                 f'<div style="text-align:center">'
                 f'<div style="background-color:{color}; color:white; padding:4px 8px; '
                 f'border-radius:8px; font-size:0.75em; font-weight:bold">{label}</div>'
-                f'<div style="font-size:0.7em; color:#666; margin-top:2px">{entry["assessed_at"][:10]}</div>'
+                f'<div style="font-size:0.7em; color:rgba(235,235,245,0.72); margin-top:2px">{entry["assessed_at"][:10]}</div>'
                 f'</div>',
                 unsafe_allow_html=True,
             )

@@ -208,10 +208,10 @@ else:
                     st.rerun()
             with _pcol2:
                 _pil = PILLARS.get(_p["pillar_id"], {})
-                _pil_color = _pil.get("color", "#888")
+                _pil_color = _pil.get("color", "#AEAEB2")
                 _pil_emoji = {1: "&#127813;", 2: "&#127939;", 3: "&#127769;", 4: "&#129502;", 5: "&#128101;", 6: "&#128683;"}.get(_p["pillar_id"], "")
                 _timing = f' &middot; {_p["timing"]}' if _p.get("timing") else ""
-                _line_style = f"text-decoration:line-through;opacity:0.5" if _p["completed"] else ""
+                _line_style = f"text-decoration:line-through;opacity:0.65" if _p["completed"] else ""
                 _proto_html = (
                     f'<div style="font-size:14px;line-height:20px;{_line_style}">'
                     f'<span style="color:{_pil_color};font-weight:600">{_pil_emoji} </span>'
@@ -289,12 +289,12 @@ else:
             ))
             _fig.update_layout(
                 height=180, margin=dict(t=10, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5, color='rgba(255,255,255,0.3)'),
-                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.3)'),
+                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5, color='rgba(255,255,255,0.65)'),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.65)'),
                 legend=dict(orientation="h", yanchor="top", y=1.18, xanchor="center", x=0.5,
-                           font=dict(size=10, color='rgba(255,255,255,0.5)')),
+                           font=dict(size=10, color='rgba(255,255,255,0.72)')),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color='rgba(255,255,255,0.4)'),
+                font=dict(color='rgba(255,255,255,0.68)'),
             )
             st.plotly_chart(_fig, use_container_width=True, key="spark_mood")
         else:
@@ -309,14 +309,14 @@ else:
             _fig2.add_trace(go.Bar(
                 x=_h_dates, y=_h_vals, marker_color=_bar_colors, marker_line_width=0,
                 text=[f"{v}%" for v in _h_vals],
-                textposition='outside', textfont=dict(size=8, color='rgba(255,255,255,0.4)'),
+                textposition='outside', textfont=dict(size=8, color='rgba(255,255,255,0.68)'),
             ))
             _fig2.update_layout(
                 height=180, margin=dict(t=10, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 115], showgrid=False, color='rgba(255,255,255,0.3)'),
-                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.3)'),
+                yaxis=dict(range=[0, 115], showgrid=False, color='rgba(255,255,255,0.65)'),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.65)'),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                showlegend=False, font=dict(color='rgba(255,255,255,0.4)'), bargap=0.3,
+                showlegend=False, font=dict(color='rgba(255,255,255,0.68)'), bargap=0.3,
             )
             st.plotly_chart(_fig2, use_container_width=True, key="spark_habits")
         else:

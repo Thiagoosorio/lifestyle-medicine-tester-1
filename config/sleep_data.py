@@ -301,7 +301,7 @@ BODY_CLOCK_ACTIVITIES = [
     {"id": "exercise", "label": "Best Exercise", "color": "#30D158", "icon": "&#127939;"},
     {"id": "light_tasks", "label": "Light Tasks", "color": "#64D2FF", "icon": "&#128221;"},
     {"id": "wind_down", "label": "Wind Down", "color": "#BF5AF2", "icon": "&#128148;"},
-    {"id": "sleep_prep", "label": "Sleep Prep", "color": "#8E8E93", "icon": "&#128716;"},
+    {"id": "sleep_prep", "label": "Sleep Prep", "color": "#AEAEB2", "icon": "&#128716;"},
 ]
 
 

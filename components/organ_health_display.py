@@ -24,7 +24,7 @@ def render_organ_score_card(score_result: dict, score_def: dict):
     tier = score_def.get("tier", "validated")
     badge_label, badge_color, badge_bg = TIER_BADGES.get(tier, TIER_BADGES["validated"])
     severity = score_result.get("severity", "normal")
-    sev_color = SEVERITY_COLORS.get(severity, "#8E8E93")
+    sev_color = SEVERITY_COLORS.get(severity, "#AEAEB2")
 
     value = score_result.get("value", 0)
     label = score_result.get("label", "")
@@ -95,7 +95,7 @@ def _render_severity_bar(severity: str):
 
     cols = st.columns(len(levels))
     for i, (col, level) in enumerate(zip(cols, levels)):
-        color = SEVERITY_COLORS.get(level, "#8E8E93")
+        color = SEVERITY_COLORS.get(level, "#AEAEB2")
         opacity = "1.0" if i == active_idx else "0.2"
         col.markdown(
             f'<div style="height:4px;background:{color};opacity:{opacity};'
@@ -114,7 +114,7 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
         col_name, col_badge = st.columns([3, 1])
         with col_name:
             st.markdown(
-                f'<span style="color:#8E8E93;">**{score_def.get("name", "")}**</span>',
+                f'<span style="color:#AEAEB2;">**{score_def.get("name", "")}**</span>',
                 unsafe_allow_html=True,
             )
         with col_badge:
@@ -126,7 +126,7 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
             )
 
         st.markdown(
-            '<div style="color:#8E8E93;font-size:1.5em;text-align:center;padding:8px 0;">\u2014</div>',
+            '<div style="color:#AEAEB2;font-size:1.5em;text-align:center;padding:8px 0;">\u2014</div>',
             unsafe_allow_html=True,
         )
 
@@ -187,7 +187,7 @@ def render_score_trend_chart(history: list, definition: dict, height: int = 300)
             annotation_text=r.get("label", ""),
             annotation_position="top left",
             annotation_font_size=9,
-            annotation_font_color="#8E8E93",
+            annotation_font_color="#AEAEB2",
         )
 
     fig.add_trace(go.Scatter(

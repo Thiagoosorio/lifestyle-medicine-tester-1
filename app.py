@@ -81,7 +81,7 @@ else:
             f'<div style="font-family:-apple-system,BlinkMacSystemFont,\'SF Pro Display\','
             f'\'Helvetica Neue\',system-ui,sans-serif;font-size:17px;line-height:22px;'
             f'font-weight:600;color:rgba(255,255,255,1.0)">{display}</div>'
-            '<div style="font-size:11px;line-height:13px;color:rgba(235,235,245,0.3);'
+            '<div style="font-size:11px;line-height:13px;color:rgba(235,235,245,0.65);'
             'margin-top:4px">Lifestyle Medicine Journey</div>'
             '</div>'
         )

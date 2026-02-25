@@ -23,8 +23,8 @@ APPLE = {
     "bg_tertiary": "#3A3A3C",
     "label_primary": "rgba(255,255,255,1.0)",
     "label_secondary": "rgba(235,235,245,0.8)",
-    "label_tertiary": "rgba(235,235,245,0.6)",
-    "label_quaternary": "rgba(235,235,245,0.45)",
+    "label_tertiary": "rgba(235,235,245,0.78)",
+    "label_quaternary": "rgba(235,235,245,0.65)",
     "fill_tertiary": "rgba(118,118,128,0.24)",
     "separator": "rgba(84,84,88,0.6)",
     "glass_bg": "rgba(28,28,30,0.72)",
@@ -62,8 +62,8 @@ def inject_custom_css() -> None:
     --bg-tertiary: #2C2C2E;
     --label-primary: rgba(255,255,255,1.0);
     --label-secondary: rgba(235,235,245,0.8);
-    --label-tertiary: rgba(235,235,245,0.6);
-    --label-quaternary: rgba(235,235,245,0.45);
+    --label-tertiary: rgba(235,235,245,0.78);
+    --label-quaternary: rgba(235,235,245,0.65);
     --fill-tertiary: rgba(118,118,128,0.24);
     --separator: rgba(84,84,88,0.6);
     --separator-opaque: #38383A;
@@ -127,7 +127,7 @@ html, body, [class*="css"] { font-family: var(--font-text) !important; }
     color: rgba(255,255,255,0.92) !important;
 }
 [data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
-    color: rgba(235,235,245,0.55) !important;
+    color: rgba(235,235,245,0.72) !important;
 }
 .stApp [data-testid="stMarkdownContainer"] p {
     color: rgba(255,255,255,0.88) !important;
@@ -136,7 +136,7 @@ html, body, [class*="css"] { font-family: var(--font-text) !important; }
     color: rgba(255,255,255,1.0) !important;
 }
 [data-testid="stSidebarNavSeparator"] span {
-    color: rgba(235,235,245,0.5) !important;
+    color: rgba(235,235,245,0.72) !important;
 }
 section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"] span {
     color: rgba(235,235,245,0.85) !important;

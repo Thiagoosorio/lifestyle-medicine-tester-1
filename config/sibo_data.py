@@ -474,7 +474,7 @@ SIBO_EVIDENCE = [
 # ==============================================================================
 
 CORRELATION_STRENGTH = {
-    "negligible": {"min": 0.0, "max": 0.1, "label": "Negligible", "color": "#8E8E93"},
+    "negligible": {"min": 0.0, "max": 0.1, "label": "Negligible", "color": "#AEAEB2"},
     "weak": {"min": 0.1, "max": 0.3, "label": "Weak", "color": "#FFD60A"},
     "moderate": {"min": 0.3, "max": 0.5, "label": "Moderate", "color": "#FF9F0A"},
     "strong": {"min": 0.5, "max": 0.7, "label": "Strong", "color": "#FF453A"},

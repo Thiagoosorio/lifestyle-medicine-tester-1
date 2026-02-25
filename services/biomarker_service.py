@@ -171,7 +171,7 @@ def get_classification_display(classification):
         "high": {"label": "High", "color": "#FF9F0A", "icon": "&#9650;"},
         "critical_low": {"label": "Critical Low", "color": "#FF453A", "icon": "&#10071;"},
         "critical_high": {"label": "Critical High", "color": "#FF453A", "icon": "&#10071;"},
-        "unknown": {"label": "Unknown", "color": "#8E8E93", "icon": "&#8212;"},
+        "unknown": {"label": "Unknown", "color": "#AEAEB2", "icon": "&#8212;"},
     }
     return displays.get(classification, displays["unknown"])
 

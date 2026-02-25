@@ -530,16 +530,16 @@ with tab_badges:
                         f"<div style='text-align:center;padding:12px;background:#1a3d1a;border-radius:12px;margin:4px 0'>"
                         f"<div style='font-size:2em'>{badge['icon']}</div>"
                         f"<div style='font-weight:bold;color:#4CAF50;font-size:0.85em'>{badge['name']}</div>"
-                        f"<div style='color:#888;font-size:0.7em'>{badge['desc']}</div>"
+                        f"<div style='color:rgba(235,235,245,0.72);font-size:0.7em'>{badge['desc']}</div>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(
-                        f"<div style='text-align:center;padding:12px;background:#1a1a2e;border-radius:12px;margin:4px 0;opacity:0.4'>"
+                        f"<div style='text-align:center;padding:12px;background:#1a1a2e;border-radius:12px;margin:4px 0;opacity:0.65'>"
                         f"<div style='font-size:2em'>🔒</div>"
-                        f"<div style='font-weight:bold;color:#666;font-size:0.85em'>{badge['name']}</div>"
-                        f"<div style='color:#555;font-size:0.7em'>{badge['desc']}</div>"
+                        f"<div style='font-weight:bold;color:rgba(235,235,245,0.72);font-size:0.85em'>{badge['name']}</div>"
+                        f"<div style='color:rgba(235,235,245,0.65);font-size:0.7em'>{badge['desc']}</div>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )

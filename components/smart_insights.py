@@ -142,34 +142,34 @@ def _render_weekly_digest(digest: dict):
     if digest["strongest_pillar"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Strongest Pillar</div>'
+            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Strongest Pillar</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#66bb6a">{digest["strongest_pillar"]}</div>'
             f'</div>'
         )
     if digest["weakest_pillar"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Needs Attention</div>'
+            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Needs Attention</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#ef5350">{digest["weakest_pillar"]}</div>'
             f'</div>'
         )
     if digest["top_habit"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Top Habit</div>'
+            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Top Habit</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#42a5f5">{digest["top_habit"]}</div>'
             f'</div>'
         )
 
     stats_html += (
         f'<div style="{_DIGEST_STAT_STYLE}">'
-        f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Mood Trend</div>'
+        f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Mood Trend</div>'
         f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{mood_badge}</div>'
         f'</div>'
     )
     stats_html += (
         f'<div style="{_DIGEST_STAT_STYLE}">'
-        f'<div style="font-size:0.75rem;color:#aaa;text-transform:uppercase;letter-spacing:0.5px">Energy Trend</div>'
+        f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Energy Trend</div>'
         f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{energy_badge}</div>'
         f'</div>'
     )
