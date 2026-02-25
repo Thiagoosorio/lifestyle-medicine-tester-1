@@ -12,6 +12,69 @@ from config.exercise_library_data import MUSCLE_GROUPS, EQUIPMENT_TYPES
 A = APPLE
 
 
+def render_key_terms_guide():
+    """Render a compact reference card explaining all key terms and colors."""
+    html = (
+        f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
+        f'border-radius:{A["radius_lg"]};padding:16px;margin-bottom:16px">'
+        f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]};'
+        f'margin-bottom:10px">&#128218; Quick Guide — Key Terms &amp; Colors</div>'
+        # Terms grid
+        f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:12px">'
+        # RIR
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["label_primary"]}">RIR</span>'
+        f'<span style="color:{A["label_secondary"]}"> = Reps In Reserve — '
+        f'how many more reps you <em>could</em> do before failure. '
+        f'Lower RIR = harder effort.</span></div>'
+        # Sets
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["label_primary"]}">Sets &times; Reps</span>'
+        f'<span style="color:{A["label_secondary"]}"> = e.g. "4 &times; 6-10" means '
+        f'do 4 sets of 6 to 10 repetitions each.</span></div>'
+        # Compound
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["blue"]}">Compound</span>'
+        f'<span style="color:{A["label_secondary"]}"> = multi-joint exercise (e.g. squat, bench press) — '
+        f'works several muscles at once.</span></div>'
+        # Isolation
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["purple"]}">Isolation</span>'
+        f'<span style="color:{A["label_secondary"]}"> = single-joint exercise (e.g. curl, fly) — '
+        f'targets one specific muscle.</span></div>'
+        # Mesocycle
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["label_primary"]}">Mesocycle</span>'
+        f'<span style="color:{A["label_secondary"]}"> = a training block (4-6 weeks) that starts easy, '
+        f'gets progressively harder, then deloads.</span></div>'
+        # Deload
+        f'<div style="font-size:12px;line-height:16px">'
+        f'<span style="font-weight:700;color:{A["green"]}">Deload</span>'
+        f'<span style="color:{A["label_secondary"]}"> = a recovery week with reduced volume (fewer sets) '
+        f'to let your body recover and adapt.</span></div>'
+        f'</div>'
+        # Color meanings
+        f'<div style="font-size:12px;font-weight:700;color:{A["label_primary"]};'
+        f'margin-bottom:6px">Volume Bar Colors</div>'
+        f'<div style="display:flex;gap:16px;flex-wrap:wrap">'
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["green"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Optimal zone — good stimulus for growth</span></div>'
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["orange"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Near max recoverable — high fatigue risk</span></div>'
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["red"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Too low or too high — adjust volume</span></div>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
 def render_program_overview(program: dict):
     """Render a summary card for the generated program."""
     meso = program["mesocycle"]
@@ -26,7 +89,8 @@ def render_program_overview(program: dict):
         f'<div style="font-family:{A["font_display"]};font-size:20px;'
         f'font-weight:700;color:{A["label_primary"]}">{meso["label"]}</div>'
         f'<div style="font-size:12px;color:{A["label_tertiary"]}">'
-        f'{sched["label"]} &middot; {meso["weeks"]}-week mesocycle</div>'
+        f'{sched["label"]} &middot; {meso["weeks"]}-week mesocycle '
+        f'(training block)</div>'
         f'</div>'
         f'</div>'
         f'<div style="font-size:13px;color:{A["label_secondary"]};line-height:20px;'
@@ -51,10 +115,13 @@ def render_week_header(week_data: dict):
             f'color:{A["green"]};margin-left:8px">DELOAD</span>'
         )
 
+    rir_desc = rir_info.get("desc", "")
+
     html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
-        f'border-radius:{A["radius_md"]};padding:14px 16px;margin-bottom:8px;'
-        f'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">'
+        f'border-radius:{A["radius_md"]};padding:14px 16px;margin-bottom:8px">'
+        f'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;'
+        f'margin-bottom:4px">'
         f'<div style="display:flex;align-items:center;gap:8px">'
         f'<span style="font-family:{A["font_display"]};font-size:16px;'
         f'font-weight:700;color:{A["label_primary"]}">Week {week_data["week"]}</span>'
@@ -65,8 +132,11 @@ def render_week_header(week_data: dict):
         f'{week_data["label"]}</div>'
         f'<div style="font-size:11px;font-weight:600;padding:3px 10px;'
         f'border-radius:20px;background:{rir_color}15;color:{rir_color}">'
-        f'RIR {week_data["rir"]}</div>'
+        f'RIR {week_data["rir"]} ({rir_info.get("label", "")})</div>'
         f'</div>'
+        f'</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};line-height:14px">'
+        f'Target effort: {rir_desc} Stop each set with ~{week_data["rir"]} reps still possible.</div>'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -101,7 +171,9 @@ def render_day_card(day_data: dict):
         eq = EQUIPMENT_TYPES.get(ex["equipment"], {})
         rir_info = RIR_GUIDE.get(ex["rir"], {})
         rir_color = rir_info.get("color", A["label_tertiary"])
+        rir_label = rir_info.get("label", "")
         type_color = A["blue"] if ex["type"] == "compound" else A["purple"]
+        type_hint = "Multi-joint" if ex["type"] == "compound" else "Single-joint"
 
         rows_html += (
             f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
@@ -116,23 +188,26 @@ def render_day_card(day_data: dict):
             f'{ex["exercise_name"]}</div>'
             f'<div style="display:flex;gap:4px;margin-top:2px">'
             f'<span style="font-size:10px;padding:1px 6px;border-radius:10px;'
-            f'background:{type_color}12;color:{type_color}">{ex["type"].title()}</span>'
+            f'background:{type_color}12;color:{type_color}">'
+            f'{ex["type"].title()} ({type_hint})</span>'
             f'<span style="font-size:10px;padding:1px 6px;border-radius:10px;'
             f'background:{A["fill_tertiary"]};color:{A["label_tertiary"]}">'
             f'{eq.get("icon", "")} {eq.get("label", "")}</span>'
             f'</div>'
             f'</div>'
             # Sets × Reps
-            f'<div style="min-width:80px;text-align:center">'
+            f'<div style="min-width:90px;text-align:center">'
             f'<div style="font-size:14px;font-weight:700;color:{A["label_primary"]}">'
-            f'{ex["sets"]} &times; {ex["reps"]}</div>'
-            f'<div style="font-size:10px;color:{A["label_tertiary"]}">sets &times; reps</div>'
+            f'{ex["sets"]} sets &times; {ex["reps"]}</div>'
+            f'<div style="font-size:10px;color:{A["label_tertiary"]}">reps per set</div>'
             f'</div>'
-            # RIR badge
-            f'<div style="min-width:50px;text-align:center">'
-            f'<div style="font-size:12px;font-weight:600;padding:2px 8px;'
+            # RIR badge with explanation
+            f'<div style="min-width:70px;text-align:center">'
+            f'<div style="font-size:11px;font-weight:600;padding:2px 8px;'
             f'border-radius:12px;background:{rir_color}15;color:{rir_color}">'
-            f'RIR {ex["rir"]}</div>'
+            f'{rir_label}</div>'
+            f'<div style="font-size:9px;color:{A["label_tertiary"]};margin-top:1px">'
+            f'{ex["rir"]} reps left</div>'
             f'</div>'
             f'</div>'
         )
@@ -156,19 +231,19 @@ def render_volume_chart(volume: dict, level: str = "intermediate"):
         max_val = max(t["mrv"], actual, 1)
         pct = min(actual / max_val * 100, 100)
 
-        # Color based on where actual falls
+        # Color based on where actual falls relative to volume landmarks
         if actual < t["mev"]:
             bar_color = A["red"]
-            zone_label = "Below MEV"
+            zone_label = "Below minimum for growth"
         elif actual <= t["mav_high"]:
             bar_color = A["green"]
-            zone_label = "In MAV"
+            zone_label = "Optimal growth zone"
         elif actual <= t["mrv"]:
             bar_color = A["orange"]
-            zone_label = "Near MRV"
+            zone_label = "Near max — fatigue risk"
         else:
             bar_color = A["red"]
-            zone_label = "Over MRV"
+            zone_label = "Over max — reduce volume"
 
         # MEV and MRV markers as percentage of max_val
         mev_pct = t["mev"] / max_val * 100
@@ -199,18 +274,42 @@ def render_volume_chart(volume: dict, level: str = "intermediate"):
             f'</div>'
         )
 
-    # Legend
+    # Legend — expanded with full names
     legend_html = (
-        f'<div style="display:flex;gap:16px;margin-top:8px;flex-wrap:wrap">'
-        f'<div style="font-size:10px;color:{A["label_tertiary"]}">'
-        f'<span style="display:inline-block;width:8px;height:8px;'
-        f'background:{A["label_tertiary"]};border-radius:2px;margin-right:4px"></span>MEV</div>'
-        f'<div style="font-size:10px;color:{A["label_tertiary"]}">'
-        f'<span style="display:inline-block;width:8px;height:8px;'
-        f'background:{A["red"]};border-radius:2px;margin-right:4px"></span>MRV</div>'
-        f'<div style="font-size:10px;color:{A["label_tertiary"]}">'
-        f'<span style="display:inline-block;width:8px;height:8px;'
-        f'background:{A["green"]};border-radius:2px;margin-right:4px"></span>In MAV (optimal)</div>'
+        f'<div style="margin-top:10px;padding-top:8px;border-top:1px solid {A["separator"]}">'
+        f'<div style="font-size:11px;font-weight:600;color:{A["label_primary"]};margin-bottom:6px">'
+        f'What the markers mean:</div>'
+        f'<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:6px">'
+        # MEV marker
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:2px;height:12px;'
+        f'background:{A["label_tertiary"]}"></span>'
+        f'<span style="color:{A["label_secondary"]}">MEV (Minimum Effective Volume) '
+        f'— below this line, not enough stimulus for growth</span></div>'
+        # MRV marker
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:2px;height:12px;'
+        f'background:{A["red"]}"></span>'
+        f'<span style="color:{A["label_secondary"]}">MRV (Maximum Recoverable Volume) '
+        f'— beyond this line, too much to recover from</span></div>'
+        f'</div>'
+        f'<div style="display:flex;gap:14px;flex-wrap:wrap">'
+        # Green bar
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["green"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Green = optimal zone for muscle growth</span></div>'
+        # Orange bar
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["orange"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Orange = high volume, watch for fatigue</span></div>'
+        # Red bar
+        f'<div style="font-size:11px;display:flex;align-items:center;gap:4px">'
+        f'<span style="display:inline-block;width:10px;height:10px;'
+        f'background:{A["red"]};border-radius:3px"></span>'
+        f'<span style="color:{A["label_secondary"]}">Red = too low or too high, needs adjusting</span></div>'
+        f'</div>'
         f'</div>'
     )
 
@@ -218,8 +317,10 @@ def render_volume_chart(volume: dict, level: str = "intermediate"):
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
         f'border-radius:{A["radius_lg"]};padding:16px;margin-bottom:16px">'
         f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
-        f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:12px">'
+        f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:4px">'
         f'Weekly Volume per Muscle Group</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:12px">'
+        f'Total hard sets per muscle this week. Aim to keep bars in the green zone.</div>'
         f'{bars_html}'
         f'{legend_html}'
         f'</div>'
@@ -286,27 +387,33 @@ def render_volume_landmarks_table():
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
         f'border-radius:{A["radius_lg"]};padding:16px;overflow-x:auto">'
         f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
-        f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:8px">'
-        f'RP Volume Landmarks — Sets per Muscle Group per Week</div>'
+        f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:4px">'
+        f'Volume Landmarks — Sets per Muscle Group per Week</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:10px;line-height:16px">'
+        f'How many hard sets to do per week for each muscle. Train within the '
+        f'green MAV range for best results.</div>'
         f'<table style="width:100%;border-collapse:collapse">'
         f'<thead><tr style="border-bottom:2px solid {A["separator"]}">'
         f'<th style="text-align:left;font-size:11px;font-weight:600;color:{A["label_tertiary"]};'
         f'padding:6px 8px">Muscle</th>'
-        f'<th style="text-align:center;font-size:11px;font-weight:600;color:{A["label_tertiary"]};'
-        f'padding:6px">MV</th>'
-        f'<th style="text-align:center;font-size:11px;font-weight:600;color:{A["label_tertiary"]};'
-        f'padding:6px">MEV</th>'
-        f'<th style="text-align:center;font-size:11px;font-weight:600;color:{A["label_tertiary"]};'
-        f'padding:6px">MAV</th>'
-        f'<th style="text-align:center;font-size:11px;font-weight:600;color:{A["label_tertiary"]};'
-        f'padding:6px">MRV</th>'
+        f'<th style="text-align:center;font-size:10px;font-weight:600;color:{A["label_tertiary"]};'
+        f'padding:6px"><div>MV</div><div style="font-weight:400;font-size:9px">Maintenance</div></th>'
+        f'<th style="text-align:center;font-size:10px;font-weight:600;color:{A["orange"]};'
+        f'padding:6px"><div>MEV</div><div style="font-weight:400;font-size:9px">Min for Growth</div></th>'
+        f'<th style="text-align:center;font-size:10px;font-weight:600;color:{A["green"]};'
+        f'padding:6px"><div>MAV</div><div style="font-weight:400;font-size:9px">Optimal Range</div></th>'
+        f'<th style="text-align:center;font-size:10px;font-weight:600;color:{A["red"]};'
+        f'padding:6px"><div>MRV</div><div style="font-weight:400;font-size:9px">Max Recoverable</div></th>'
         f'</tr></thead>'
         f'<tbody>{rows}</tbody>'
         f'</table>'
-        f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-top:8px;line-height:14px">'
-        f'MV = Maintenance &middot; MEV = Min Effective &middot; '
-        f'MAV = Max Adaptive (sweet spot) &middot; MRV = Max Recoverable<br>'
-        f'Source: Israetel, Hoffmann &amp; Smith (2021); Schoenfeld et al. (2017, PMID: 28032998)</div>'
+        f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-top:10px;line-height:16px">'
+        f'<strong>MV</strong> = Maintenance Volume (keep muscle, no growth) &middot; '
+        f'<strong>MEV</strong> = Minimum Effective Volume (minimum to start growing) &middot; '
+        f'<strong>MAV</strong> = Maximum Adaptive Volume (sweet spot for most people) &middot; '
+        f'<strong>MRV</strong> = Maximum Recoverable Volume (beyond this = overtraining)<br>'
+        f'Source: Renaissance Periodization (Israetel, Hoffmann &amp; Smith, 2021); '
+        f'Schoenfeld et al. (2017, PMID: 28032998)</div>'
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
@@ -323,16 +430,19 @@ def render_mesocycle_timeline(program: dict):
         bg = f"{A['green']}10" if w["is_deload"] else f"{rir_color}08"
         border_color = A["green"] if w["is_deload"] else rir_color
 
+        rir_label = rir_info.get("label", "")
         cells += (
-            f'<div style="flex:1;min-width:100px;background:{bg};'
+            f'<div style="flex:1;min-width:110px;background:{bg};'
             f'border:1px solid {border_color}30;border-top:3px solid {border_color};'
             f'border-radius:{A["radius_sm"]};padding:10px;text-align:center">'
             f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
             f'Week {w["week"]}</div>'
             f'<div style="font-size:11px;color:{A["label_secondary"]};margin:4px 0">'
             f'{w["label"]}</div>'
-            f'<div style="font-size:11px;font-weight:600;color:{rir_color}">'
-            f'RIR {w["rir"]}</div>'
+            f'<div style="font-size:10px;font-weight:600;color:{rir_color}">'
+            f'{rir_label} effort</div>'
+            f'<div style="font-size:9px;color:{A["label_tertiary"]};margin-top:2px">'
+            f'Stop {w["rir"]} reps before failure</div>'
             f'</div>'
         )
 

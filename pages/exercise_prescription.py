@@ -3,6 +3,7 @@
 import streamlit as st
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
 from components.exercise_prescription_display import (
+    render_key_terms_guide,
     render_program_overview,
     render_week_header,
     render_day_card,
@@ -48,6 +49,10 @@ with tab_program:
     if not saved:
         st.info("No program yet. Go to the **Generate Program** tab to create your training plan.")
     else:
+        # Key terms guide (collapsible)
+        with st.expander("New to training programs? Read this first", expanded=False):
+            render_key_terms_guide()
+
         render_program_overview(saved)
         render_mesocycle_timeline(saved)
 
