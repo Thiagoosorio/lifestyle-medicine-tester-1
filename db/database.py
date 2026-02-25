@@ -55,6 +55,42 @@ def _migrate(conn):
             garmin_email TEXT NOT NULL, garmin_token TEXT, last_sync TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id))""",
+        # Exercise tracker tables
+        """CREATE TABLE IF NOT EXISTS exercise_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            exercise_date TEXT NOT NULL,
+            exercise_type TEXT NOT NULL,
+            category TEXT NOT NULL,
+            duration_min INTEGER NOT NULL CHECK (duration_min > 0),
+            intensity TEXT NOT NULL,
+            distance_km REAL, calories INTEGER,
+            avg_hr INTEGER, max_hr INTEGER,
+            rpe INTEGER CHECK (rpe BETWEEN 1 AND 10),
+            notes TEXT,
+            source TEXT DEFAULT 'manual',
+            external_id TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, exercise_date, external_id))""",
+        """CREATE TABLE IF NOT EXISTS exercise_weekly_summary (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            week_start TEXT NOT NULL,
+            total_min INTEGER DEFAULT 0, cardio_min INTEGER DEFAULT 0,
+            strength_min INTEGER DEFAULT 0, flexibility_min INTEGER DEFAULT 0,
+            moderate_min INTEGER DEFAULT 0, vigorous_min INTEGER DEFAULT 0,
+            session_count INTEGER DEFAULT 0,
+            exercise_score INTEGER CHECK (exercise_score BETWEEN 0 AND 100),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, week_start))""",
+        """CREATE TABLE IF NOT EXISTS strava_connections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            strava_athlete_id INTEGER,
+            access_token TEXT, refresh_token TEXT,
+            token_expires_at INTEGER, last_sync TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id))""",
     ]
     for sql in table_migrations:
         try:

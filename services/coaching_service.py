@@ -110,6 +110,13 @@ def _assemble_user_context(user_id: int) -> str:
     except Exception:
         pass
 
+    exercise_data = None
+    try:
+        from services.exercise_service import get_exercise_summary_for_coach
+        exercise_data = get_exercise_summary_for_coach(user_id)
+    except Exception:
+        pass
+
     sibo_data = None
     try:
         from services.sibo_service import get_symptom_averages as sibo_sym_avg, get_current_phase as sibo_phase, get_tolerance_summary as sibo_tol
@@ -186,6 +193,7 @@ def _assemble_user_context(user_id: int) -> str:
         meditation_data=meditation_data,
         sibo_data=sibo_data,
         organ_score_data=organ_score_data,
+        exercise_data=exercise_data,
     )
 
 

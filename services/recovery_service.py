@@ -99,7 +99,17 @@ def _get_stress_component(user_id):
 
 
 def _get_activity_component(user_id):
-    """Activity component: recent activity balance from check-ins."""
+    """Activity component: prefer exercise_logs data, fallback to check-in ratings."""
+    # Try exercise_logs first (detailed workout data)
+    try:
+        from services.exercise_service import calculate_exercise_score
+        ex_score = calculate_exercise_score(user_id)
+        if ex_score is not None:
+            return {"score": ex_score, "raw": ex_score, "label": "Activity", "icon": "&#127939;"}
+    except Exception:
+        pass
+
+    # Fallback to daily check-in activity_rating
     conn = get_connection()
     cutoff = (date.today() - timedelta(days=7)).isoformat()
     rows = conn.execute(

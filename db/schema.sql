@@ -932,3 +932,72 @@ CREATE TABLE IF NOT EXISTS organ_score_results (
 
 CREATE INDEX IF NOT EXISTS idx_organscore_user ON organ_score_results(user_id, computed_at);
 CREATE INDEX IF NOT EXISTS idx_organscore_def ON organ_score_results(score_def_id);
+
+-- ═══════════════════════════════════════════════════════════════
+-- EXERCISE TRACKER + STRAVA INTEGRATION
+-- ═══════════════════════════════════════════════════════════════
+
+-- Detailed exercise/workout logs
+CREATE TABLE IF NOT EXISTS exercise_logs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    exercise_date   TEXT NOT NULL,
+    exercise_type   TEXT NOT NULL CHECK (exercise_type IN (
+                        'run', 'walk', 'cycle', 'swim', 'hike',
+                        'strength', 'yoga', 'pilates', 'hiit',
+                        'dance', 'rowing', 'elliptical', 'sports',
+                        'stretching', 'other'
+                    )),
+    category        TEXT NOT NULL CHECK (category IN (
+                        'cardio', 'strength', 'flexibility', 'mixed'
+                    )),
+    duration_min    INTEGER NOT NULL CHECK (duration_min > 0),
+    intensity       TEXT NOT NULL CHECK (intensity IN (
+                        'light', 'moderate', 'vigorous'
+                    )),
+    distance_km     REAL,
+    calories        INTEGER,
+    avg_hr          INTEGER,
+    max_hr          INTEGER,
+    rpe             INTEGER CHECK (rpe BETWEEN 1 AND 10),
+    notes           TEXT,
+    source          TEXT DEFAULT 'manual' CHECK (source IN ('manual', 'strava', 'garmin')),
+    external_id     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, exercise_date, external_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exercise_user ON exercise_logs(user_id, exercise_date);
+CREATE INDEX IF NOT EXISTS idx_exercise_type ON exercise_logs(exercise_type);
+
+-- Weekly exercise summary (computed)
+CREATE TABLE IF NOT EXISTS exercise_weekly_summary (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    week_start      TEXT NOT NULL,
+    total_min       INTEGER DEFAULT 0,
+    cardio_min      INTEGER DEFAULT 0,
+    strength_min    INTEGER DEFAULT 0,
+    flexibility_min INTEGER DEFAULT 0,
+    moderate_min    INTEGER DEFAULT 0,
+    vigorous_min    INTEGER DEFAULT 0,
+    session_count   INTEGER DEFAULT 0,
+    exercise_score  INTEGER CHECK (exercise_score BETWEEN 0 AND 100),
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, week_start)
+);
+
+CREATE INDEX IF NOT EXISTS idx_exweekly_user ON exercise_weekly_summary(user_id, week_start);
+
+-- Strava OAuth connection
+CREATE TABLE IF NOT EXISTS strava_connections (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    strava_athlete_id INTEGER,
+    access_token    TEXT,
+    refresh_token   TEXT,
+    token_expires_at INTEGER,
+    last_sync       TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id)
+);

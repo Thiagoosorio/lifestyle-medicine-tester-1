@@ -211,7 +211,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
                        calorie_data: dict = None, diet_data: dict = None,
                        meditation_data: dict = None,
                        sibo_data: dict = None,
-                       organ_score_data: str = None) -> str:
+                       organ_score_data: str = None,
+                       exercise_data: str = None) -> str:
     """Build a context string with the user's current data for the LLM."""
     from config.settings import PILLARS, STAGES_OF_CHANGE
 
@@ -326,5 +327,8 @@ def build_user_context(wheel_scores: dict = None, stages: dict = None,
 
     if organ_score_data:
         parts.append(f"Organ Health Scores: {organ_score_data}")
+
+    if exercise_data:
+        parts.append(f"Exercise: {exercise_data}")
 
     return "\n".join(parts) if parts else "No user data available yet."
