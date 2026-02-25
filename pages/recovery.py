@@ -144,14 +144,14 @@ else:
         ))
 
         fig.update_layout(
-            template="plotly_dark",
+            template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="#1C1C1E",
-            font=dict(family=A["font_text"]),
+            plot_bgcolor=A["chart_bg"],
+            font=dict(family=A["font_text"], color=A["chart_text"]),
             margin=dict(l=40, r=20, t=20, b=40),
             height=300,
-            xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-            yaxis=dict(title="Recovery Score", range=[0, 105], gridcolor="rgba(84,84,88,0.3)"),
+            xaxis=dict(gridcolor=A["chart_grid"]),
+            yaxis=dict(title="Recovery Score", range=[0, 105], gridcolor=A["chart_grid"]),
             showlegend=False,
         )
         st.plotly_chart(fig, use_container_width=True)

@@ -324,14 +324,14 @@ with tab_trends:
                 )
 
             fig.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="#1C1C1E",
-                font=dict(family=A["font_text"]),
+                plot_bgcolor=A["chart_bg"],
+                font=dict(family=A["font_text"], color=A["chart_text"]),
                 margin=dict(l=40, r=20, t=30, b=40),
                 height=320,
-                xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-                yaxis=dict(title=y_title, gridcolor="rgba(84,84,88,0.3)"),
+                xaxis=dict(gridcolor=A["chart_grid"]),
+                yaxis=dict(title=y_title, gridcolor=A["chart_grid"]),
                 showlegend=False,
             )
             st.plotly_chart(fig, use_container_width=True)
@@ -360,14 +360,14 @@ with tab_trends:
                 marker=dict(colors=colors),
                 hole=0.45,
                 textinfo="label+percent",
-                textfont=dict(size=11, color="#FFFFFF"),
+                textfont=dict(size=11, color=A["label_primary"]),
                 hovertemplate="%{label}: %{value} min<extra></extra>",
             )])
             fig2.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="#1C1C1E",
-                font=dict(family=A["font_text"]),
+                plot_bgcolor=A["chart_bg"],
+                font=dict(family=A["font_text"], color=A["chart_text"]),
                 margin=dict(l=20, r=20, t=20, b=20),
                 height=280,
                 showlegend=False,

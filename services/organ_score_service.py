@@ -637,6 +637,139 @@ def calc_cbc_composite(hemoglobin: float, mcv: float, rdw: float,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# NEW SCORES FROM RESEARCH REVIEW
+# ══════════════════════════════════════════════════════════════════════════════
+
+def calc_hsi(alt: float, ast: float, bmi: float, sex: str,
+             diabetes: int) -> float | None:
+    """Hepatic Steatosis Index = 8*(ALT/AST) + BMI + 2(if female) + 2(if DM)
+
+    PMID: 19766548 — Lee JH et al. Dig Liver Dis 2010.
+    AUROC 0.81. <30 rules out NAFLD, >=36 rules in. EASL-endorsed.
+    """
+    if ast <= 0:
+        return None
+    score = 8 * (alt / ast) + bmi
+    if sex and sex.lower() in ("female", "f"):
+        score += 2
+    if diabetes:
+        score += 2
+    return round(score, 1)
+
+
+def calc_quicki(fasting_insulin: float, fasting_glucose_mgdl: float) -> float | None:
+    """QUICKI = 1 / [log10(Insulin) + log10(Glucose mg/dL)]
+
+    PMID: 10902785 — Katz A et al. JCEM 2000.
+    Normal >=0.382; IR <0.339. Better linear correlation with clamp
+    than HOMA-IR in obese/diabetic subjects.
+    """
+    if fasting_insulin <= 0 or fasting_glucose_mgdl <= 0:
+        return None
+    return round(1 / (math.log10(fasting_insulin) + math.log10(fasting_glucose_mgdl)), 3)
+
+
+def calc_plr(platelets: float, lymphocytes: float) -> float | None:
+    """PLR = Platelets (10^9/L) / Lymphocytes (10^9/L)
+
+    PMID: 24338949 — Templeton AJ et al. Cancer Epidemiol Biomarkers Prev 2014.
+    Normal 50-300. PLR >300 associated with worse outcomes.
+    """
+    if lymphocytes <= 0:
+        return None
+    return round(platelets / lymphocytes, 1)
+
+
+def calc_pni(albumin: float, lymphocytes: float) -> float | None:
+    """PNI = 10 x Albumin(g/dL) + 0.005 x Lymphocytes(/mm3)
+
+    Lymphocytes input: 10^9/L (= 10^3/uL), multiply by 1000 to get /mm3.
+    PMID: 6438478 — Onodera T et al. 1984. PNI <45 = poor prognosis.
+    """
+    if albumin <= 0 or lymphocytes <= 0:
+        return None
+    # lymphocytes in 10^9/L = 10^3/mm3; multiply by 1000 for /mm3
+    lymph_per_mm3 = lymphocytes * 1000
+    return round(10 * albumin + 0.005 * lymph_per_mm3, 1)
+
+
+def calc_tfqi(tsh: float, free_t4_ngdl: float) -> float | None:
+    """TFQI (parametric) = cdf(FT4) - (1 - cdf(TSH))
+
+    Uses NHANES population parameters:
+    FT4 mean=15.923 pmol/L, SD=2.770; ln(TSH) mean=0.7765, SD=0.7210
+    PMID: 30552134 — Laclaustra M et al. Diabetes Care 2019.
+    """
+    import statistics
+    ft4_pmol = _ngdl_to_pmol_ft4(free_t4_ngdl)
+
+    # Gaussian CDF approximation using error function
+    def _norm_cdf(x, mean, sd):
+        z = (x - mean) / sd
+        return 0.5 * (1 + math.erf(z / math.sqrt(2)))
+
+    if tsh <= 0:
+        return None
+
+    cdf_ft4 = _norm_cdf(ft4_pmol, 15.923, 2.770)
+    cdf_tsh = _norm_cdf(math.log(tsh), 0.7765, 0.7210)
+
+    return round(cdf_ft4 - (1 - cdf_tsh), 3)
+
+
+def calc_phenoage(age: float, albumin: float, creatinine: float,
+                  glucose_mgdl: float, crp: float, lymph_pct: float,
+                  mcv: float, rdw: float, wbc: float) -> float | None:
+    """Levine PhenoAge biological age acceleration.
+
+    Step 1: Mortality score from 9 biomarkers via Gompertz model.
+    Step 2: Convert to PhenoAge.
+    Step 3: Return PhenoAge - chronological age (acceleration).
+
+    Coefficients from Levine ME et al. Aging 2018; PMID: 29676998.
+    Trained on NHANES III (n=9,926), validated NHANES IV (n=11,432).
+
+    Units: albumin g/dL, creatinine mg/dL, glucose mg/dL, CRP mg/dL (!),
+    lymphocyte %, MCV fL, RDW %, WBC 10^3/uL, ALP U/L.
+    Note: ALP is not always available so we use the simplified 8-biomarker
+    variant that excludes ALP (sets its contribution to mean).
+    """
+    # CRP: input is in mg/L (hs-CRP), convert to mg/dL for the model
+    crp_mgdl = crp / 10.0 if crp > 0.3 else crp  # if >0.3, likely mg/L
+    ln_crp = math.log(max(crp_mgdl, 0.001))
+
+    # PhenoAge Gompertz model coefficients (Levine 2018, Table 2)
+    # xb = sum of (coefficient * biomarker)
+    xb = (
+        -19.9067
+        - 0.0336 * albumin      # albumin g/dL (protective)
+        + 0.0095 * creatinine    # creatinine mg/dL
+        + 0.1953 * glucose_mgdl / 18.0  # glucose mmol/L
+        + 0.0954 * ln_crp        # ln(CRP mg/dL)
+        - 0.0120 * lymph_pct     # lymphocyte %
+        + 0.0268 * mcv           # MCV fL
+        + 0.3306 * rdw           # RDW %
+        + 0.00188 * wbc          # WBC 10^3/uL (small coefficient)
+        # ALP term omitted — contributes ~0 at population mean
+    )
+
+    # Gompertz mortality hazard
+    gamma = 0.0076927
+    lambda_val = 0.0022802
+
+    # Mortality score (10-year probability)
+    mort_score = 1 - math.exp(-math.exp(xb) * (math.exp(120 * gamma) - 1) / gamma)
+
+    # Invert to PhenoAge
+    if mort_score <= 0 or mort_score >= 1:
+        return None
+
+    phenoage = 141.50225 + math.log(-0.00553 * math.log(1 - mort_score)) / 0.090165
+
+    return round(phenoage - age, 1)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # FORMULA DISPATCH TABLE
 # ══════════════════════════════════════════════════════════════════════════════
 # Maps formula_key to (function, arg_builder)
@@ -722,6 +855,33 @@ def _build_iron_composite_args(bio, clin):
 def _build_cbc_composite_args(bio, clin):
     return {"hemoglobin": bio.get("hemoglobin"), "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": bio.get("wbc"), "platelets": bio.get("platelets")}
 
+def _build_hsi_args(bio, clin):
+    return {"alt": bio.get("alt"), "ast": bio.get("ast"), "bmi": clin.get("bmi"), "sex": clin.get("sex"), "diabetes": clin.get("diabetes_status", 0)}
+
+def _build_quicki_args(bio, clin):
+    return {"fasting_insulin": bio.get("fasting_insulin"), "fasting_glucose_mgdl": bio.get("fasting_glucose")}
+
+def _build_plr_args(bio, clin):
+    return {"platelets": bio.get("platelets"), "lymphocytes": bio.get("lymphocytes_abs")}
+
+def _build_pni_args(bio, clin):
+    return {"albumin": bio.get("albumin"), "lymphocytes": bio.get("lymphocytes_abs")}
+
+def _build_tfqi_args(bio, clin):
+    return {"tsh": bio.get("tsh"), "free_t4_ngdl": bio.get("free_t4")}
+
+def _build_phenoage_args(bio, clin):
+    # lymphocyte %: if we have absolute count and WBC, compute percentage
+    lymph_abs = bio.get("lymphocytes_abs")
+    wbc = bio.get("wbc")
+    lymph_pct = (lymph_abs / wbc * 100) if lymph_abs and wbc and wbc > 0 else None
+    return {
+        "age": clin.get("age"), "albumin": bio.get("albumin"),
+        "creatinine": bio.get("creatinine"), "glucose_mgdl": bio.get("fasting_glucose"),
+        "crp": bio.get("hs_crp"), "lymph_pct": lymph_pct,
+        "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": wbc,
+    }
+
 
 FORMULA_DISPATCH = {
     "calc_fib4": (calc_fib4, _build_fib4_args),
@@ -743,6 +903,12 @@ FORMULA_DISPATCH = {
     "calc_spina_gd": (calc_spina_gd, _build_spina_gd_args),
     "calc_iron_status_composite": (calc_iron_status_composite, _build_iron_composite_args),
     "calc_cbc_composite": (calc_cbc_composite, _build_cbc_composite_args),
+    "calc_hsi": (calc_hsi, _build_hsi_args),
+    "calc_quicki": (calc_quicki, _build_quicki_args),
+    "calc_plr": (calc_plr, _build_plr_args),
+    "calc_pni": (calc_pni, _build_pni_args),
+    "calc_tfqi": (calc_tfqi, _build_tfqi_args),
+    "calc_phenoage": (calc_phenoage, _build_phenoage_args),
 }
 
 

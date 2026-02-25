@@ -188,7 +188,7 @@ else:
         _bar_color = "#34C759" if _pct >= 80 else "#FF9F0A" if _pct >= 50 else "#FF453A"
         _progress_html = (
             f'<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">'
-            f'<div style="flex:1;height:6px;background:rgba(255,255,255,0.06);border-radius:3px;overflow:hidden">'
+            f'<div style="flex:1;height:6px;background:rgba(0,0,0,0.06);border-radius:3px;overflow:hidden">'
             f'<div style="width:{_pct}%;height:100%;background:{_bar_color};border-radius:3px"></div>'
             f'</div>'
             f'<span style="font-size:13px;font-weight:600;color:{_bar_color}">{_done_count}/{_total_count}</span>'
@@ -289,12 +289,12 @@ else:
             ))
             _fig.update_layout(
                 height=180, margin=dict(t=10, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5, color='rgba(255,255,255,0.65)'),
-                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.65)'),
+                yaxis=dict(range=[0, 10.5], showgrid=False, dtick=5, color=A["chart_text"]),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color=A["chart_text"]),
                 legend=dict(orientation="h", yanchor="top", y=1.18, xanchor="center", x=0.5,
-                           font=dict(size=10, color='rgba(255,255,255,0.72)')),
+                           font=dict(size=10, color=A["chart_text"])),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color='rgba(255,255,255,0.68)'),
+                font=dict(color=A["chart_text"]),
             )
             st.plotly_chart(_fig, use_container_width=True, key="spark_mood")
         else:
@@ -309,14 +309,14 @@ else:
             _fig2.add_trace(go.Bar(
                 x=_h_dates, y=_h_vals, marker_color=_bar_colors, marker_line_width=0,
                 text=[f"{v}%" for v in _h_vals],
-                textposition='outside', textfont=dict(size=8, color='rgba(255,255,255,0.68)'),
+                textposition='outside', textfont=dict(size=8, color=A["chart_text"]),
             ))
             _fig2.update_layout(
                 height=180, margin=dict(t=10, b=20, l=30, r=10),
-                yaxis=dict(range=[0, 115], showgrid=False, color='rgba(255,255,255,0.65)'),
-                xaxis=dict(showgrid=False, tickformat="%b %d", color='rgba(255,255,255,0.65)'),
+                yaxis=dict(range=[0, 115], showgrid=False, color=A["chart_text"]),
+                xaxis=dict(showgrid=False, tickformat="%b %d", color=A["chart_text"]),
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                showlegend=False, font=dict(color='rgba(255,255,255,0.68)'), bargap=0.3,
+                showlegend=False, font=dict(color=A["chart_text"]), bargap=0.3,
             )
             st.plotly_chart(_fig2, use_container_width=True, key="spark_habits")
         else:

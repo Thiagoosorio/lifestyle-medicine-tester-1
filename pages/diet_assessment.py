@@ -148,14 +148,14 @@ with tab_history:
         fig.add_hline(y=60, line_dash="dash", line_color="#FFD60A", opacity=0.3,
                       annotation_text="Good (60+)")
         fig.update_layout(
-            template="plotly_dark",
+            template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="#1C1C1E",
-            font=dict(family=A["font_text"]),
+            plot_bgcolor=A["chart_bg"],
+            font=dict(family=A["font_text"], color=A["chart_text"]),
             margin=dict(l=40, r=20, t=30, b=40),
             height=280,
-            xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-            yaxis=dict(title="HEI Score", range=[0, 105], gridcolor="rgba(84,84,88,0.3)"),
+            xaxis=dict(gridcolor=A["chart_grid"]),
+            yaxis=dict(title="HEI Score", range=[0, 105], gridcolor=A["chart_grid"]),
             showlegend=False,
         )
         st.plotly_chart(fig, use_container_width=True)

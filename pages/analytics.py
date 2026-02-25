@@ -527,19 +527,19 @@ with tab_badges:
             with cols[i % len(cols)]:
                 if badge["earned"]:
                     st.markdown(
-                        f"<div style='text-align:center;padding:12px;background:#1a3d1a;border-radius:12px;margin:4px 0'>"
+                        f"<div style='text-align:center;padding:12px;background:#E8F5E9;border-radius:12px;margin:4px 0'>"
                         f"<div style='font-size:2em'>{badge['icon']}</div>"
                         f"<div style='font-weight:bold;color:#4CAF50;font-size:0.85em'>{badge['name']}</div>"
-                        f"<div style='color:rgba(235,235,245,0.72);font-size:0.7em'>{badge['desc']}</div>"
+                        f"<div style='color:#79747E;font-size:0.7em'>{badge['desc']}</div>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
                 else:
                     st.markdown(
-                        f"<div style='text-align:center;padding:12px;background:#1a1a2e;border-radius:12px;margin:4px 0;opacity:0.65'>"
+                        f"<div style='text-align:center;padding:12px;background:#F0F0F5;border-radius:12px;margin:4px 0;opacity:0.65'>"
                         f"<div style='font-size:2em'>🔒</div>"
-                        f"<div style='font-weight:bold;color:rgba(235,235,245,0.72);font-size:0.85em'>{badge['name']}</div>"
-                        f"<div style='color:rgba(235,235,245,0.65);font-size:0.7em'>{badge['desc']}</div>"
+                        f"<div style='font-weight:bold;color:#79747E;font-size:0.85em'>{badge['name']}</div>"
+                        f"<div style='color:#938F99;font-size:0.7em'>{badge['desc']}</div>"
                         f"</div>",
                         unsafe_allow_html=True,
                     )
@@ -734,9 +734,9 @@ with tab_body:
                 _sc = "#30D158" if _status == "optimal" else "#FFD60A" if _status == "normal" else "#FF453A"
                 _row = (
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
-                    f'padding:8px 12px;margin-bottom:4px;background:rgba(28,28,30,0.8);'
+                    f'padding:8px 12px;margin-bottom:4px;background:rgba(0,0,0,0.03);'
                     f'border-radius:8px;border-left:3px solid {_sc}">'
-                    f'<span style="font-size:13px;color:rgba(255,255,255,0.8)">{_name}</span>'
+                    f'<span style="font-size:13px;color:#49454F">{_name}</span>'
                     f'<span style="font-size:14px;font-weight:600;color:{_sc}">{_val} {_unit}</span>'
                     f'</div>'
                 )

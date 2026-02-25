@@ -205,14 +205,14 @@ with tab_history:
                 hovertemplate="%{y:.1f}h<br>%{x}<extra></extra>",
             ))
             fig.update_layout(
-                template="plotly_dark",
+                template="plotly_white",
                 paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="#1C1C1E",
-                font=dict(family=A["font_text"]),
+                plot_bgcolor=A["chart_bg"],
+                font=dict(family=A["font_text"], color=A["chart_text"]),
                 margin=dict(l=40, r=20, t=20, b=40),
                 height=250,
-                xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-                yaxis=dict(title="Hours", gridcolor="rgba(84,84,88,0.3)"),
+                xaxis=dict(gridcolor=A["chart_grid"]),
+                yaxis=dict(title="Hours", gridcolor=A["chart_grid"]),
                 showlegend=False,
             )
             st.plotly_chart(fig, use_container_width=True)

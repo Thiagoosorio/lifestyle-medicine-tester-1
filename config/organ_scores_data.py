@@ -428,6 +428,142 @@ ORGAN_SCORE_DEFINITIONS = [
         "description": "Experimental composite score combining hemoglobin, MCV, RDW, WBC, and platelets against population reference ranges. Each marker ranked by percentile, then averaged.",
         "sort_order": 61,
     },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # LIVER — Additional (from research review)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "hsi",
+        "name": "Hepatic Steatosis Index (HSI)",
+        "organ_system": "liver",
+        "tier": "validated",
+        "formula_key": "calc_hsi",
+        "required_biomarkers": ["alt", "ast"],
+        "required_clinical": ["bmi", "sex", "diabetes_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 30, "label": "NAFLD unlikely", "severity": "optimal"},
+                {"min": 30, "max": 36, "label": "Indeterminate for steatosis", "severity": "elevated"},
+                {"min": 36, "label": "NAFLD likely", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "19766548",
+        "citation_text": "Lee JH et al. Dig Liver Dis 2010;42(7):503-8. Derived from 10,724 Korean subjects, AUROC 0.81. EASL-endorsed for steatosis screening.",
+        "description": "Screens for hepatic steatosis (fatty liver) using ALT/AST ratio, BMI, sex, and diabetes status. EASL-endorsed. Score >36 rules in NAFLD, <30 rules out.",
+        "sort_order": 4,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # METABOLIC — Additional (from research review)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "quicki",
+        "name": "QUICKI",
+        "organ_system": "metabolic",
+        "tier": "validated",
+        "formula_key": "calc_quicki",
+        "required_biomarkers": ["fasting_insulin", "fasting_glucose"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"min": 0.382, "label": "Normal insulin sensitivity", "severity": "optimal"},
+                {"min": 0.339, "max": 0.382, "label": "Borderline insulin sensitivity", "severity": "elevated"},
+                {"max": 0.339, "label": "Insulin resistant", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "10902785",
+        "citation_text": "Katz A et al. J Clin Endocrinol Metab 2000;85(7):2402-10. Better linear correlation with clamp than HOMA-IR in obese/diabetic subjects.",
+        "description": "Quantitative Insulin Sensitivity Check Index. Uses log transform of insulin and glucose. Higher values = better sensitivity. Better correlation with clamp than HOMA-IR in obese/diabetic patients.",
+        "sort_order": 24,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # INFLAMMATORY — Additional (from research review)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "plr",
+        "name": "Platelet-to-Lymphocyte Ratio (PLR)",
+        "organ_system": "inflammatory",
+        "tier": "validated",
+        "formula_key": "calc_plr",
+        "required_biomarkers": ["platelets", "lymphocytes_abs"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 150, "label": "Normal PLR", "severity": "optimal"},
+                {"min": 150, "max": 300, "label": "Mildly elevated PLR", "severity": "elevated"},
+                {"min": 300, "label": "High PLR — increased inflammatory risk", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "24338949",
+        "citation_text": "Templeton AJ et al. Cancer Epidemiol Biomarkers Prev 2014;23(7):1204-12. Meta-analysis: PLR >300 associated with worse OS in solid tumors.",
+        "description": "Platelet-to-Lymphocyte Ratio. Marker of systemic inflammation. Elevated PLR (>300) associated with poorer prognosis in cancer, ACS, and other inflammatory conditions.",
+        "sort_order": 33,
+    },
+    {
+        "code": "pni",
+        "name": "Prognostic Nutritional Index (PNI)",
+        "organ_system": "inflammatory",
+        "tier": "validated",
+        "formula_key": "calc_pni",
+        "required_biomarkers": ["albumin", "lymphocytes_abs"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"min": 50, "label": "Good nutritional-immune status", "severity": "optimal"},
+                {"min": 45, "max": 50, "label": "Mildly impaired nutritional-immune status", "severity": "elevated"},
+                {"max": 45, "label": "Poor nutritional-immune status", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "6438478",
+        "citation_text": "Onodera T et al. Nihon Geka Gakkai Zasshi 1984;85(9):1001-5. PNI <45 = poor prognosis. Widely validated in surgical oncology.",
+        "description": "Combines albumin and lymphocyte count to assess nutritional and immune competence. PNI = 10 x Albumin(g/dL) + 0.005 x Lymphocytes(/mm3). Score <45 indicates malnutrition risk.",
+        "sort_order": 34,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # THYROID — Additional (from research review)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "tfqi",
+        "name": "Thyroid Feedback Quantile Index (TFQI)",
+        "organ_system": "thyroid",
+        "tier": "derived",
+        "formula_key": "calc_tfqi",
+        "required_biomarkers": ["tsh", "free_t4"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"min": -0.5, "max": 0.5, "label": "Normal pituitary-thyroid feedback", "severity": "optimal"},
+                {"max": -0.5, "label": "Enhanced central sensitivity — consider thyrotoxicosis workup", "severity": "elevated"},
+                {"min": 0.5, "label": "Reduced central sensitivity — possible central hypothyroidism", "severity": "elevated"},
+            ]
+        }),
+        "citation_pmid": "30552134",
+        "citation_text": "Laclaustra M et al. Diabetes Care 2019;42(4):e62-3. Validated in NHANES 2007-2008 (n=5,129). Associated with diabetes, MetS, CVD, and mortality.",
+        "description": "Quantifies pituitary-thyroid axis feedback sensitivity. Positive values indicate reduced central sensitivity. Range roughly -1 to +1. Validated in NHANES and SHIP cohorts.",
+        "sort_order": 53,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
+    # BIOLOGICAL AGE — New Category (from research review)
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "phenoage",
+        "name": "Levine PhenoAge",
+        "organ_system": "biological_age",
+        "tier": "validated",
+        "formula_key": "calc_phenoage",
+        "required_biomarkers": ["albumin", "creatinine", "fasting_glucose", "hs_crp", "lymphocytes_abs", "mcv", "rdw", "wbc"],
+        "required_clinical": ["age"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": -3, "label": "Biologically younger — excellent multi-system health", "severity": "optimal"},
+                {"min": -3, "max": 3, "label": "Biologically age-appropriate", "severity": "normal"},
+                {"min": 3, "max": 8, "label": "Accelerated aging — review lifestyle factors", "severity": "elevated"},
+                {"min": 8, "label": "Significantly accelerated aging — comprehensive review needed", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "29676998",
+        "citation_text": "Levine ME et al. Aging 2018;10(4):573-591. Trained on NHANES III (n=9,926), validated on NHANES IV (n=11,432). Each 1-year acceleration = 9% increased mortality.",
+        "description": "Biological age estimate from 9 blood biomarkers + chronological age. Output is PhenoAge minus chronological age (acceleration). Positive = older than expected. Based on 10-year mortality Gompertz model.",
+        "sort_order": 70,
+    },
 ]
 
 # Organ system display metadata
@@ -439,4 +575,5 @@ ORGAN_SYSTEMS = {
     "inflammatory": {"name": "Inflammatory Status", "icon": "&#128293;", "color": "#FF4500", "sort_order": 5},
     "thyroid": {"name": "Thyroid Function", "icon": "&#129507;", "color": "#9370DB", "sort_order": 6},
     "hematologic": {"name": "Hematologic & Iron", "icon": "&#129656;", "color": "#B22222", "sort_order": 7},
+    "biological_age": {"name": "Biological Age", "icon": "&#9200;", "color": "#6750A4", "sort_order": 8},
 }

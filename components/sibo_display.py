@@ -99,14 +99,14 @@ def render_symptom_chart(history):
         ))
 
     fig.update_layout(
-        template="plotly_dark",
+        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor=A["bg_elevated"],
-        font=dict(family=A["font_text"]),
+        plot_bgcolor=A["chart_bg"],
+        font=dict(family=A["font_text"], color=A["chart_text"]),
         margin=dict(l=30, r=10, t=10, b=30),
         height=250,
-        xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-        yaxis=dict(title="Score", gridcolor="rgba(84,84,88,0.3)"),
+        xaxis=dict(gridcolor=A["chart_grid"]),
+        yaxis=dict(title="Score", gridcolor=A["chart_grid"]),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
                     font=dict(size=10)),
         showlegend=True,

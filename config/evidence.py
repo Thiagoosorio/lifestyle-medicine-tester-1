@@ -127,7 +127,7 @@ EVIDENCE_GRADES = {
         "label": "Grade D",
         "name": "Expert",
         "description": "Expert opinion, case reports, or clinical guidelines without direct evidence grading.",
-        "color": "rgba(235,235,245,0.7)",  # Apple label tertiary
+        "color": "#79747E",  # Material label tertiary
         "icon": "&#9733;",
     },
 }

@@ -19,9 +19,9 @@ user_id = st.session_state.user_id
 PLOTLY_LAYOUT_DEFAULTS = dict(
     plot_bgcolor="rgba(0,0,0,0)",
     paper_bgcolor="rgba(0,0,0,0)",
-    font=dict(color="rgba(255,255,255,0.7)"),
+    font=dict(color=A["chart_text"]),
     margin=dict(t=40, b=40, l=50, r=20),
-    hoverlabel=dict(bgcolor="#1E1E1E", font_size=13, font_color="#FAFAFA"),
+    hoverlabel=dict(bgcolor="#FFFFFF", font_size=13, font_color=A["label_primary"]),
     legend=dict(
         orientation="h", yanchor="bottom", y=1.02,
         xanchor="center", x=0.5, font=dict(size=11),
@@ -398,14 +398,14 @@ if len(weight_df) >= 1:
         yaxis=dict(
             title="Weight (kg)",
             range=[y_min, y_max],
-            showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.7)",
+            showgrid=True, gridcolor=A["chart_grid"],
+            color=A["chart_text"],
         ),
         xaxis=dict(
             title="Date",
             showgrid=False,
             tickformat="%b %d",
-            color="rgba(255,255,255,0.7)",
+            color=A["chart_text"],
         ),
         hovermode="x unified",
     )
@@ -467,11 +467,11 @@ if has_waist or has_hip or has_bf:
     layout_updates = dict(
         **PLOTLY_LAYOUT_DEFAULTS,
         height=380,
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.7)"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color=A["chart_text"]),
         yaxis=dict(
             title="Measurement (cm)",
-            showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.7)",
+            showgrid=True, gridcolor=A["chart_grid"],
+            color=A["chart_text"],
         ),
         hovermode="x unified",
     )
@@ -552,10 +552,10 @@ if len(bmi_df) >= 1 and height:
         yaxis=dict(
             title="BMI",
             range=[bmi_y_min, bmi_y_max + 2],
-            showgrid=True, gridcolor="rgba(255,255,255,0.06)",
-            color="rgba(255,255,255,0.7)",
+            showgrid=True, gridcolor=A["chart_grid"],
+            color=A["chart_text"],
         ),
-        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color="rgba(255,255,255,0.7)"),
+        xaxis=dict(title="Date", showgrid=False, tickformat="%b %d", color=A["chart_text"]),
         bargap=0.3,
     )
 

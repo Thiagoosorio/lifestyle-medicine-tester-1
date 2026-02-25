@@ -74,7 +74,7 @@ def render_domain_badge_inline(domain):
     label = d["label"] if d else domain.replace("_", " ").title()
     return (
         f'<span style="display:inline-flex;align-items:center;'
-        f'background:rgba(255,255,255,0.06);border:1px solid {A["separator"]};'
+        f'background:rgba(0,0,0,0.04);border:1px solid {A["separator"]};'
         f'border-radius:4px;padding:1px 6px;font-size:10px;font-weight:500;'
         f'color:{A["label_tertiary"]};'
         f'font-family:{A["font_text"]};line-height:14px">'
@@ -97,7 +97,7 @@ def render_evidence_card(evidence, show_details=True):
     if evidence.get("key_finding"):
         finding_html = (
             f'<div style="font-size:14px;line-height:20px;color:{A["label_primary"]};'
-            f'margin-top:8px;padding:8px 12px;background:rgba(255,255,255,0.04);'
+            f'margin-top:8px;padding:8px 12px;background:rgba(0,0,0,0.03);'
             f'border-radius:8px;border-left:2px solid {g["color"]}">'
             f'{evidence["key_finding"]}</div>'
         )

@@ -189,14 +189,14 @@ with st.expander("Your Journey"):
             hovertemplate="Mood: %{y}<br>%{x}<extra></extra>",
         ))
         fig.update_layout(
-            template="plotly_dark",
+            template="plotly_white",
             paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor=A["bg_elevated"],
-            font=dict(family=A["font_text"]),
+            plot_bgcolor=A["chart_bg"],
+            font=dict(family=A["font_text"], color=A["chart_text"]),
             margin=dict(l=30, r=10, t=10, b=30),
             height=180,
-            xaxis=dict(gridcolor="rgba(84,84,88,0.3)"),
-            yaxis=dict(title="Mood", range=[0.5, 5.5], gridcolor="rgba(84,84,88,0.3)",
+            xaxis=dict(gridcolor=A["chart_grid"]),
+            yaxis=dict(title="Mood", range=[0.5, 5.5], gridcolor=A["chart_grid"],
                        tickvals=[1, 2, 3, 4, 5], ticktext=["Agitated", "Restless", "Neutral", "Calm", "Very calm"]),
             showlegend=False,
         )

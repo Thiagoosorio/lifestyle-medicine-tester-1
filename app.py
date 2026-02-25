@@ -43,6 +43,7 @@ else:
             "Tracking": [
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),
                 st.Page("pages/exercise_tracker.py", title="Exercise", icon=":material/fitness_center:"),
+                st.Page("pages/exercise_library.py", title="Exercise Library", icon=":material/menu_book:"),
                 st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
                 st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),
                 st.Page("pages/organ_health.py", title="Organ Scores", icon=":material/monitor_heart:"),
@@ -76,13 +77,13 @@ else:
     with st.sidebar:
         display = st.session_state.get("display_name", "User")
         sidebar_html = (
-            '<div style="background:#1C1C1E;border:1px solid rgba(84,84,88,0.6);'
+            '<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.10);'
             'border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">'
             '<div style="font-size:2rem;margin-bottom:4px">&#128075;</div>'
-            f'<div style="font-family:-apple-system,BlinkMacSystemFont,\'SF Pro Display\','
-            f'\'Helvetica Neue\',system-ui,sans-serif;font-size:17px;line-height:22px;'
-            f'font-weight:600;color:rgba(255,255,255,1.0)">{display}</div>'
-            '<div style="font-size:11px;line-height:13px;color:rgba(235,235,245,0.65);'
+            f'<div style="font-family:\'Google Sans\',\'Product Sans\',-apple-system,BlinkMacSystemFont,'
+            f'\'Segoe UI\',Roboto,system-ui,sans-serif;font-size:17px;line-height:22px;'
+            f'font-weight:600;color:#1D1B20">{display}</div>'
+            '<div style="font-size:11px;line-height:13px;color:#79747E;'
             'margin-top:4px">Lifestyle Medicine Journey</div>'
             '</div>'
         )

@@ -295,7 +295,7 @@ SLEEP_SCORE_ZONES = {
 # Used to render a daily body clock visualization.
 
 BODY_CLOCK_ACTIVITIES = [
-    {"id": "deep_sleep", "label": "Deep Sleep", "color": "#1C1C1E", "icon": "&#127769;"},
+    {"id": "deep_sleep", "label": "Deep Sleep", "color": "#3C3C6E", "icon": "&#127769;"},
     {"id": "wake_up", "label": "Wake Up", "color": "#FFD60A", "icon": "&#127749;"},
     {"id": "peak_focus", "label": "Peak Focus", "color": "#FF9F0A", "icon": "&#129504;"},
     {"id": "exercise", "label": "Best Exercise", "color": "#30D158", "icon": "&#127939;"},

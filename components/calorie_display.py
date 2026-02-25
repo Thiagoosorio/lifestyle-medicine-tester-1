@@ -44,15 +44,15 @@ def render_macro_donut(protein_g, carbs_g, fat_g):
         hole=0.6,
         marker=dict(colors=["#0A84FF", "#30D158", "#FF375F"]),
         textinfo="percent",
-        textfont=dict(size=12, color="white"),
+        textfont=dict(size=12, color=A["label_primary"]),
         hovertemplate="%{label}: %{value:.0f} cal (%{percent})<extra></extra>",
     )])
 
     fig.update_layout(
-        template="plotly_dark",
+        template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        font=dict(family=A["font_text"]),
+        font=dict(family=A["font_text"], color=A["chart_text"]),
         margin=dict(l=10, r=10, t=10, b=10),
         height=200,
         showlegend=True,
@@ -63,7 +63,7 @@ def render_macro_donut(protein_g, carbs_g, fat_g):
         annotations=[dict(
             text=f"<b>{total_cal:.0f}</b><br>cal",
             x=0.5, y=0.5, font_size=16, showarrow=False,
-            font=dict(color="white", family=A["font_display"]),
+            font=dict(color=A["label_primary"], family=A["font_display"]),
         )],
     )
     st.plotly_chart(fig, use_container_width=True)

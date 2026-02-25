@@ -180,7 +180,7 @@ for up in user_protocols:
             fig = go.Figure()
             fig.add_trace(go.Bar(
                 x=dates, y=values,
-                marker_color=[A["green"] if v else "rgba(255,255,255,0.08)" for v in values],
+                marker_color=[A["green"] if v else "rgba(0,0,0,0.06)" for v in values],
                 marker_line_width=0,
             ))
             fig.update_layout(

@@ -37,14 +37,14 @@ _CARD_STYLE = (
 )
 
 _DIGEST_CARD_STYLE = (
-    "background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);"
+    "background:linear-gradient(135deg,#E8DEF8 0%,#D0BCFF 100%);"
     "border-radius:12px;padding:20px 24px;margin-bottom:16px;"
-    "color:#e0e0e0;box-shadow:0 4px 12px rgba(0,0,0,0.3)"
+    "color:#1D1B20;box-shadow:0 2px 8px rgba(0,0,0,0.08)"
 )
 
 _DIGEST_STAT_STYLE = (
     "display:inline-block;text-align:center;padding:8px 16px;margin:4px;"
-    "border-radius:8px;background:rgba(255,255,255,0.06);min-width:120px"
+    "border-radius:8px;background:rgba(0,0,0,0.04);min-width:120px"
 )
 
 # ── Color palette for cards ────────────────────────────────────────────────
@@ -142,34 +142,34 @@ def _render_weekly_digest(digest: dict):
     if digest["strongest_pillar"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Strongest Pillar</div>'
+            f'<div style="font-size:0.75rem;color:#79747E;text-transform:uppercase;letter-spacing:0.5px">Strongest Pillar</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#66bb6a">{digest["strongest_pillar"]}</div>'
             f'</div>'
         )
     if digest["weakest_pillar"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Needs Attention</div>'
+            f'<div style="font-size:0.75rem;color:#79747E;text-transform:uppercase;letter-spacing:0.5px">Needs Attention</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#ef5350">{digest["weakest_pillar"]}</div>'
             f'</div>'
         )
     if digest["top_habit"]:
         stats_html += (
             f'<div style="{_DIGEST_STAT_STYLE}">'
-            f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Top Habit</div>'
+            f'<div style="font-size:0.75rem;color:#79747E;text-transform:uppercase;letter-spacing:0.5px">Top Habit</div>'
             f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px;color:#42a5f5">{digest["top_habit"]}</div>'
             f'</div>'
         )
 
     stats_html += (
         f'<div style="{_DIGEST_STAT_STYLE}">'
-        f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Mood Trend</div>'
+        f'<div style="font-size:0.75rem;color:#79747E;text-transform:uppercase;letter-spacing:0.5px">Mood Trend</div>'
         f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{mood_badge}</div>'
         f'</div>'
     )
     stats_html += (
         f'<div style="{_DIGEST_STAT_STYLE}">'
-        f'<div style="font-size:0.75rem;color:rgba(235,235,245,0.78);text-transform:uppercase;letter-spacing:0.5px">Energy Trend</div>'
+        f'<div style="font-size:0.75rem;color:#79747E;text-transform:uppercase;letter-spacing:0.5px">Energy Trend</div>'
         f'<div style="font-size:1.1rem;font-weight:600;margin-top:2px">{energy_badge}</div>'
         f'</div>'
     )
