@@ -12,6 +12,10 @@ from config.exercise_library_data import (
 
 A = APPLE
 
+# ── Session state for muscle group quick nav ──────────────────────────────────
+if "exercise_lib_muscle" not in st.session_state:
+    st.session_state["exercise_lib_muscle"] = "All Muscles"
+
 
 # ── Card Renderer (must be defined before use) ───────────────────────────────
 
@@ -142,7 +146,13 @@ with col_search:
 
 with col_muscle:
     muscle_options = ["All Muscles"] + [v["label"] for v in MUSCLE_GROUPS.values()]
-    muscle_filter = st.selectbox("Muscle Group", muscle_options, label_visibility="collapsed")
+    # Sync session state from quick nav clicks
+    default_idx = 0
+    if st.session_state["exercise_lib_muscle"] in muscle_options:
+        default_idx = muscle_options.index(st.session_state["exercise_lib_muscle"])
+    muscle_filter = st.selectbox("Muscle Group", muscle_options, index=default_idx, label_visibility="collapsed")
+    # Keep session state in sync with dropdown changes
+    st.session_state["exercise_lib_muscle"] = muscle_filter
 
 with col_equip:
     equip_options = ["All Equipment"] + [v["label"] for v in EQUIPMENT_TYPES.values()]
@@ -170,38 +180,57 @@ if diff_filter != "All Levels":
     diff_key = next(k for k, v in DIFFICULTY_LEVELS.items() if v["label"] == diff_filter)
     exercises = [e for e in exercises if e["difficulty"] == diff_key]
 
-# ── Results count ─────────────────────────────────────────────────────────
-count_html = (
-    f'<div style="font-size:13px;color:{A["label_tertiary"]};margin-bottom:12px">'
-    f'Showing {len(exercises)} exercise{"s" if len(exercises) != 1 else ""}</div>'
-)
-st.markdown(count_html, unsafe_allow_html=True)
+# ── Results count + back button ───────────────────────────────────────────
+col_count, col_back = st.columns([4, 1])
+with col_count:
+    count_html = (
+        f'<div style="font-size:13px;color:{A["label_tertiary"]};margin-bottom:12px">'
+        f'Showing {len(exercises)} exercise{"s" if len(exercises) != 1 else ""}</div>'
+    )
+    st.markdown(count_html, unsafe_allow_html=True)
+with col_back:
+    if muscle_filter != "All Muscles":
+        if st.button("Show All Muscles", use_container_width=True):
+            st.session_state["exercise_lib_muscle"] = "All Muscles"
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MUSCLE GROUP QUICK NAV (when no filters active)
 # ══════════════════════════════════════════════════════════════════════════════
 if not search_query and muscle_filter == "All Muscles" and equip_filter == "All Equipment" and diff_filter == "All Levels":
-    nav_cards = ""
-    for key, mg in MUSCLE_GROUPS.items():
-        count = len(get_exercises_by_muscle(key))
-        nav_cards += (
-            f'<div style="text-align:center;padding:12px 8px;min-width:80px">'
-            f'<div style="width:48px;height:48px;border-radius:50%;'
-            f'background:{mg["color"]}15;display:flex;align-items:center;'
-            f'justify-content:center;margin:0 auto 6px;font-size:22px">'
-            f'{mg["icon"]}</div>'
-            f'<div style="font-family:{A["font_display"]};font-size:13px;'
-            f'font-weight:600;color:{A["label_primary"]}">{mg["label"]}</div>'
-            f'<div style="font-size:11px;color:{A["label_tertiary"]}">{count} exercises</div>'
-            f'</div>'
-        )
-    nav_html = (
+    st.markdown(
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
-        f'border-radius:{A["radius_lg"]};padding:12px;margin-bottom:20px">'
-        f'<div style="display:flex;justify-content:space-around;flex-wrap:wrap;gap:4px">'
-        f'{nav_cards}</div></div>'
+        f'border-radius:{A["radius_lg"]};padding:14px 8px 6px;margin-bottom:20px">'
+        f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
+        f'letter-spacing:0.06em;color:{A["label_tertiary"]};text-align:center;'
+        f'margin-bottom:10px">Browse by Muscle Group</div></div>',
+        unsafe_allow_html=True,
     )
-    st.markdown(nav_html, unsafe_allow_html=True)
+    nav_cols = st.columns(len(MUSCLE_GROUPS))
+    for col, (key, mg) in zip(nav_cols, MUSCLE_GROUPS.items()):
+        count = len(get_exercises_by_muscle(key))
+        with col:
+            # Styled icon + label above the button
+            st.markdown(
+                f'<div style="text-align:center">'
+                f'<div style="width:48px;height:48px;border-radius:50%;'
+                f'background:{mg["color"]}15;display:flex;align-items:center;'
+                f'justify-content:center;margin:0 auto 4px;font-size:22px">'
+                f'{mg["icon"]}</div>'
+                f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]};'
+                f'line-height:1.2">{mg["label"]}</div>'
+                f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:4px">'
+                f'{count} exercises</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                f'View',
+                key=f'nav_{key}',
+                use_container_width=True,
+            ):
+                st.session_state["exercise_lib_muscle"] = mg["label"]
+                st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # EXERCISE CARDS
