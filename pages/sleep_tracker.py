@@ -125,10 +125,18 @@ with tab_log:
         col3, col4 = st.columns(2)
         with col3:
             latency = st.number_input("Time to fall asleep (min)", min_value=0, max_value=120, value=10)
-            awakenings = st.number_input("Night awakenings", min_value=0, max_value=10, value=0)
         with col4:
-            wake_dur = st.number_input("Total awake time during night (min)", min_value=0, max_value=180, value=0)
             naps = st.number_input("Daytime naps (min)", min_value=0, max_value=180, value=0)
+
+        with st.expander("Advanced — Wearable / Device Data", expanded=False):
+            st.caption("These values are typically available from a sleep tracker or wearable device. Leave at 0 if unknown.")
+            col_adv1, col_adv2 = st.columns(2)
+            with col_adv1:
+                awakenings = st.number_input("Night awakenings", min_value=0, max_value=20, value=0,
+                                              help="Number of times you woke up during the night")
+            with col_adv2:
+                wake_dur = st.number_input("Total awake time during night (min)", min_value=0, max_value=180, value=0,
+                                            help="Total minutes spent awake after initially falling asleep (WASO)")
 
         st.markdown("**Sleep Hygiene Factors**")
         col5, col6 = st.columns(2)
