@@ -122,6 +122,23 @@ def _migrate(conn):
             goal TEXT NOT NULL DEFAULT 'hypertrophy',
             program_json TEXT NOT NULL,
             created_at TEXT NOT NULL DEFAULT (datetime('now')))""",
+        # Workout set logs (weight, reps, RPE tracking)
+        """CREATE TABLE IF NOT EXISTS workout_sets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            workout_date TEXT NOT NULL,
+            week_number INTEGER NOT NULL,
+            day_number INTEGER NOT NULL,
+            split_type TEXT NOT NULL,
+            exercise_id TEXT NOT NULL,
+            exercise_name TEXT NOT NULL,
+            set_number INTEGER NOT NULL,
+            prescribed_reps TEXT,
+            actual_reps INTEGER,
+            weight_kg REAL,
+            rpe INTEGER CHECK (rpe BETWEEN 1 AND 10),
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')))""",
     ]
     for sql in table_migrations:
         try:

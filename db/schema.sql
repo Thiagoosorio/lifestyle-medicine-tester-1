@@ -1040,3 +1040,25 @@ CREATE TABLE IF NOT EXISTS exercise_programs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_exercise_programs_user ON exercise_programs(user_id, created_at);
+
+-- Individual set logs for workout tracking (weight, reps, RPE)
+CREATE TABLE IF NOT EXISTS workout_sets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    workout_date    TEXT NOT NULL,
+    week_number     INTEGER NOT NULL,
+    day_number      INTEGER NOT NULL,
+    split_type      TEXT NOT NULL,
+    exercise_id     TEXT NOT NULL,
+    exercise_name   TEXT NOT NULL,
+    set_number      INTEGER NOT NULL,
+    prescribed_reps TEXT,
+    actual_reps     INTEGER,
+    weight_kg       REAL,
+    rpe             INTEGER CHECK (rpe BETWEEN 1 AND 10),
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workout_sets_user ON workout_sets(user_id, workout_date);
+CREATE INDEX IF NOT EXISTS idx_workout_sets_exercise ON workout_sets(user_id, exercise_id, workout_date);

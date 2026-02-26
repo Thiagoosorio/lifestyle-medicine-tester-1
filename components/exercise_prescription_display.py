@@ -4,6 +4,7 @@ import streamlit as st
 from components.custom_theme import APPLE
 from config.exercise_prescription_data import (
     VOLUME_LANDMARKS,
+    PPL_SPLIT,
     RIR_GUIDE,
     DELOAD_PROTOCOL,
 )
@@ -458,3 +459,225 @@ def render_mesocycle_timeline(program: dict):
         f'</div>'
     )
     st.markdown(html, unsafe_allow_html=True)
+
+
+# ── Workout Logging Display ────────────────────────────────────────────────
+
+def render_recent_workouts(workouts: list[dict]):
+    """Render a list of recent workout sessions."""
+    if not workouts:
+        st.caption("No workouts logged yet. Use the **Log Workout** tab to start tracking.")
+        return
+
+    html = (
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-radius:{A["radius_lg"]};padding:16px;margin-bottom:16px">'
+        f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
+        f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:10px">'
+        f'Recent Workouts</div>'
+    )
+
+    split_colors = {
+        "push": "#D93025",
+        "pull": "#1A73E8",
+        "legs": "#1E8E3E",
+    }
+    split_icons = {
+        "push": "&#128170;",
+        "pull": "&#129470;",
+        "legs": "&#129461;",
+    }
+
+    for w in workouts:
+        split = w.get("split_type", "push")
+        color = split_colors.get(split, A["label_tertiary"])
+        icon = split_icons.get(split, "&#127947;")
+        avg_rpe = w.get("avg_rpe")
+        rpe_str = f"RPE {avg_rpe:.1f}" if avg_rpe else "—"
+        total_sets = w.get("total_sets", 0)
+        exercises = w.get("exercises", 0)
+        total_reps = w.get("total_reps", 0) or 0
+        date_str = w.get("workout_date", "")
+
+        html += (
+            f'<div style="display:flex;align-items:center;gap:10px;'
+            f'padding:10px;border-bottom:1px solid {A["separator"]}30">'
+            f'<div style="font-size:20px">{icon}</div>'
+            f'<div style="flex:1">'
+            f'<div style="font-size:13px;font-weight:600;color:{color}">'
+            f'{split.capitalize()} Day — Week {w.get("week_number", "?")}</div>'
+            f'<div style="font-size:11px;color:{A["label_tertiary"]}">{date_str}</div>'
+            f'</div>'
+            f'<div style="text-align:right">'
+            f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]}">'
+            f'{total_sets} sets &middot; {int(total_reps)} reps</div>'
+            f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
+            f'{exercises} exercises &middot; {rpe_str}</div>'
+            f'</div>'
+            f'</div>'
+        )
+
+    html += '</div>'
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_exercise_progress(history: list[dict], exercise_name: str):
+    """Render weight progression chart for a specific exercise."""
+    if not history:
+        return
+
+    # Group by date, show latest weight per session
+    sessions = {}
+    for h in history:
+        d = h["workout_date"]
+        if d not in sessions or (h.get("weight_kg") and h["weight_kg"] > sessions[d].get("weight_kg", 0)):
+            sessions[d] = h
+
+    if not sessions:
+        return
+
+    dates = sorted(sessions.keys())
+    max_weight = max(sessions[d].get("weight_kg", 0) for d in dates) or 1
+
+    bars = ""
+    for d in dates[-8:]:  # Last 8 sessions
+        w = sessions[d].get("weight_kg", 0) or 0
+        reps = sessions[d].get("actual_reps", 0) or 0
+        pct = (w / max_weight * 100) if max_weight > 0 else 0
+        bars += (
+            f'<div style="display:flex;align-items:end;gap:2px;flex-direction:column;'
+            f'min-width:40px;text-align:center">'
+            f'<div style="font-size:10px;font-weight:600;color:{A["label_primary"]}">'
+            f'{w:.0f}kg</div>'
+            f'<div style="width:28px;height:{max(pct * 0.8, 4):.0f}px;'
+            f'background:{A["blue"]};border-radius:4px 4px 0 0"></div>'
+            f'<div style="font-size:9px;color:{A["label_tertiary"]}">'
+            f'{d[-5:]}</div>'
+            f'</div>'
+        )
+
+    html = (
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-radius:{A["radius_lg"]};padding:16px;margin-bottom:12px">'
+        f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]};'
+        f'margin-bottom:8px">{exercise_name} — Weight Progression</div>'
+        f'<div style="display:flex;gap:6px;align-items:end;min-height:80px">'
+        f'{bars}'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_workout_log_form(day_data: dict, week_number: int, existing_log: list[dict] | None = None,
+                            last_weights: dict | None = None):
+    """Render the workout logging form for a specific training day.
+
+    Returns list of set dicts if form is submitted, else None.
+    """
+    split = day_data.get("split", "push")
+    split_colors = {"push": "#D93025", "pull": "#1A73E8", "legs": "#1E8E3E"}
+    color = split_colors.get(split, A["label_tertiary"])
+
+    # Build existing log lookup: {exercise_id: {set_number: row}}
+    log_lookup: dict[str, dict[int, dict]] = {}
+    if existing_log:
+        for row in existing_log:
+            eid = row.get("exercise_id", "")
+            sn = row.get("set_number", 1)
+            log_lookup.setdefault(eid, {})[sn] = row
+
+    last_weights = last_weights or {}
+
+    header_html = (
+        f'<div style="background:{color}08;border:1px solid {color}25;'
+        f'border-radius:{A["radius_lg"]};padding:14px;margin-bottom:16px">'
+        f'<div style="font-size:15px;font-weight:700;color:{color}">'
+        f'{day_data.get("icon", "")} {day_data.get("label", split.capitalize())} — '
+        f'Week {week_number}</div>'
+        f'<div style="font-size:12px;color:{A["label_secondary"]};margin-top:4px">'
+        f'Enter weight, reps completed, and RPE for each set. '
+        f'Pre-filled with your last recorded weight where available.</div>'
+        f'</div>'
+    )
+    st.markdown(header_html, unsafe_allow_html=True)
+
+    all_sets = []
+
+    for ex in day_data.get("exercises", []):
+        ex_id = ex["exercise_id"]
+        ex_name = ex["exercise_name"]
+        num_sets = ex["sets"]
+        prescribed_reps = ex["reps"]
+        ex_log = log_lookup.get(ex_id, {})
+        default_weight = last_weights.get(ex_id, 0.0) or 0.0
+
+        # Exercise type badge
+        ex_type = ex.get("type", "compound")
+        type_label = "Compound (Multi-joint)" if ex_type == "compound" else "Isolation (Single-joint)"
+        type_color = A["blue"] if ex_type == "compound" else A["purple"]
+
+        ex_html = (
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_md"]};padding:12px;margin-bottom:12px">'
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+            f'<div style="font-size:14px;font-weight:600;color:{A["label_primary"]}">'
+            f'{ex_name}</div>'
+            f'<div style="font-size:10px;font-weight:600;color:{type_color};'
+            f'background:{type_color}12;padding:2px 6px;border-radius:4px">'
+            f'{type_label}</div>'
+            f'</div>'
+            f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:6px">'
+            f'{num_sets} sets &times; {prescribed_reps} reps &middot; '
+            f'Target: RIR {ex.get("rir", 2)}</div>'
+            f'</div>'
+        )
+        st.markdown(ex_html, unsafe_allow_html=True)
+
+        # Column headers
+        hdr_cols = st.columns([0.5, 1.5, 1.5, 1.5, 2])
+        hdr_cols[0].markdown(f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">Set</div>', unsafe_allow_html=True)
+        hdr_cols[1].markdown(f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">Weight (kg)</div>', unsafe_allow_html=True)
+        hdr_cols[2].markdown(f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">Reps</div>', unsafe_allow_html=True)
+        hdr_cols[3].markdown(f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">RPE (1-10)</div>', unsafe_allow_html=True)
+        hdr_cols[4].markdown(f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">Notes</div>', unsafe_allow_html=True)
+
+        for s in range(1, num_sets + 1):
+            existing = ex_log.get(s, {})
+            cols = st.columns([0.5, 1.5, 1.5, 1.5, 2])
+
+            with cols[0]:
+                st.markdown(f'<div style="font-size:13px;font-weight:600;color:{A["label_primary"]};padding-top:8px">{s}</div>', unsafe_allow_html=True)
+            with cols[1]:
+                w_val = existing.get("weight_kg") if existing.get("weight_kg") is not None else default_weight
+                weight = st.number_input("w", min_value=0.0, max_value=500.0,
+                                         value=float(w_val), step=2.5,
+                                         key=f"wt_{ex_id}_{s}", label_visibility="collapsed")
+            with cols[2]:
+                r_val = existing.get("actual_reps", 0) or 0
+                reps = st.number_input("r", min_value=0, max_value=100,
+                                       value=int(r_val), step=1,
+                                       key=f"rp_{ex_id}_{s}", label_visibility="collapsed")
+            with cols[3]:
+                rpe_val = existing.get("rpe", 0) or 0
+                rpe = st.number_input("e", min_value=0, max_value=10,
+                                      value=int(rpe_val), step=1,
+                                      key=f"rpe_{ex_id}_{s}", label_visibility="collapsed")
+            with cols[4]:
+                notes = st.text_input("n", value=existing.get("notes", "") or "",
+                                      key=f"nt_{ex_id}_{s}", label_visibility="collapsed")
+
+            all_sets.append({
+                "exercise_id": ex_id,
+                "exercise_name": ex_name,
+                "set_number": s,
+                "prescribed_reps": prescribed_reps,
+                "actual_reps": reps if reps > 0 else None,
+                "weight_kg": weight if weight > 0 else None,
+                "rpe": rpe if rpe > 0 else None,
+                "notes": notes if notes else None,
+            })
+
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    return all_sets

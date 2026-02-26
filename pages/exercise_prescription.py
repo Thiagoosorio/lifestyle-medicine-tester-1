@@ -1,6 +1,7 @@
 """Exercise Prescription — Science-based PPL training programs."""
 
 import streamlit as st
+from datetime import date
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
 from components.exercise_prescription_display import (
     render_key_terms_guide,
@@ -11,6 +12,9 @@ from components.exercise_prescription_display import (
     render_rir_guide,
     render_volume_landmarks_table,
     render_mesocycle_timeline,
+    render_recent_workouts,
+    render_exercise_progress,
+    render_workout_log_form,
 )
 from config.exercise_prescription_data import (
     MESOCYCLE_TEMPLATES,
@@ -25,6 +29,11 @@ from services.exercise_prescription_service import (
     save_program,
     get_saved_program,
     delete_program,
+    log_workout_sets,
+    get_workout_log,
+    get_recent_workouts,
+    get_exercise_history,
+    get_last_weight_for_exercise,
 )
 
 A = APPLE
@@ -36,8 +45,8 @@ render_hero_banner(
     "volume landmarks, and mesocycle progression.",
 )
 
-tab_program, tab_generate, tab_science, tab_reference = st.tabs([
-    "My Program", "Generate Program", "Science", "Reference"
+tab_program, tab_log, tab_generate, tab_science, tab_reference = st.tabs([
+    "My Program", "Log Workout", "Generate Program", "Science", "Reference"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -73,6 +82,11 @@ with tab_program:
             render_day_card(day)
             st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
+        # Recent workouts
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        recent = get_recent_workouts(user_id, limit=5)
+        render_recent_workouts(recent)
+
         # Delete program
         st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
         col_spacer, col_delete = st.columns([3, 1])
@@ -83,7 +97,93 @@ with tab_program:
                 st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 2: Generate Program
+# Tab 2: Log Workout
+# ══════════════════════════════════════════════════════════════════════════
+with tab_log:
+    saved_for_log = get_saved_program(user_id)
+
+    if not saved_for_log:
+        st.info("Generate a training program first to start logging workouts.")
+    else:
+        render_section_header("Log Your Workout", "Record weight, reps, and RPE for each set")
+
+        # Selectors: week + day + date
+        col_week, col_day, col_date = st.columns(3)
+
+        with col_week:
+            log_week_options = [f"Week {w['week']} — {w['label']}" for w in saved_for_log["weeks"]]
+            log_week_label = st.selectbox("Week", log_week_options, key="log_week_sel")
+            log_week_idx = log_week_options.index(log_week_label)
+
+        log_week = saved_for_log["weeks"][log_week_idx]
+
+        with col_day:
+            log_day_options = [
+                f"Day {d['day']} — {d['label']}"
+                for d in log_week["days"]
+            ]
+            log_day_label = st.selectbox("Training Day", log_day_options, key="log_day_sel")
+            log_day_idx = log_day_options.index(log_day_label)
+
+        with col_date:
+            workout_date = st.date_input("Workout Date", value=date.today(), key="log_date")
+
+        log_day = log_week["days"][log_day_idx]
+        day_number = log_day["day"]
+        split_type = log_day["split"]
+        week_number = log_week["week"]
+
+        # Check for existing log
+        date_str = workout_date.strftime("%Y-%m-%d")
+        existing_log = get_workout_log(user_id, date_str, day_number)
+
+        if existing_log:
+            st.success(f"You already logged this workout on {date_str}. Edit below to update.")
+
+        # Get last weights for pre-fill
+        last_weights = {}
+        for ex in log_day.get("exercises", []):
+            lw = get_last_weight_for_exercise(user_id, ex["exercise_id"])
+            if lw is not None:
+                last_weights[ex["exercise_id"]] = lw
+
+        # Render the form
+        with st.form("log_workout_form"):
+            all_sets = render_workout_log_form(
+                log_day, week_number, existing_log, last_weights
+            )
+
+            submitted = st.form_submit_button(
+                "Save Workout",
+                use_container_width=True,
+                type="primary",
+            )
+
+            if submitted:
+                count = log_workout_sets(
+                    user_id=user_id,
+                    workout_date=date_str,
+                    week_number=week_number,
+                    day_number=day_number,
+                    split_type=split_type,
+                    sets_data=all_sets,
+                )
+                if count > 0:
+                    st.toast(f"Saved {count} sets for {log_day['label']}!")
+                    st.rerun()
+                else:
+                    st.warning("No sets with data to save. Enter weight or reps for at least one set.")
+
+        # Exercise progress charts
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+        with st.expander("Weight Progression Charts", expanded=False):
+            for ex in log_day.get("exercises", []):
+                history = get_exercise_history(user_id, ex["exercise_id"], limit=16)
+                if history:
+                    render_exercise_progress(history, ex["exercise_name"])
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 3: Generate Program
 # ══════════════════════════════════════════════════════════════════════════
 with tab_generate:
     render_section_header(
@@ -155,7 +255,7 @@ with tab_generate:
             st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 3: Science
+# Tab 4: Science
 # ══════════════════════════════════════════════════════════════════════════
 with tab_science:
     render_section_header("The Science Behind Your Program")
@@ -246,7 +346,7 @@ with tab_science:
     st.markdown(rir_html, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 4: Reference
+# Tab 5: Reference
 # ══════════════════════════════════════════════════════════════════════════
 with tab_reference:
     render_section_header("Training Reference", "Volume landmarks and RIR guide")

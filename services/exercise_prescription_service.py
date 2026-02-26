@@ -271,3 +271,120 @@ def delete_program(user_id: int, program_id: int):
         conn.commit()
     finally:
         conn.close()
+
+
+# ── Workout Logging (weight, reps, RPE per set) ──────────────────────────
+
+def log_workout_sets(
+    user_id: int,
+    workout_date: str,
+    week_number: int,
+    day_number: int,
+    split_type: str,
+    sets_data: list[dict],
+) -> int:
+    """Save all sets for a workout session.
+
+    sets_data: list of dicts with keys:
+        exercise_id, exercise_name, set_number, prescribed_reps,
+        actual_reps, weight_kg, rpe, notes
+    Returns count of sets saved.
+    """
+    conn = get_connection()
+    try:
+        # Delete existing sets for this date+day (allows re-logging)
+        conn.execute(
+            """DELETE FROM workout_sets
+               WHERE user_id = ? AND workout_date = ? AND day_number = ?""",
+            (user_id, workout_date, day_number),
+        )
+        count = 0
+        for s in sets_data:
+            if not s.get("actual_reps") and not s.get("weight_kg"):
+                continue  # Skip empty rows
+            conn.execute(
+                """INSERT INTO workout_sets
+                   (user_id, workout_date, week_number, day_number, split_type,
+                    exercise_id, exercise_name, set_number, prescribed_reps,
+                    actual_reps, weight_kg, rpe, notes)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (user_id, workout_date, week_number, day_number, split_type,
+                 s["exercise_id"], s["exercise_name"], s["set_number"],
+                 s.get("prescribed_reps"), s.get("actual_reps"),
+                 s.get("weight_kg"), s.get("rpe"), s.get("notes")),
+            )
+            count += 1
+        conn.commit()
+        return count
+    finally:
+        conn.close()
+
+
+def get_workout_log(user_id: int, workout_date: str, day_number: int) -> list[dict]:
+    """Get logged sets for a specific workout session."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT * FROM workout_sets
+               WHERE user_id = ? AND workout_date = ? AND day_number = ?
+               ORDER BY exercise_id, set_number""",
+            (user_id, workout_date, day_number),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_recent_workouts(user_id: int, limit: int = 10) -> list[dict]:
+    """Get recent workout sessions (grouped by date + day)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT workout_date, day_number, split_type, week_number,
+                      COUNT(*) as total_sets,
+                      COUNT(DISTINCT exercise_id) as exercises,
+                      SUM(actual_reps) as total_reps,
+                      AVG(rpe) as avg_rpe
+               FROM workout_sets
+               WHERE user_id = ?
+               GROUP BY workout_date, day_number
+               ORDER BY workout_date DESC, day_number DESC
+               LIMIT ?""",
+            (user_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_exercise_history(user_id: int, exercise_id: str, limit: int = 20) -> list[dict]:
+    """Get history for a specific exercise (for progressive overload tracking)."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT workout_date, set_number, actual_reps, weight_kg, rpe
+               FROM workout_sets
+               WHERE user_id = ? AND exercise_id = ?
+               ORDER BY workout_date DESC, set_number
+               LIMIT ?""",
+            (user_id, exercise_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_last_weight_for_exercise(user_id: int, exercise_id: str) -> float | None:
+    """Get the last recorded weight for an exercise (for pre-filling forms)."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """SELECT weight_kg FROM workout_sets
+               WHERE user_id = ? AND exercise_id = ? AND weight_kg IS NOT NULL
+               ORDER BY workout_date DESC, set_number DESC
+               LIMIT 1""",
+            (user_id, exercise_id),
+        ).fetchone()
+        return row[0] if row else None
+    finally:
+        conn.close()
