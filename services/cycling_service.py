@@ -563,3 +563,122 @@ def get_wkg_category(ftp_watts: int, weight_kg: float) -> str:
         if cat["min_wkg"] <= wkg < cat["max_wkg"]:
             return cat["label"]
     return WATT_KG_CATEGORIES[-1]["label"]
+
+
+# ── AI Coach Context ────────────────────────────────────────────────────────
+
+def get_cycling_coach_context(user_id: int) -> str:
+    """Assemble all cycling training data into a structured text block for the AI coach.
+
+    Returns a multi-line string covering FTP, PMC fitness metrics, progression levels,
+    recent rides, and the active training plan.
+    """
+    profile = get_cycling_profile(user_id)
+    if not profile:
+        return (
+            "No cycling profile found. The athlete has not set their FTP yet. "
+            "Ask them to go to Settings in the Cycling Training page and enter their FTP."
+        )
+
+    ftp = profile["ftp_watts"]
+    weight = profile.get("weight_kg") or 0.0
+    wkg = round(ftp / weight, 2) if weight > 0 else None
+    category = get_wkg_category(ftp, weight) if weight > 0 else "Unknown"
+
+    # Days since FTP test
+    tested_date = profile.get("ftp_tested_date") or "unknown"
+    days_since_test: str = "unknown"
+    if tested_date and tested_date != "unknown":
+        try:
+            days_since_test = str((date.today() - date.fromisoformat(tested_date)).days)
+        except Exception:
+            pass
+
+    # PMC — last 90 days; extract latest entry for CTL/ATL/TSB
+    pmc = get_pmc_data(user_id, days=90)
+    ctl = atl = tsb = 0.0
+    ctl_7d_ago = 0.0
+    if pmc:
+        last = pmc[-1]
+        ctl, atl, tsb = last["ctl"], last["atl"], last["tsb"]
+        if len(pmc) >= 8:
+            ctl_7d_ago = pmc[-8]["ctl"]
+    ctl_trend = round(ctl - ctl_7d_ago, 1)
+
+    if tsb >= 10:
+        tsb_label = "Fresh — consider a hard day or race"
+    elif tsb >= 0:
+        tsb_label = "Neutral — good training zone"
+    elif tsb >= -20:
+        tsb_label = "Productive fatigue — training adaptation zone"
+    elif tsb >= -30:
+        tsb_label = "Tired — reduce intensity or volume"
+    else:
+        tsb_label = "Very Tired — rest day strongly recommended"
+
+    # Progression levels
+    levels = get_progression_levels(user_id)
+    prog_parts = [f"{k.replace('_', ' ').title()}: {v}" for k, v in levels.items()]
+    prog_str = " | ".join(prog_parts)
+
+    # Recent rides (last 28 days, cap at 8)
+    rides = get_ride_history(user_id, days=28)
+    ride_lines: list[str] = []
+    for r in rides[:8]:
+        workout_name = ""
+        if r.get("workout_id"):
+            w = WORKOUT_LIBRARY_BY_ID.get(r["workout_id"], {})
+            if w:
+                workout_name = f" | {w['name']}"
+        survey_str = ""
+        if r.get("difficulty_survey"):
+            survey_str = f" | Survey: {r['difficulty_survey']}/5"
+        ride_lines.append(
+            f"{r['ride_date']} | {r['duration_min']}min"
+            f" | IF={r.get('if_score', 0):.2f}"
+            f" | TSS={r.get('tss', 0):.0f}"
+            f"{workout_name}{survey_str}"
+        )
+
+    # Active training plan
+    plan = get_active_plan(user_id)
+    plan_lines: list[str] = ["No active training plan."]
+    if plan:
+        phase_data = TRAINING_PHASES.get(plan["phase"], {})
+        today = date.today()
+        try:
+            start = date.fromisoformat(plan["start_date"])
+            current_week = min((today - start).days // 7 + 1, plan["weeks"])
+        except Exception:
+            current_week = 1
+        week_start_str = (today - timedelta(days=today.weekday())).isoformat()
+        actual_tss = calculate_weekly_tss(user_id, week_start_str)
+        tss_range = phase_data.get("tss_range", (0, 0))
+        plan_lines = [
+            f"{phase_data.get('label', plan['phase'])}, Week {current_week}/{plan['weeks']},"
+            f" {plan.get('days_per_week', 4)} days/week",
+            f"Target TSS: {tss_range[0]}–{tss_range[1]}/wk",
+            f"This week actual TSS: {actual_tss:.0f}",
+        ]
+
+    lines = [
+        "=== CYCLING TRAINING PROFILE ===",
+        f"FTP: {ftp}W | Weight: {weight}kg | W/kg: {wkg if wkg else 'N/A'} | Category: {category}",
+        f"Athlete Type: {profile.get('athlete_type', 'All-Around')}"
+        f" | FTP Last Tested: {tested_date} ({days_since_test} days ago)",
+        "",
+        "=== CURRENT FITNESS (PMC — Banister Impulse-Response Model) ===",
+        f"CTL (Fitness):  {ctl:.1f} TSS (7d trend: {ctl_trend:+.1f})",
+        f"ATL (Fatigue):  {atl:.1f} TSS",
+        f"TSB (Form):     {tsb:+.1f} — {tsb_label}",
+        "",
+        "=== PROGRESSION LEVELS (scale 1.0–10.0) ===",
+        prog_str,
+        "",
+        "=== RECENT RIDES (last 28 days) ===",
+    ] + (ride_lines if ride_lines else ["No rides logged yet."]) + [
+        "",
+        "=== ACTIVE TRAINING PLAN ===",
+    ] + plan_lines
+
+    return "\n".join(lines)

@@ -55,8 +55,8 @@ render_hero_banner(
     "Power-based training with FTP zones, TSS, Performance Management Chart, and adaptive prescription.",
 )
 
-tab_dash, tab_plan, tab_log, tab_workouts, tab_settings = st.tabs([
-    "Dashboard", "Training Plan", "Log Ride", "Workout Library", "Settings"
+tab_dash, tab_plan, tab_log, tab_workouts, tab_settings, tab_coach = st.tabs([
+    "Dashboard", "Training Plan", "Log Ride", "Workout Library", "Settings", "AI Coach"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -232,6 +232,76 @@ with tab_plan:
                             st.rerun()
                 elif sug["type"] in ("upgrade", "downgrade", "recovery_day"):
                     st.info(f"&#128161; {sug['message']}")
+
+        # Export panel
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        with st.expander("Export This Week's Workouts", expanded=False):
+            col_garmin, col_tcx = st.columns(2)
+
+            with col_garmin:
+                garmin_hdr_html = (
+                    f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]};'
+                    f'margin-bottom:8px">Sync to Garmin Connect</div>'
+                )
+                st.markdown(garmin_hdr_html, unsafe_allow_html=True)
+                try:
+                    from services.garmin_service import get_garmin_connection
+                    garmin_conn = get_garmin_connection(user_id)
+                except Exception:
+                    garmin_conn = None
+                garmin_client = st.session_state.get("garmin_client")
+                profile_g = get_cycling_profile(user_id)
+                ftp_g = profile_g["ftp_watts"] if profile_g else 200
+
+                if garmin_conn and garmin_client:
+                    st.caption(f"Connected as {garmin_conn.get('garmin_email','')}")
+                    if st.button("Push This Week to Garmin", type="primary",
+                                 key="push_garmin_week", use_container_width=True):
+                        from services.garmin_workout_service import push_week_to_garmin
+                        result = push_week_to_garmin(user_id, week_workouts, ftp_g)
+                        for detail in result["details"]:
+                            if detail["success"]:
+                                st.toast(f"✓ {detail['workout_name']} pushed")
+                            else:
+                                st.toast(f"✗ {detail['workout_name']}: {detail['message']}")
+                        if result["pushed"] > 0:
+                            st.success(f"Pushed {result['pushed']} workout(s) to Garmin Connect")
+                        if result["failed"] > 0:
+                            st.error(f"{result['failed']} workout(s) failed — check connection")
+                elif garmin_conn:
+                    st.caption(f"Email: {garmin_conn.get('garmin_email','')}")
+                    st.info("Session expired — re-login on the Garmin Import page to push workouts.")
+                else:
+                    st.info("Connect Garmin in Settings or the Garmin Import page first.")
+
+            with col_tcx:
+                tcx_hdr_html = (
+                    f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]};'
+                    f'margin-bottom:8px">Download for TrainingPeaks</div>'
+                )
+                st.markdown(tcx_hdr_html, unsafe_allow_html=True)
+                profile_t = get_cycling_profile(user_id)
+                ftp_t = profile_t["ftp_watts"] if profile_t else 200
+                if week_workouts:
+                    try:
+                        from services.garmin_workout_service import generate_tcx_plan
+                        tcx_bytes = generate_tcx_plan(
+                            week_workouts, ftp_t,
+                            {"phase": active_plan.get("phase", ""), "week": current_week_num},
+                        )
+                        tcx_filename = f"cycling_week{current_week_num}_{date.today().isoformat()}.tcx"
+                        st.download_button(
+                            label="Download Week TCX",
+                            data=tcx_bytes,
+                            file_name=tcx_filename,
+                            mime="application/vnd.garmin.tcx+xml",
+                            use_container_width=True,
+                        )
+                        st.caption("Compatible with TrainingPeaks, Garmin Connect, and most training apps.")
+                    except Exception as tcx_err:
+                        st.error(f"TCX generation failed: {tcx_err}")
+                else:
+                    st.caption("No workouts scheduled this week.")
 
         # Complete workout section
         if week_workouts:
@@ -585,3 +655,138 @@ with tab_settings:
         f'</div>'
     )
     st.markdown(zone_legend_html, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 6: AI Coach
+# ══════════════════════════════════════════════════════════════════════════
+with tab_coach:
+    from services.coaching_service import get_cycling_coaching_response
+
+    render_section_header("AI Cycling Coach", "Power-based coaching from your live training data")
+
+    profile_c = get_cycling_profile(user_id)
+
+    if not profile_c:
+        st.info("Set your FTP in the Settings tab first to enable personalised AI coaching.")
+        st.stop()
+
+    ftp_c = profile_c["ftp_watts"]
+    pmc_c = get_pmc_data(user_id, days=7)
+    ctl_c = pmc_c[-1]["ctl"] if pmc_c else 0.0
+    atl_c = pmc_c[-1]["atl"] if pmc_c else 0.0
+    tsb_c = pmc_c[-1]["tsb"] if pmc_c else 0.0
+
+    # CTL 7-day trend
+    pmc_c90 = get_pmc_data(user_id, days=90)
+    ctl_trend_label = ""
+    if len(pmc_c90) >= 8:
+        ctl_trend_val = ctl_c - pmc_c90[-8]["ctl"]
+        ctl_trend_label = f" ({ctl_trend_val:+.1f} 7d)"
+
+    tsb_color_c = A["green"] if tsb_c >= 0 else (A["orange"] if tsb_c >= -20 else A["red"])
+
+    # Last ride for the context card
+    recent_rides_c = get_ride_history(user_id, days=7)
+    last_ride_c = recent_rides_c[0] if recent_rides_c else None
+    if last_ride_c:
+        last_ride_text_c = (
+            f"{last_ride_c['ride_date']} &middot; {last_ride_c['duration_min']}min"
+            f" &middot; {last_ride_c.get('tss', 0):.0f} TSS"
+        )
+    else:
+        last_ride_text_c = "No rides this week"
+
+    # ── Context cards ──────────────────────────────────────────────────────
+    cards_c_html = (
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px">'
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-top:3px solid {A["blue"]};border-radius:{A["radius_md"]};padding:12px;text-align:center">'
+        f'<div style="font-size:22px;font-weight:800;color:{A["blue"]}">{ctl_c:.0f}</div>'
+        f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">CTL Fitness{ctl_trend_label}</div>'
+        f'</div>'
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-top:3px solid {tsb_color_c};border-radius:{A["radius_md"]};padding:12px;text-align:center">'
+        f'<div style="font-size:22px;font-weight:800;color:{tsb_color_c}">{tsb_c:+.0f}</div>'
+        f'<div style="font-size:10px;font-weight:600;color:{A["label_tertiary"]}">TSB Form</div>'
+        f'</div>'
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-top:3px solid {A["orange"]};border-radius:{A["radius_md"]};padding:12px;text-align:center">'
+        f'<div style="font-size:11px;font-weight:600;color:{A["label_secondary"]};margin-bottom:4px">Last 7 Days</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]}">{last_ride_text_c}</div>'
+        f'</div>'
+        f'</div>'
+    )
+    st.markdown(cards_c_html, unsafe_allow_html=True)
+
+    # ── Quick-action buttons ───────────────────────────────────────────────
+    _QUICK_ACTIONS = {
+        "qa_7days": "Evaluate my training over the last 7 days and tell me how I'm progressing. Reference my CTL trend, TSB, and any ride difficulty surveys.",
+        "qa_ftp":   "Based on my current CTL trend and how long it has been since my last FTP test, should I retest my FTP now? Give me specific criteria.",
+        "qa_today": "What should I train today? Consider my TSB form value and which energy system progression level is lowest.",
+        "qa_week":  "Plan my next 7 days of training — list specific workout names with target watts, duration, and estimated TSS per session.",
+    }
+    qa_col1, qa_col2, qa_col3, qa_col4 = st.columns(4)
+    with qa_col1:
+        if st.button("Evaluate last 7 days", key="qa_7days", use_container_width=True):
+            st.session_state["cycling_coach_prefill"] = _QUICK_ACTIONS["qa_7days"]
+            st.rerun()
+    with qa_col2:
+        if st.button("Should I raise FTP?", key="qa_ftp", use_container_width=True):
+            st.session_state["cycling_coach_prefill"] = _QUICK_ACTIONS["qa_ftp"]
+            st.rerun()
+    with qa_col3:
+        if st.button("What to train today?", key="qa_today", use_container_width=True):
+            st.session_state["cycling_coach_prefill"] = _QUICK_ACTIONS["qa_today"]
+            st.rerun()
+    with qa_col4:
+        if st.button("Plan next week", key="qa_week", use_container_width=True):
+            st.session_state["cycling_coach_prefill"] = _QUICK_ACTIONS["qa_week"]
+            st.rerun()
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── Chat input (NOT inside st.form — required for prefill to work) ─────
+    prefill_c = st.session_state.pop("cycling_coach_prefill", "")
+    user_input_c = st.text_area(
+        "Ask your cycling coach",
+        value=prefill_c,
+        placeholder="e.g. 'My last 3 rides felt very hard — am I overtraining?'",
+        height=90,
+        key="cycling_coach_input",
+        label_visibility="collapsed",
+    )
+
+    if st.button("Ask Coach", type="primary", key="cycling_coach_submit"):
+        if user_input_c.strip():
+            if "cycling_chat_history" not in st.session_state:
+                st.session_state["cycling_chat_history"] = []
+            with st.spinner("Analysing your training data…"):
+                ai_resp_c = get_cycling_coaching_response(user_id, user_input_c.strip())
+            st.session_state["cycling_chat_history"].append(
+                {"user": user_input_c.strip(), "assistant": ai_resp_c}
+            )
+            # Keep only last 3 exchanges
+            if len(st.session_state["cycling_chat_history"]) > 3:
+                st.session_state["cycling_chat_history"] = st.session_state["cycling_chat_history"][-3:]
+            st.rerun()
+        else:
+            st.warning("Please enter a question.")
+
+    # ── Response display (newest first) ───────────────────────────────────
+    chat_history_c = st.session_state.get("cycling_chat_history", [])
+    if chat_history_c:
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        render_section_header("Coaching Responses")
+        for exchange in reversed(chat_history_c):
+            user_bubble_html = (
+                f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
+                f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:6px">'
+                f'<div style="font-size:11px;font-weight:700;color:{A["blue"]};margin-bottom:4px">You</div>'
+                f'<div style="font-size:13px;color:{A["label_primary"]}">{exchange["user"]}</div>'
+                f'</div>'
+            )
+            st.markdown(user_bubble_html, unsafe_allow_html=True)
+            # Use st.container so the AI markdown (bullets, bold) renders correctly
+            with st.container(border=True):
+                st.caption("AI Coach")
+                st.markdown(exchange["assistant"])

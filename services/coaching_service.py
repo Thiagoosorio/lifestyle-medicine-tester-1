@@ -303,3 +303,74 @@ def clear_conversation(user_id: int):
         conn.commit()
     finally:
         conn.close()
+
+
+# ── Cycling-specific AI Coach ───────────────────────────────────────────────
+
+_CYCLING_SYSTEM_PROMPT = """\
+You are an expert cycling coach specialising in power-based training. \
+You have access to the athlete's complete cycling training data below.
+
+COACHING PRINCIPLES — follow every one strictly:
+1. Quantitative only — cite specific watts, percentages, minutes, and TSS values in every recommendation. Never give vague advice like "train harder".
+2. Reference workout names from the library when suggesting sessions (e.g. "do Antelope — 2×15 Sweet Spot at ~90% FTP").
+3. Interpret CTL/ATL/TSB using the Banister impulse-response model: CTL = 42-day rolling average (fitness), ATL = 7-day rolling average (fatigue), TSB = CTL − ATL (form).
+4. TSB zones: >+10 = fresh/risk of detraining; 0 to +10 = neutral; −20 to 0 = productive fatigue (normal training); −20 to −30 = high fatigue; below −30 = overreaching.
+5. Progressive overload: NEVER recommend increasing intensity or volume if TSB < −20 or if ATL > CTL × 1.4.
+6. FTP retest: ONLY recommend re-testing if BOTH: (a) CTL has been flat (< 2 TSS change) for 14+ consecutive days AND (b) it has been 42+ days since the last FTP test.
+7. Progression levels (1.0–10.0): if a level is < 3.0 for an energy system, recommend starter workouts for that system; if > 7.0, suggest advanced intervals.
+8. Always ground your answer in the athlete's actual numbers from the training data. Do not fabricate values.
+
+{cycling_context}
+"""
+
+_CYCLING_COACH_HISTORY_LIMIT = 10  # last N messages with context_type='cycling'
+
+
+def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
+    """Get a cycling-specific AI coaching response with full PMC and training context.
+
+    Uses a specialist cycling system prompt with CTL/ATL/TSB data, progression levels,
+    and recent ride history. Stores messages with context_type='cycling' to keep
+    cycling history separate from general health coaching.
+    """
+    from services.cycling_service import get_cycling_coach_context
+
+    cycling_context = get_cycling_coach_context(user_id)
+    system_prompt = _CYCLING_SYSTEM_PROMPT.format(cycling_context=cycling_context)
+
+    # Fetch last N cycling-specific messages for continuity
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT role, content FROM coaching_messages
+               WHERE user_id = ? AND context_type = 'cycling'
+               ORDER BY created_at DESC LIMIT ?""",
+            (user_id, _CYCLING_COACH_HISTORY_LIMIT),
+        ).fetchall()
+        history = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+    finally:
+        conn.close()
+
+    messages = history + [{"role": "user", "content": user_message}]
+
+    # Call Anthropic with higher token limit for detailed interval plans
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250514",
+            max_tokens=1500,
+            system=system_prompt,
+            messages=messages,
+        )
+        ai_response = response.content[0].text
+    except Exception as exc:
+        ai_response = (
+            f"Unable to reach the coaching service: {exc}\n\n"
+            "Check that your ANTHROPIC_API_KEY is set in the .env file."
+        )
+
+    _save_message(user_id, "user", user_message, "cycling")
+    _save_message(user_id, "assistant", ai_response, "cycling")
+    return ai_response
