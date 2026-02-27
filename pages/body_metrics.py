@@ -2,6 +2,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import pandas as pd
 from datetime import date, timedelta
+from components.custom_theme import APPLE
 from services.body_metrics_service import (
     log_body_metrics,
     get_body_metrics_history,
@@ -12,6 +13,7 @@ from services.body_metrics_service import (
     compute_bmi,
 )
 
+A = APPLE
 user_id = st.session_state.user_id
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
