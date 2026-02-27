@@ -378,18 +378,19 @@ with tab_upload:
 
     if "pdf_extracted" not in st.session_state:
         # ── Step 1: Upload ────────────────────────────────────────────────
-        col_up, col_meta = st.columns([3, 2])
-        with col_up:
-            uploaded_pdfs = st.file_uploader(
-                "Blood Test PDF(s)",
-                type=["pdf"],
-                accept_multiple_files=True,
-                key="pdf_uploader",
-                help="Select one or more PDF lab reports — all will be merged into one panel.",
-            )
-        with col_meta:
+        # Full-width uploader so drag-and-drop zone is large
+        uploaded_pdfs = st.file_uploader(
+            "Drop PDF(s) here or click Browse",
+            type=["pdf"],
+            accept_multiple_files=True,
+            key="pdf_uploader",
+            help="Select one or more PDF lab reports — all will be merged into one panel.",
+        )
+        col_date, col_lab = st.columns(2)
+        with col_date:
             pdf_date_val = st.date_input("Lab Date", value=date.today(), key="pdf_date_input")
-            pdf_lab_val  = st.text_input(
+        with col_lab:
+            pdf_lab_val = st.text_input(
                 "Lab Name (optional)",
                 placeholder="e.g. Cleveland Clinic, Quest",
                 key="pdf_lab_input",
@@ -438,20 +439,6 @@ with tab_upload:
                         st.rerun()
                     except Exception as _exc:
                         st.error(f"Extraction failed: {_exc}")
-        else:
-            upload_cta_html = (
-                f'<div style="background:{A["bg_elevated"]};border:2px dashed {A["separator"]};'
-                f'border-radius:{A["radius_lg"]};padding:40px;text-align:center;margin-top:8px">'
-                f'<div style="font-size:36px;margin-bottom:10px">📄</div>'
-                f'<div style="font-size:14px;font-weight:600;color:{A["label_primary"]};'
-                f'margin-bottom:6px">Drop your lab report PDF(s) above</div>'
-                f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:17px">'
-                f'Select multiple PDFs at once to merge all results into one panel.<br>'
-                f'Quest · LabCorp · Cleveland Clinic · NHS · Any standard blood panel'
-                f'</div></div>'
-            )
-            st.markdown(upload_cta_html, unsafe_allow_html=True)
-
     else:
         # ── Step 2: Review & confirm ──────────────────────────────────────
         extracted = st.session_state["pdf_extracted"]

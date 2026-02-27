@@ -544,39 +544,33 @@ def save_blood_analysis(
 def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dict]:
     """Use Claude to extract biomarker values from a PDF blood test report.
 
-    Sends the PDF as a base64-encoded document to the Claude API and asks it to
-    match each lab result to our known biomarker codes.
-
-    Args:
-        pdf_bytes:   Raw bytes of the uploaded PDF file.
-        definitions: List of biomarker definition dicts (from get_all_definitions()).
+    Asks Claude to return raw names+values as seen in the PDF, then does
+    multi-level fuzzy matching against our definition names/codes on our side.
+    This is far more robust than asking Claude to return exact internal codes.
 
     Returns:
         List of dicts: {biomarker_id, code, name, value, unit}
-        Returns an empty list if extraction fails or no markers are matched.
+    Raises:
+        Exception: propagated so the UI can display the real error message.
     """
     import anthropic
     import base64
     import json
-
-    # Build a reference list for the AI: "code: Name (unit)"
-    defs_text = "\n".join(
-        f"  {d['code']}: {d['name']} ({d['unit']})"
-        for d in definitions
-    )
+    import re
 
     prompt_text = (
-        "Extract all biomarker values from this blood test PDF report.\n"
-        "Return ONLY a JSON array — no explanation, no markdown fences.\n"
-        "Each element must have exactly two keys:\n"
-        "  \"code\":  the matching code from the list below (lowercase, underscores)\n"
-        "  \"value\": the numeric result as a number (not a string)\n\n"
+        "Extract every numeric lab result from this blood test PDF report.\n"
+        "Return ONLY a valid JSON array — no markdown, no explanation, nothing else.\n"
+        "Each element must have exactly these keys:\n"
+        "  \"name\":  the biomarker name exactly as printed in the report\n"
+        "  \"value\": the numeric result as a JSON number (not a string)\n"
+        "  \"unit\":  the unit string (e.g. mg/dL, g/L, %)\n\n"
         "Rules:\n"
-        "- Only include markers you can clearly read with a numeric value\n"
-        "- If a value has a '<' or '>' prefix, use the boundary number\n"
-        "- Skip calculated ratios unless they appear explicitly in the list below\n"
-        "- Match by name similarity — the PDF may use different wording\n\n"
-        f"Known biomarker codes:\n{defs_text}"
+        "- Include ALL numeric results you can clearly read\n"
+        "- For '<X' or '>X' values, use X as the number\n"
+        "- Skip text-only results (Positive/Negative/See comment)\n"
+        "- Do NOT skip abnormal or flagged values\n"
+        "- Return ONLY the JSON array, starting with [ and ending with ]"
     )
 
     client = anthropic.Anthropic()
@@ -601,43 +595,83 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     raw = response.content[0].text.strip()
 
-    # Strip markdown code fences if Claude wraps the JSON
-    if "```" in raw:
-        for part in raw.split("```"):
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:].strip()
-            if part.startswith("["):
-                raw = part
-                break
+    # Robustly find the JSON array anywhere in the response
+    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
+    if not json_match:
+        raise ValueError(f"Claude did not return a JSON array. Response: {raw[:400]}")
 
     try:
-        extracted_raw = json.loads(raw)
-    except Exception:
-        return []
+        extracted_raw = json.loads(json_match.group())
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"JSON parse error: {exc}. Raw: {raw[:400]}") from exc
 
-    # Primary lookup by code; secondary fuzzy lookup by name
+    # ── Lookup tables ────────────────────────────────────────────────────────
+    def _norm(s: str) -> str:
+        """Lowercase, strip all non-alphanumeric for fuzzy comparison."""
+        return re.sub(r'[^a-z0-9]', '', s.lower())
+
     defs_by_code = {d["code"]: d for d in definitions}
-    defs_by_name = {d["name"].lower(): d for d in definitions}
+    defs_by_name_exact = {d["name"].lower(): d for d in definitions}
+    # Normalized name + normalized code-as-words
+    defs_by_norm: dict[str, dict] = {}
+    for d in definitions:
+        defs_by_norm[_norm(d["name"])] = d
+        defs_by_norm[_norm(d["code"].replace("_", " "))] = d
+
+    # Common abbreviations / synonyms → internal code
+    ALIASES = {
+        "wbc": "wbc_count", "rbc": "rbc_count", "hgb": "hemoglobin",
+        "hb": "hemoglobin", "hct": "hematocrit", "plt": "platelet_count",
+        "glu": "fasting_glucose", "gluc": "fasting_glucose",
+        "cr": "creatinine", "cre": "creatinine",
+        "alt": "alt", "ast": "ast", "ggt": "ggt",
+        "tb": "total_bilirubin", "alb": "albumin",
+        "tsh": "tsh", "ft4": "free_t4", "ft3": "free_t3",
+        "ferr": "ferritin",
+        "tg": "triglycerides", "hdl": "hdl_cholesterol",
+        "ldl": "ldl_cholesterol", "tc": "total_cholesterol",
+        "crp": "hs_crp", "hscrp": "hs_crp",
+        "hba1c": "hba1c", "a1c": "hba1c", "hbaic": "hba1c",
+        "25ohd": "vitamin_d25", "vitd": "vitamin_d25",
+        "b12": "vitamin_b12", "vitb12": "vitamin_b12",
+        "uricacid": "uric_acid",
+        "nonhdlcholesterol": "non_hdl_cholesterol",
+        "freetestosterone": "free_testosterone",
+    }
 
     results = []
     seen_ids: set[int] = set()
 
     for item in extracted_raw:
-        code = str(item.get("code", "")).lower().strip()
+        raw_name = str(item.get("name", "")).strip()
         val = item.get("value")
-        if val is None:
+        if not raw_name or val is None:
             continue
         try:
             val = float(val)
         except (TypeError, ValueError):
             continue
 
-        defn = defs_by_code.get(code)
+        defn = None
+        # 1. Exact name match (case-insensitive)
+        defn = defs_by_name_exact.get(raw_name.lower())
+        # 2. Normalized match (strip all punctuation/spaces)
         if not defn:
-            # Fallback: match by biomarker name
-            name_key = str(item.get("name", "")).lower().strip()
-            defn = defs_by_name.get(name_key)
+            defn = defs_by_norm.get(_norm(raw_name))
+        # 3. Alias lookup
+        if not defn:
+            alias_code = ALIASES.get(_norm(raw_name))
+            if alias_code:
+                defn = defs_by_code.get(alias_code)
+        # 4. Partial containment match (one normalized name contains the other)
+        if not defn:
+            norm_input = _norm(raw_name)
+            if len(norm_input) >= 3:
+                for norm_key, d in defs_by_norm.items():
+                    if len(norm_key) >= 3 and (norm_input in norm_key or norm_key in norm_input):
+                        defn = d
+                        break
+
         if defn and val >= 0 and defn["id"] not in seen_ids:
             seen_ids.add(defn["id"])
             results.append({
