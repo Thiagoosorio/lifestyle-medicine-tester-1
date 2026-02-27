@@ -380,35 +380,61 @@ with tab_upload:
         # ── Step 1: Upload ────────────────────────────────────────────────
         col_up, col_meta = st.columns([3, 2])
         with col_up:
-            uploaded_pdf = st.file_uploader(
-                "Blood Test PDF",
+            uploaded_pdfs = st.file_uploader(
+                "Blood Test PDF(s)",
                 type=["pdf"],
+                accept_multiple_files=True,
                 key="pdf_uploader",
-                help="PDF blood test report from any laboratory",
+                help="Select one or more PDF lab reports — all will be merged into one panel.",
             )
         with col_meta:
             pdf_date_val = st.date_input("Lab Date", value=date.today(), key="pdf_date_input")
             pdf_lab_val  = st.text_input(
                 "Lab Name (optional)",
-                placeholder="e.g. Quest Diagnostics",
+                placeholder="e.g. Cleveland Clinic, Quest",
                 key="pdf_lab_input",
             )
 
-        if uploaded_pdf:
+        if uploaded_pdfs:
+            n = len(uploaded_pdfs)
+            names_preview = ", ".join(f.name for f in uploaded_pdfs[:3])
+            if n > 3:
+                names_preview += f" +{n - 3} more"
+            st.caption(f"{n} file{'s' if n > 1 else ''} selected: {names_preview}")
+
             if st.button(
-                "Extract Values with AI",
+                f"Extract Values from {n} PDF{'s' if n > 1 else ''} with AI",
                 type="primary",
                 use_container_width=True,
                 key="pdf_extract_btn",
             ):
-                with st.spinner("Reading lab report with AI… (10–20 seconds)"):
+                with st.spinner(
+                    f"Reading {n} lab report{'s' if n > 1 else ''} with AI… "
+                    f"({10 * n}–{20 * n} seconds)"
+                ):
                     try:
-                        pdf_bytes = uploaded_pdf.read()
-                        all_defs  = get_all_definitions()
-                        extracted = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
-                        st.session_state["pdf_extracted"] = extracted
+                        all_defs = get_all_definitions()
+                        merged: list[dict] = []
+                        seen_ids: set[int] = set()
+                        errors: list[str] = []
+
+                        for pdf_file in uploaded_pdfs:
+                            try:
+                                pdf_bytes = pdf_file.read()
+                                batch = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
+                                for item in batch:
+                                    if item["biomarker_id"] not in seen_ids:
+                                        seen_ids.add(item["biomarker_id"])
+                                        merged.append(item)
+                            except Exception as _fe:
+                                errors.append(f"{pdf_file.name}: {_fe}")
+
+                        st.session_state["pdf_extracted"] = merged
                         st.session_state["pdf_date_str"]  = pdf_date_val.isoformat()
                         st.session_state["pdf_lab_str"]   = pdf_lab_val
+                        st.session_state["pdf_file_count"] = n
+                        if errors:
+                            st.session_state["pdf_errors"] = errors
                     except Exception as _exc:
                         st.error(f"Extraction failed: {_exc}")
                 st.rerun()
@@ -418,9 +444,10 @@ with tab_upload:
                 f'border-radius:{A["radius_lg"]};padding:40px;text-align:center;margin-top:8px">'
                 f'<div style="font-size:36px;margin-bottom:10px">📄</div>'
                 f'<div style="font-size:14px;font-weight:600;color:{A["label_primary"]};'
-                f'margin-bottom:6px">Drop your lab report PDF above</div>'
+                f'margin-bottom:6px">Drop your lab report PDF(s) above</div>'
                 f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:17px">'
-                f'Quest Diagnostics · LabCorp · NHS · Private labs · Any standard blood panel'
+                f'Select multiple PDFs at once to merge all results into one panel.<br>'
+                f'Quest · LabCorp · Cleveland Clinic · NHS · Any standard blood panel'
                 f'</div></div>'
             )
             st.markdown(upload_cta_html, unsafe_allow_html=True)
@@ -438,16 +465,24 @@ with tab_upload:
                 "Try entering values manually in the **Log Results** tab."
             )
             if st.button("Try Another PDF", key="pdf_retry_empty_btn"):
-                st.session_state.pop("pdf_extracted", None)
+                for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
+                    st.session_state.pop(_k, None)
                 st.rerun()
         else:
+            # Show any per-file errors as a warning
+            pdf_errors = st.session_state.pop("pdf_errors", [])
+            if pdf_errors:
+                st.warning("Some files could not be read: " + " | ".join(pdf_errors))
+
             # Meta header card
+            n_files = st.session_state.get("pdf_file_count", 1)
+            file_label = f"{n_files} PDF{'s' if n_files > 1 else ''}"
             meta_html = (
                 f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
                 f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:12px;'
                 f'display:flex;justify-content:space-between;align-items:center">'
                 f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
-                f'{len(extracted)} markers extracted — {ext_date}</div>'
+                f'{len(extracted)} markers extracted from {file_label} — {ext_date}</div>'
                 f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
                 f'{ext_lab if ext_lab else "Lab not specified"}</div>'
                 f'</div>'
@@ -496,14 +531,12 @@ with tab_upload:
                                 ext_lab or None,
                             )
                             saved_n += 1
-                    st.session_state.pop("pdf_extracted", None)
-                    st.session_state.pop("pdf_date_str", None)
-                    st.session_state.pop("pdf_lab_str", None)
+                    for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
+                        st.session_state.pop(_k, None)
                     st.toast(f"Saved {saved_n} biomarker results!")
                     st.rerun()
             with col_cancel:
                 if st.button("Cancel", use_container_width=True, key="pdf_cancel_btn"):
-                    st.session_state.pop("pdf_extracted", None)
-                    st.session_state.pop("pdf_date_str", None)
-                    st.session_state.pop("pdf_lab_str", None)
+                    for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
+                        st.session_state.pop(_k, None)
                     st.rerun()

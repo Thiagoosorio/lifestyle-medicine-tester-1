@@ -492,6 +492,232 @@ BIOMARKER_DEFINITIONS = [
         "clinical_note": "Interpret alongside GGT: both elevated = hepatobiliary cause; ALP alone = consider bone origin.",
         "pillar_id": None, "sort_order": 77,
     },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # LIPIDS — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "non_hdl_cholesterol", "name": "Non-HDL Cholesterol", "category": "lipids",
+        "unit": "mg/dL", "standard_low": None, "standard_high": 130,
+        "optimal_low": None, "optimal_high": 100,
+        "critical_low": None, "critical_high": 190,
+        "description": "Total cholesterol minus HDL. Includes all atherogenic lipoproteins (LDL, VLDL, IDL, Lp(a)).",
+        "clinical_note": "AHA/ACC: <130 primary prevention, <100 high-risk. Better predictor of CV risk than LDL alone.",
+        "pillar_id": 1, "sort_order": 8,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # HORMONES — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "free_testosterone", "name": "Free Testosterone", "category": "hormones",
+        "unit": "ng/dL", "standard_low": 5.0, "standard_high": 21.0,
+        "optimal_low": 8.0, "optimal_high": 18.0,
+        "critical_low": 3.0, "critical_high": None,
+        "description": "Biologically active fraction of testosterone not bound to SHBG or albumin.",
+        "clinical_note": "More clinically relevant than total testosterone when SHBG is elevated. Declines with age.",
+        "pillar_id": 2, "sort_order": 53,
+    },
+    {
+        "code": "shbg", "name": "SHBG", "category": "hormones",
+        "unit": "nmol/L", "standard_low": 10, "standard_high": 57,
+        "optimal_low": 20, "optimal_high": 50,
+        "critical_low": None, "critical_high": None,
+        "description": "Sex hormone-binding globulin. Regulates bioavailability of sex hormones.",
+        "clinical_note": "High SHBG lowers free testosterone. Elevated by thyroid hormones, estrogen, liver disease. Lowered by insulin resistance.",
+        "pillar_id": 2, "sort_order": 54,
+    },
+    {
+        "code": "lh", "name": "LH", "category": "hormones",
+        "unit": "U/L", "standard_low": 1.7, "standard_high": 8.6,
+        "optimal_low": 2.0, "optimal_high": 7.0,
+        "critical_low": None, "critical_high": None,
+        "description": "Luteinizing hormone. Stimulates testosterone production in men, ovulation in women.",
+        "clinical_note": "High LH + low testosterone = primary hypogonadism. Low LH + low testosterone = secondary (pituitary) cause.",
+        "pillar_id": None, "sort_order": 55,
+    },
+    {
+        "code": "fsh", "name": "FSH", "category": "hormones",
+        "unit": "U/L", "standard_low": 1.5, "standard_high": 12.4,
+        "optimal_low": 1.5, "optimal_high": 8.0,
+        "critical_low": None, "critical_high": None,
+        "description": "Follicle-stimulating hormone. Regulates spermatogenesis and ovarian function.",
+        "clinical_note": "Elevated FSH in men indicates testicular failure. Used in fertility assessment.",
+        "pillar_id": None, "sort_order": 56,
+    },
+    {
+        "code": "igf1", "name": "IGF-1", "category": "hormones",
+        "unit": "ng/mL", "standard_low": 100, "standard_high": 250,
+        "optimal_low": 130, "optimal_high": 220,
+        "critical_low": 50, "critical_high": 400,
+        "description": "Insulin-like growth factor 1. Reflects GH secretion and anabolic status.",
+        "clinical_note": "Age-dependent ranges. Declines with age. Low IGF-1 linked to muscle loss and metabolic dysfunction.",
+        "pillar_id": 2, "sort_order": 57,
+    },
+    {
+        "code": "prolactin", "name": "Prolactin", "category": "hormones",
+        "unit": "ng/mL", "standard_low": 2.0, "standard_high": 18.0,
+        "optimal_low": 4.0, "optimal_high": 15.0,
+        "critical_low": None, "critical_high": 50.0,
+        "description": "Pituitary hormone. Elevated levels suppress testosterone and libido in men.",
+        "clinical_note": "High prolactin (hyperprolactinemia) lowers testosterone. Can be caused by pituitary adenoma, medications, or hypothyroidism.",
+        "pillar_id": None, "sort_order": 58,
+    },
+    {
+        "code": "aldosterone", "name": "Aldosterone", "category": "hormones",
+        "unit": "ng/dL", "standard_low": 3.5, "standard_high": 27.5,
+        "optimal_low": 5.0, "optimal_high": 20.0,
+        "critical_low": None, "critical_high": None,
+        "description": "Adrenal hormone regulating sodium retention and blood pressure.",
+        "clinical_note": "Elevated aldosterone with low renin = primary hyperaldosteronism (Conn syndrome). Causes hypertension and low potassium.",
+        "pillar_id": None, "sort_order": 59,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # THYROID — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "tpo_antibodies", "name": "TPO Antibodies", "category": "thyroid",
+        "unit": "kU/L", "standard_low": None, "standard_high": 34,
+        "optimal_low": None, "optimal_high": 15,
+        "critical_low": None, "critical_high": 500,
+        "description": "Thyroid peroxidase antibodies. Marker for autoimmune thyroid disease (Hashimoto's).",
+        "clinical_note": "Positive in 90%+ of Hashimoto's thyroiditis. Elevated = increased lifetime risk of hypothyroidism. Monitor TSH/T4 annually.",
+        "pillar_id": None, "sort_order": 43,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # INFLAMMATION — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "fibrinogen", "name": "Fibrinogen", "category": "inflammation",
+        "unit": "mg/dL", "standard_low": 200, "standard_high": 400,
+        "optimal_low": 200, "optimal_high": 300,
+        "critical_low": 100, "critical_high": 700,
+        "description": "Clotting protein and acute-phase reactant. Elevated in chronic inflammation and cardiovascular risk.",
+        "clinical_note": "Independent CVD risk factor. Elevated by smoking, obesity, diabetes. Lowered by exercise and omega-3s.",
+        "pillar_id": None, "sort_order": 24,
+    },
+    {
+        "code": "complement_c3", "name": "Complement C3", "category": "inflammation",
+        "unit": "mg/dL", "standard_low": 82, "standard_high": 167,
+        "optimal_low": 90, "optimal_high": 150,
+        "critical_low": 50, "critical_high": None,
+        "description": "Central protein of the complement immune system. Low in active autoimmune disease; elevated in metabolic syndrome.",
+        "clinical_note": "Low C3 = complement consumption (lupus, glomerulonephritis). High C3 linked to insulin resistance and metabolic syndrome.",
+        "pillar_id": None, "sort_order": 25,
+    },
+    {
+        "code": "complement_c4", "name": "Complement C4", "category": "inflammation",
+        "unit": "mg/dL", "standard_low": 14, "standard_high": 44,
+        "optimal_low": 16, "optimal_high": 40,
+        "critical_low": 8, "critical_high": None,
+        "description": "Complement protein. Very low C4 is characteristic of lupus and hereditary angioedema.",
+        "clinical_note": "Low C4 + low C3 = classical pathway activation (lupus). Isolated low C4 = consider C4 null allele.",
+        "pillar_id": None, "sort_order": 26,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # VITAMINS — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "vitamin_a", "name": "Vitamin A (Retinol)", "category": "vitamins",
+        "unit": "ug/dL", "standard_low": 20, "standard_high": 80,
+        "optimal_low": 30, "optimal_high": 65,
+        "critical_low": 10, "critical_high": None,
+        "description": "Fat-soluble vitamin essential for vision, immune function, and skin health.",
+        "clinical_note": "Deficiency causes night blindness and immune compromise. Toxicity possible at high supplement doses.",
+        "pillar_id": 1, "sort_order": 35,
+    },
+    {
+        "code": "vitamin_e", "name": "Vitamin E (Alpha-Tocopherol)", "category": "vitamins",
+        "unit": "mg/L", "standard_low": 5.0, "standard_high": 25.0,
+        "optimal_low": 8.0, "optimal_high": 20.0,
+        "critical_low": 3.0, "critical_high": None,
+        "description": "Fat-soluble antioxidant vitamin. Protects cell membranes from oxidative damage.",
+        "clinical_note": "Best interpreted as E/cholesterol ratio (>0.8 mg/g). Deficiency rare with adequate diet.",
+        "pillar_id": 1, "sort_order": 36,
+    },
+    {
+        "code": "vitamin_b6", "name": "Vitamin B6 (Pyridoxine)", "category": "vitamins",
+        "unit": "ug/L", "standard_low": 2.0, "standard_high": 22.0,
+        "optimal_low": 10.0, "optimal_high": 20.0,
+        "critical_low": 1.0, "critical_high": None,
+        "description": "Water-soluble vitamin essential for neurotransmitter synthesis and homocysteine metabolism.",
+        "clinical_note": "Deficiency raises homocysteine. Needed alongside B12 and folate for methylation. Depleted by oral contraceptives.",
+        "pillar_id": 1, "sort_order": 37,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # LIVER — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "ldh", "name": "LDH", "category": "liver",
+        "unit": "U/L", "standard_low": 140, "standard_high": 280,
+        "optimal_low": 140, "optimal_high": 210,
+        "critical_low": None, "critical_high": 600,
+        "description": "Lactate dehydrogenase. Non-specific marker of cell damage in liver, heart, muscle, and RBCs.",
+        "clinical_note": "Elevated in liver disease, hemolysis, myocardial infarction, PE. Not organ-specific alone.",
+        "pillar_id": None, "sort_order": 78,
+    },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # MINERALS / ELECTROLYTES — additions from real lab panels
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "calcium", "name": "Calcium (Serum)", "category": "minerals",
+        "unit": "mg/dL", "standard_low": 8.5, "standard_high": 10.5,
+        "optimal_low": 9.0, "optimal_high": 10.0,
+        "critical_low": 7.0, "critical_high": 12.5,
+        "description": "Essential mineral for bone, muscle contraction, nerve signaling, and cardiac function.",
+        "clinical_note": "Always interpret with albumin (corrected calcium). High calcium: consider hyperparathyroidism or malignancy.",
+        "pillar_id": 1, "sort_order": 94,
+    },
+    {
+        "code": "phosphorus", "name": "Phosphorus", "category": "minerals",
+        "unit": "mg/dL", "standard_low": 2.5, "standard_high": 4.5,
+        "optimal_low": 3.0, "optimal_high": 4.0,
+        "critical_low": 1.5, "critical_high": 7.0,
+        "description": "Essential mineral for bone, energy metabolism (ATP), and cell signaling.",
+        "clinical_note": "Low phosphorus may indicate poor absorption or hyperparathyroidism. High is a major CKD complication.",
+        "pillar_id": 1, "sort_order": 95,
+    },
+    {
+        "code": "sodium", "name": "Sodium", "category": "minerals",
+        "unit": "mEq/L", "standard_low": 136, "standard_high": 145,
+        "optimal_low": 138, "optimal_high": 143,
+        "critical_low": 125, "critical_high": 155,
+        "description": "Primary extracellular electrolyte. Regulates fluid balance and nerve/muscle function.",
+        "clinical_note": "Hyponatremia: overhydration, SIADH, heart/liver/kidney failure. Hypernatremia: dehydration.",
+        "pillar_id": None, "sort_order": 96,
+    },
+    {
+        "code": "potassium", "name": "Potassium", "category": "minerals",
+        "unit": "mEq/L", "standard_low": 3.5, "standard_high": 5.1,
+        "optimal_low": 3.8, "optimal_high": 4.5,
+        "critical_low": 3.0, "critical_high": 6.0,
+        "description": "Primary intracellular electrolyte. Critical for heart rhythm and muscle function.",
+        "clinical_note": "Low K+: causes cardiac arrhythmias, muscle weakness. Common in those taking diuretics. High K+: renal failure risk.",
+        "pillar_id": None, "sort_order": 97,
+    },
+    {
+        "code": "selenium", "name": "Selenium", "category": "minerals",
+        "unit": "ug/L", "standard_low": 50, "standard_high": 150,
+        "optimal_low": 90, "optimal_high": 130,
+        "critical_low": 30, "critical_high": None,
+        "description": "Essential trace element for glutathione peroxidase and thyroid hormone metabolism.",
+        "clinical_note": "Deficiency impairs immune function and thyroid activation (T4→T3). Best source: Brazil nuts (2/day).",
+        "pillar_id": 1, "sort_order": 98,
+    },
+    {
+        "code": "copper", "name": "Copper", "category": "minerals",
+        "unit": "ug/dL", "standard_low": 70, "standard_high": 140,
+        "optimal_low": 80, "optimal_high": 120,
+        "critical_low": 40, "critical_high": 200,
+        "description": "Trace mineral essential for iron metabolism, connective tissue, and antioxidant enzymes.",
+        "clinical_note": "High copper competes with zinc absorption. Elevated in inflammation (acute-phase reactant). Wilson's disease: toxic accumulation.",
+        "pillar_id": 1, "sort_order": 99,
+    },
 ]
 
 # Category display order and labels
