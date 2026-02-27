@@ -34,8 +34,8 @@ render_hero_banner(
 )
 
 # ── Tabs ─────────────────────────────────────────────────────────────────
-tab_dashboard, tab_log, tab_trends, tab_history = st.tabs([
-    "Dashboard", "Log Results", "Trends", "Lab History"
+tab_dashboard, tab_log, tab_trends, tab_history, tab_ai = st.tabs([
+    "Dashboard", "Log Results", "Trends", "Lab History", "AI Analysis"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -251,3 +251,105 @@ with tab_history:
             st.caption(f"Showing {len(date_results)} markers from {selected_date}")
             for r in date_results:
                 render_biomarker_range_bar(r)
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 5: AI Analysis (BloodGPT)
+# ══════════════════════════════════════════════════════════════════════════
+with tab_ai:
+    from services.biomarker_service import get_cached_analysis, save_blood_analysis
+    from services.coaching_service import get_blood_ai_analysis
+
+    render_section_header(
+        "AI Blood Analysis",
+        "BloodGPT-powered holistic analysis with scientific rigor",
+    )
+
+    ai_lab_dates = get_lab_dates(user_id)
+
+    if not ai_lab_dates:
+        st.info(
+            "No lab results found. Log your first blood panel in 'Log Results' "
+            "to enable AI analysis."
+        )
+    else:
+        col_date_ai, col_btn_ai = st.columns([3, 1])
+        with col_date_ai:
+            ai_selected_date = st.selectbox(
+                "Select Lab Date", ai_lab_dates, key="ai_lab_date_sel"
+            )
+        with col_btn_ai:
+            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
+            ai_generate = st.button(
+                "Generate Analysis",
+                type="primary",
+                use_container_width=True,
+                key="ai_generate_btn",
+            )
+
+        # Load cached analysis
+        cached = get_cached_analysis(user_id, ai_selected_date)
+
+        # Generate (or regenerate) if requested or no cache exists
+        if ai_generate:
+            with st.spinner("Analysing your blood panel with BloodGPT… (15-20 seconds)"):
+                analysis_text = get_blood_ai_analysis(user_id, ai_selected_date)
+                save_blood_analysis(user_id, ai_selected_date, analysis_text)
+            cached = get_cached_analysis(user_id, ai_selected_date)
+            st.rerun()
+
+        if cached:
+            # Meta card — lab date + generation timestamp
+            meta_html = (
+                f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
+                f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:10px;'
+                f'display:flex;justify-content:space-between;align-items:center">'
+                f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
+                f'Analysis for {ai_selected_date}</div>'
+                f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
+                f'Generated {cached["created_at"][:16]}</div>'
+                f'</div>'
+            )
+            st.markdown(meta_html, unsafe_allow_html=True)
+
+            # Medical disclaimer banner
+            disclaimer_html = (
+                f'<div style="background:#FF9F0A18;border:1px solid #FF9F0A55;'
+                f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:14px">'
+                f'<div style="font-size:11px;color:{A["label_secondary"]};line-height:16px">'
+                f'<strong>Medical Disclaimer:</strong> This AI analysis is for educational '
+                f'and informational purposes only. It does not constitute medical advice, '
+                f'diagnosis, or treatment. Always discuss your results with a qualified '
+                f'healthcare provider before making health decisions.'
+                f'</div></div>'
+            )
+            st.markdown(disclaimer_html, unsafe_allow_html=True)
+
+            # Render AI markdown — use st.container so headers/bullets/bold render correctly
+            with st.container(border=True):
+                st.markdown(cached["analysis_text"])
+
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+            st.caption(
+                f"Model: {cached.get('model_used', 'claude-sonnet')}  "
+                f"·  Generated: {cached['created_at'][:16]}"
+            )
+            if st.button("Regenerate Analysis", key="ai_regen_btn"):
+                # Clear cache by saving empty string, then rerun
+                save_blood_analysis(user_id, ai_selected_date, "")
+                st.rerun()
+
+        else:
+            # No cache yet — show prompt card
+            prompt_html = (
+                f'<div style="background:{A["bg_elevated"]};border:2px dashed {A["separator"]};'
+                f'border-radius:{A["radius_lg"]};padding:32px;text-align:center;margin-top:16px">'
+                f'<div style="font-size:32px;margin-bottom:8px">🔬</div>'
+                f'<div style="font-size:15px;font-weight:700;color:{A["label_primary"]};'
+                f'margin-bottom:6px">Run BloodGPT Analysis</div>'
+                f'<div style="font-size:12px;color:{A["label_secondary"]};max-width:380px;'
+                f'margin:0 auto;line-height:18px">AI will analyse your complete blood panel '
+                f'for clinical patterns, compare to previous results, rank lifestyle '
+                f'interventions by evidence grade, and suggest next steps.</div>'
+                f'</div>'
+            )
+            st.markdown(prompt_html, unsafe_allow_html=True)

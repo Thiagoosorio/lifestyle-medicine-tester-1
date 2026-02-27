@@ -188,6 +188,15 @@ def _migrate(conn):
             updated_at TEXT NOT NULL DEFAULT (datetime('now')))""",
         "CREATE INDEX IF NOT EXISTS idx_cycling_rides_user ON cycling_ride_logs(user_id, ride_date)",
         "CREATE INDEX IF NOT EXISTS idx_cycling_plan_user ON cycling_plan(user_id, active)",
+        # BloodGPT AI analysis cache
+        """CREATE TABLE IF NOT EXISTS biomarker_ai_analysis (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            lab_date TEXT NOT NULL,
+            analysis_text TEXT NOT NULL,
+            model_used TEXT DEFAULT 'claude-sonnet-4-5-20250514',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, lab_date))""",
     ]
     for sql in table_migrations:
         try:

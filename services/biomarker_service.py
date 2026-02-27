@@ -299,3 +299,231 @@ def get_lab_dates(user_id):
     ).fetchall()
     conn.close()
     return [r["lab_date"] for r in rows]
+
+
+# ── BloodGPT AI Analysis Context ───────────────────────────────────────────
+
+# Human-readable category labels for the AI prompt
+_CATEGORY_LABELS = {
+    "lipids":       "LIPID PANEL",
+    "metabolic":    "METABOLIC PANEL",
+    "inflammation": "INFLAMMATION MARKERS",
+    "vitamins":     "VITAMINS & MINERALS",
+    "hormones":     "HORMONES",
+    "thyroid":      "THYROID PANEL",
+    "liver":        "LIVER FUNCTION",
+    "kidney":       "KIDNEY FUNCTION",
+    "blood_count":  "COMPLETE BLOOD COUNT",
+    "minerals":     "MINERALS & ELECTROLYTES",
+}
+
+_CLASSIFICATION_LABEL = {
+    "optimal":        "OPTIMAL",
+    "normal":         "NORMAL",
+    "borderline_low": "BORDERLINE LOW",
+    "borderline_high":"BORDERLINE HIGH",
+    "low":            "LOW",
+    "high":           "HIGH",
+    "critical_low":   "CRITICAL LOW",
+    "critical_high":  "CRITICAL HIGH",
+    "unknown":        "UNKNOWN",
+}
+
+
+def _format_range(low, high, unit: str) -> str:
+    """Format a standard or optimal range as a compact string."""
+    if low is not None and high is not None:
+        return f"{low}-{high} {unit}"
+    if low is not None:
+        return f">{low} {unit}"
+    if high is not None:
+        return f"<{high} {unit}"
+    return "N/A"
+
+
+def _deviation_str(value: float, definition: dict) -> str:
+    """Return a +/-% deviation string vs the standard range boundary, or empty."""
+    std_low = definition.get("standard_low")
+    std_high = definition.get("standard_high")
+    if std_low is not None and value < std_low and std_low != 0:
+        pct = (std_low - value) / std_low * 100
+        return f"-{pct:.0f}% below std"
+    if std_high is not None and value > std_high and std_high != 0:
+        pct = (value - std_high) / std_high * 100
+        return f"+{pct:.0f}% above std"
+    return ""
+
+
+def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
+    """Assemble a structured text block of biomarker data for the BloodGPT AI prompt.
+
+    Includes:
+    - Current panel grouped by category with classification + deviation
+    - Delta comparison vs the most recent previous lab date
+    - Composite score and summary counts
+
+    Returns None if fewer than 3 results are logged for the selected date.
+    """
+    results = get_results_by_date(user_id, lab_date)
+    if len(results) < 3:
+        return None
+
+    # Get lab name from first result (optional field)
+    lab_name = results[0].get("lab_name") or ""
+    header = f"=== BLOOD PANEL — {lab_date}"
+    if lab_name:
+        header += f" ({lab_name})"
+    header += " ==="
+
+    # Group by category
+    by_category: dict[str, list] = {}
+    for r in results:
+        cat = r.get("category", "other")
+        by_category.setdefault(cat, []).append(r)
+
+    lines: list[str] = [header, ""]
+
+    for cat, cat_results in by_category.items():
+        lines.append(_CATEGORY_LABELS.get(cat, cat.upper()) + ":")
+        for r in cat_results:
+            cls = classify_result(r["value"], r)
+            cls_label = _CLASSIFICATION_LABEL.get(cls, cls.upper())
+            std_range = _format_range(r.get("standard_low"), r.get("standard_high"), r["unit"])
+            opt_range = _format_range(r.get("optimal_low"), r.get("optimal_high"), r["unit"])
+            dev = _deviation_str(r["value"], r)
+            dev_str = f" ({dev})" if dev else ""
+            lines.append(
+                f"  {r['name']}: {r['value']} {r['unit']}"
+                f"  [Std: {std_range}, Optimal: {opt_range}]"
+                f"  -> {cls_label}{dev_str}"
+            )
+        lines.append("")
+
+    # Delta section — compare to the most recent *previous* lab date
+    all_dates = get_lab_dates(user_id)
+    try:
+        current_idx = all_dates.index(lab_date)
+        prev_date = all_dates[current_idx + 1] if current_idx + 1 < len(all_dates) else None
+    except (ValueError, IndexError):
+        prev_date = None
+
+    if prev_date:
+        prev_results = get_results_by_date(user_id, prev_date)
+        prev_by_code: dict[str, dict] = {r["code"]: r for r in prev_results}
+
+        delta_lines: list[str] = []
+        for r in results:
+            code = r["code"]
+            if code not in prev_by_code:
+                continue
+            prev_val = prev_by_code[code]["value"]
+            curr_val = r["value"]
+            if prev_val is None or curr_val is None or prev_val == 0:
+                continue
+            delta = curr_val - prev_val
+            delta_pct = (delta / abs(prev_val)) * 100
+
+            # Only show changes > 5% or critical transitions
+            curr_cls = classify_result(curr_val, r)
+            prev_cls = classify_result(prev_val, r)
+            is_zone_change = (curr_cls != prev_cls)
+            if abs(delta_pct) < 5 and not is_zone_change:
+                continue
+
+            direction = "Improving" if (
+                (curr_cls in ("optimal", "normal") and prev_cls not in ("optimal", "normal")) or
+                (curr_cls == "optimal" and prev_cls != "optimal") or
+                (delta_pct > 0 and r.get("optimal_low") is not None and curr_val > prev_val and curr_val <= (r.get("optimal_high") or curr_val + 1)) or
+                # For high-is-bad markers (LDL, TG, glucose): decreasing is good
+                (delta < 0 and curr_cls in ("optimal", "normal", "borderline_high") and prev_cls in ("high", "borderline_high", "critical_high"))
+            ) else "Worsening"
+
+            # Simple direction: improving if moving toward optimal, worsening if moving away
+            if delta < 0 and curr_cls in ("high", "borderline_high", "critical_high"):
+                direction = "Improving"
+            elif delta > 0 and curr_cls in ("low", "borderline_low", "critical_low"):
+                direction = "Improving"
+            elif delta > 0 and curr_cls in ("high", "borderline_high", "critical_high"):
+                direction = "Worsening"
+            elif delta < 0 and curr_cls in ("low", "borderline_low", "critical_low"):
+                direction = "Worsening"
+            elif curr_cls in ("optimal", "normal") and prev_cls not in ("optimal", "normal"):
+                direction = "Improving"
+            elif curr_cls not in ("optimal", "normal") and prev_cls in ("optimal", "normal"):
+                direction = "Worsening"
+            else:
+                direction = "Improving" if delta > 0 else "Worsening"
+
+            arrow = "UP" if direction == "Improving" else "DOWN"
+            zone_flag = " [ZONE CHANGE]" if is_zone_change else ""
+            delta_lines.append(
+                f"  {r['name']}: {prev_val} -> {curr_val} {r['unit']}"
+                f"  ({delta:+.1f}, {delta_pct:+.1f}%)"
+                f"  {arrow} {direction}{zone_flag}"
+            )
+
+        if delta_lines:
+            # Calculate months between dates for velocity context
+            try:
+                from datetime import date as _date
+                d1 = _date.fromisoformat(prev_date)
+                d2 = _date.fromisoformat(lab_date)
+                months = max(1, (d2 - d1).days // 30)
+                lines.append(f"=== DELTA vs. PREVIOUS LABS ({prev_date}, ~{months} months ago) ===")
+            except Exception:
+                lines.append(f"=== DELTA vs. PREVIOUS LABS ({prev_date}) ===")
+            lines.extend(delta_lines)
+            lines.append("")
+    else:
+        lines.append("=== DELTA: No previous lab data available for comparison ===")
+        lines.append("")
+
+    # Composite score and summary
+    score = calculate_biomarker_score(user_id)
+    summary = get_biomarker_summary(user_id)
+    score_label = "Excellent" if score >= 85 else "Good" if score >= 70 else "Fair" if score >= 50 else "Needs Attention"
+    lines.append(
+        f"=== COMPOSITE BIOMARKER SCORE: {score}/100 ({score_label}) ==="
+    )
+    lines.append(
+        f"Optimal: {summary['optimal']} | Normal: {summary['normal']} | "
+        f"Borderline: {summary['borderline']} | Abnormal: {summary['abnormal']} | "
+        f"Critical: {summary['critical']} of {summary['total']} markers"
+    )
+
+    return "\n".join(lines)
+
+
+def get_cached_analysis(user_id: int, lab_date: str) -> dict | None:
+    """Retrieve a cached BloodGPT analysis for a specific lab date, or None."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """SELECT analysis_text, model_used, created_at
+               FROM biomarker_ai_analysis
+               WHERE user_id = ? AND lab_date = ? AND analysis_text != ''""",
+            (user_id, lab_date),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def save_blood_analysis(
+    user_id: int,
+    lab_date: str,
+    analysis_text: str,
+    model: str = "claude-sonnet-4-5-20250514",
+) -> None:
+    """Cache or update a BloodGPT AI analysis for a specific lab date."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            """INSERT OR REPLACE INTO biomarker_ai_analysis
+               (user_id, lab_date, analysis_text, model_used)
+               VALUES (?, ?, ?, ?)""",
+            (user_id, lab_date, analysis_text, model),
+        )
+        conn.commit()
+    finally:
+        conn.close()

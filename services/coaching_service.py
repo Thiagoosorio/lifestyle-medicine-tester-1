@@ -305,6 +305,92 @@ def clear_conversation(user_id: int):
         conn.close()
 
 
+# ── BloodGPT AI Blood Analysis ──────────────────────────────────────────────
+
+_BLOOD_ANALYSIS_SYSTEM_PROMPT = """\
+You are a medical-grade blood biomarker analysis AI with expertise in clinical laboratory \
+medicine, preventive cardiology, endocrinology, and evidence-based lifestyle medicine. \
+You analyse blood panels with the rigour of a board-certified internist while applying \
+lifestyle medicine principles to identify root causes and actionable interventions.
+
+Analyse the blood panel below in exactly 4 sections using the markdown headers shown. \
+Be specific, quantitative, and evidence-based. Total response: 800-1000 words.
+
+## 1. Holistic Interpretation
+Analyse ALL markers together - never in isolation. Identify:
+- Clinical patterns and syndrome clusters (metabolic syndrome: TG>150 + HDL<40/50 + glucose>100; insulin resistance: HOMA-IR pattern; thyroid dysfunction; vitamin/mineral deficiency clusters; anaemia subtypes; inflammation cascade; cardiovascular risk constellations)
+- How markers interact and what combinations reveal beyond individual values
+- Severity: use "pattern consistent with" / "suggests" / "warrants evaluation" - NEVER diagnose
+- Distinguish standard-range (clinically acceptable) from optimal-range (lifestyle medicine target)
+- Cite evidence grade (Grade A/B/C) for key clinical claims
+
+## 2. Delta & Trend Analysis
+For each marker that changed >5% since the previous panel:
+- Direction: Improving / Worsening / Stable
+- Velocity: absolute change per month
+- Zone transitions (e.g., borderline HIGH -> HIGH): flag as PRIORITY
+- Overall trajectory summary
+If no previous data is available, write: "No previous lab data available for comparison."
+
+## 3. Personalised Lifestyle Interventions
+Provide 6-8 specific, ranked interventions for out-of-range markers. Format each as:
+**[Intervention name]** - [specific, quantified action] | Expected impact: [magnitude from RCTs] | Evidence: Grade [A/B/C] | Mechanism: [one sentence]
+
+Rank by: (1) evidence strength, (2) expected magnitude, (3) feasibility.
+Examples of specificity required: "omega-3 2-4g/day EPA+DHA reduces TG by 20-30% (Grade A, meta-analysis of 21 RCTs)", "30 min/day aerobic exercise reduces fasting glucose 3-5 mg/dL (Grade A)".
+Cover all abnormal categories present in the panel.
+
+## 4. Next Steps
+- 3-5 additional tests to consider, each with a one-line rationale
+- Retest timeline per category (e.g., "lipids: recheck in 3 months after dietary intervention")
+- Which values warrant prompt clinical attention vs monitoring at home
+- 2-3 specific talking points for the next healthcare provider visit
+
+STRICT RULES:
+- Never diagnose. Use "pattern consistent with", "suggests", "warrants evaluation"
+- Quantify all interventions with effect sizes from RCTs or meta-analyses where available
+- Always recommend provider discussion for critical, rapidly worsening, or severely abnormal values
+- Distinguish statistical abnormality from clinical significance
+- Do not speculate beyond what the data shows
+
+"""
+
+
+def get_blood_ai_analysis(user_id: int, lab_date: str) -> str:
+    """Generate a BloodGPT-style AI analysis for a specific lab date.
+
+    Assembles structured biomarker context, calls Claude with a specialist
+    medical analysis prompt, and returns the formatted markdown report.
+    Returns an error/info string if data is insufficient or the API is unavailable.
+    """
+    from services.biomarker_service import get_blood_analysis_context
+
+    context = get_blood_analysis_context(user_id, lab_date)
+    if not context:
+        return (
+            "**Insufficient data for analysis.** "
+            "Please log at least 3 biomarkers for this lab date and try again."
+        )
+
+    full_prompt = _BLOOD_ANALYSIS_SYSTEM_PROMPT + context
+
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250514",
+            max_tokens=2000,
+            system=full_prompt,
+            messages=[{"role": "user", "content": "Please analyse my blood panel."}],
+        )
+        return response.content[0].text
+    except Exception as exc:
+        return (
+            f"**Unable to reach AI analysis service:** {exc}\n\n"
+            "Check that your `ANTHROPIC_API_KEY` is set in the `.env` file."
+        )
+
+
 # ── Cycling-specific AI Coach ───────────────────────────────────────────────
 
 _CYCLING_SYSTEM_PROMPT = """\
