@@ -435,9 +435,9 @@ with tab_upload:
                         st.session_state["pdf_file_count"] = n
                         if errors:
                             st.session_state["pdf_errors"] = errors
+                        st.rerun()
                     except Exception as _exc:
                         st.error(f"Extraction failed: {_exc}")
-                st.rerun()
         else:
             upload_cta_html = (
                 f'<div style="background:{A["bg_elevated"]};border:2px dashed {A["separator"]};'

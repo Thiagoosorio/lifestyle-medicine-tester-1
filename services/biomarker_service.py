@@ -580,27 +580,24 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     )
 
     client = anthropic.Anthropic()
-    try:
-        response = client.messages.create(
-            model="claude-sonnet-4-5-20250514",
-            max_tokens=2000,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "document",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "application/pdf",
-                            "data": base64.standard_b64encode(pdf_bytes).decode("utf-8"),
-                        },
+    response = client.messages.create(
+        model="claude-sonnet-4-5-20250514",
+        max_tokens=2000,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": base64.standard_b64encode(pdf_bytes).decode("utf-8"),
                     },
-                    {"type": "text", "text": prompt_text},
-                ],
-            }],
-        )
-    except Exception:
-        return []
+                },
+                {"type": "text", "text": prompt_text},
+            ],
+        }],
+    )
 
     raw = response.content[0].text.strip()
 
