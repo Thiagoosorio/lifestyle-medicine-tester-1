@@ -197,6 +197,26 @@ def _migrate(conn):
             model_used TEXT DEFAULT 'claude-sonnet-4-5-20250514',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, lab_date))""",
+        # DEXA body composition scans
+        """CREATE TABLE IF NOT EXISTS dexa_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            scan_date TEXT NOT NULL,
+            lab_name TEXT, scanner_model TEXT,
+            weight_kg REAL, total_fat_pct REAL, total_fat_g REAL,
+            lean_mass_g REAL, bone_mass_g REAL, bmi REAL,
+            bmd_g_cm2 REAL, t_score REAL, z_score REAL,
+            vat_mass_g REAL, vat_volume_cm3 REAL, vat_area_cm2 REAL,
+            android_fat_pct REAL, gynoid_fat_pct REAL, ag_ratio REAL,
+            left_arm_fat_pct REAL, right_arm_fat_pct REAL, trunk_fat_pct REAL,
+            left_leg_fat_pct REAL, right_leg_fat_pct REAL,
+            left_arm_lean_g REAL, right_arm_lean_g REAL, trunk_lean_g REAL,
+            left_leg_lean_g REAL, right_leg_lean_g REAL,
+            alm_kg REAL, alm_h2 REAL, ffmi REAL,
+            notes TEXT, source TEXT DEFAULT 'manual',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, scan_date))""",
+        "CREATE INDEX IF NOT EXISTS idx_dexa_scans_user ON dexa_scans(user_id, scan_date)",
     ]
     for sql in table_migrations:
         try:

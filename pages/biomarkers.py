@@ -362,39 +362,29 @@ with tab_ai:
 with tab_upload:
     render_section_header(
         "Upload Lab PDF",
-        "AI reads your blood test report and extracts all values automatically",
+        "AI reads your blood test report, auto-detects dates, and groups results",
     )
 
     info_html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
         f'border-radius:{A["radius_md"]};padding:12px 16px;margin-bottom:16px">'
         f'<div style="font-size:13px;color:{A["label_secondary"]};line-height:19px">'
-        f'<strong>How it works:</strong> Upload a PDF blood test from any lab (Quest, LabCorp, '
-        f'NHS, etc.). Claude AI reads the report, matches each result to our biomarker database, '
-        f'and shows you the values for review before saving. No manual entry needed.'
+        f'<strong>How it works:</strong> Upload one or many PDF lab reports at once. '
+        f'AI reads each report, auto-detects the lab date and name, extracts biomarkers, '
+        f'and groups everything by date for review. Works with any lab worldwide.'
         f'</div></div>'
     )
     st.markdown(info_html, unsafe_allow_html=True)
 
-    if "pdf_extracted" not in st.session_state:
+    if "pdf_grouped" not in st.session_state:
         # ── Step 1: Upload ────────────────────────────────────────────────
-        # Full-width uploader so drag-and-drop zone is large
         uploaded_pdfs = st.file_uploader(
             "Drop PDF(s) here or click Browse",
             type=["pdf"],
             accept_multiple_files=True,
             key="pdf_uploader",
-            help="Select one or more PDF lab reports — all will be merged into one panel.",
+            help="Select one or more PDF lab reports — dates are auto-detected.",
         )
-        col_date, col_lab = st.columns(2)
-        with col_date:
-            pdf_date_val = st.date_input("Lab Date", value=date.today(), key="pdf_date_input")
-        with col_lab:
-            pdf_lab_val = st.text_input(
-                "Lab Name (optional)",
-                placeholder="e.g. Cleveland Clinic, Quest",
-                key="pdf_lab_input",
-            )
 
         if uploaded_pdfs:
             n = len(uploaded_pdfs)
@@ -409,124 +399,178 @@ with tab_upload:
                 use_container_width=True,
                 key="pdf_extract_btn",
             ):
-                with st.spinner(
-                    f"Reading {n} lab report{'s' if n > 1 else ''} with AI… "
-                    f"({10 * n}–{20 * n} seconds)"
-                ):
+                all_defs = get_all_definitions()
+                all_results: list[dict] = []
+                errors: list[str] = []
+                progress = st.progress(0, text="Starting extraction...")
+
+                for idx, pdf_file in enumerate(uploaded_pdfs):
+                    progress.progress(
+                        (idx + 1) / n,
+                        text=f"Reading {pdf_file.name} ({idx + 1}/{n})...",
+                    )
                     try:
-                        all_defs = get_all_definitions()
-                        merged: list[dict] = []
-                        seen_ids: set[int] = set()
-                        errors: list[str] = []
+                        pdf_bytes = pdf_file.read()
+                        batch = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
+                        for item in batch:
+                            item["_source_file"] = pdf_file.name
+                        all_results.extend(batch)
+                    except Exception as _fe:
+                        errors.append(f"{pdf_file.name}: {_fe}")
+                progress.empty()
 
-                        for pdf_file in uploaded_pdfs:
-                            try:
-                                pdf_bytes = pdf_file.read()
-                                batch = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
-                                for item in batch:
-                                    if item["biomarker_id"] not in seen_ids:
-                                        seen_ids.add(item["biomarker_id"])
-                                        merged.append(item)
-                            except Exception as _fe:
-                                errors.append(f"{pdf_file.name}: {_fe}")
+                # ── Group by (lab_date, lab_name) ────────────────────────
+                from collections import defaultdict
+                groups_dict: dict[tuple, list] = defaultdict(list)
+                file_counts: dict[tuple, set] = defaultdict(set)
+                for r in all_results:
+                    key = (r.get("lab_date") or "unknown", r.get("lab_name") or "Unknown Lab")
+                    # Deduplicate within each date group
+                    existing_ids = {item["biomarker_id"] for item in groups_dict[key]}
+                    if r["biomarker_id"] not in existing_ids:
+                        groups_dict[key].append(r)
+                    file_counts[key].add(r.get("_source_file", ""))
 
-                        st.session_state["pdf_extracted"] = merged
-                        st.session_state["pdf_date_str"]  = pdf_date_val.isoformat()
-                        st.session_state["pdf_lab_str"]   = pdf_lab_val
-                        st.session_state["pdf_file_count"] = n
-                        if errors:
-                            st.session_state["pdf_errors"] = errors
-                        st.rerun()
-                    except Exception as _exc:
-                        st.error(f"Extraction failed: {_exc}")
+                # Build grouped list sorted by date
+                grouped = []
+                for (d, lab), results_list in sorted(groups_dict.items()):
+                    grouped.append({
+                        "lab_date": d if d != "unknown" else None,
+                        "lab_name": lab if lab != "Unknown Lab" else "",
+                        "file_count": len(file_counts[(d, lab)]),
+                        "results": results_list,
+                    })
+
+                st.session_state["pdf_grouped"] = grouped
+                st.session_state["pdf_file_count"] = n
+                if errors:
+                    st.session_state["pdf_errors"] = errors
+                st.rerun()
+
     else:
-        # ── Step 2: Review & confirm ──────────────────────────────────────
-        extracted = st.session_state["pdf_extracted"]
-        ext_date  = st.session_state.get("pdf_date_str", date.today().isoformat())
-        ext_lab   = st.session_state.get("pdf_lab_str", "")
+        # ── Step 2: Review grouped results ───────────────────────────────
+        grouped = st.session_state["pdf_grouped"]
+        n_files = st.session_state.get("pdf_file_count", 1)
 
-        # Show per-file errors first (API errors, parse errors, etc.)
+        # Show per-file errors
         pdf_errors = st.session_state.pop("pdf_errors", [])
         if pdf_errors:
             for _err in pdf_errors:
                 st.error(_err)
 
-        if not extracted:
+        total_markers = sum(len(g["results"]) for g in grouped)
+        if total_markers == 0:
             if not pdf_errors:
                 st.warning(
-                    "No biomarkers could be matched from this PDF. The report may use "
-                    "non-standard terminology or the file may be a scanned image. "
+                    "No biomarkers could be matched from these PDFs. The reports may use "
+                    "non-standard terminology or the files may be scanned images. "
                     "Try entering values manually in the **Log Results** tab."
                 )
-            if st.button("Try Another PDF", key="pdf_retry_empty_btn"):
-                for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count", "pdf_errors"):
-                    st.session_state.pop(_k, None)
+            if st.button("Try Again", key="pdf_retry_empty"):
+                for _k in list(st.session_state):
+                    if _k.startswith("pdf_"):
+                        del st.session_state[_k]
                 st.rerun()
         else:
-
-            # Meta header card
-            n_files = st.session_state.get("pdf_file_count", 1)
-            file_label = f"{n_files} PDF{'s' if n_files > 1 else ''}"
-            meta_html = (
-                f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
-                f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:12px;'
-                f'display:flex;justify-content:space-between;align-items:center">'
-                f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
-                f'{len(extracted)} markers extracted from {file_label} — {ext_date}</div>'
-                f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
-                f'{ext_lab if ext_lab else "Lab not specified"}</div>'
-                f'</div>'
-            )
-            st.markdown(meta_html, unsafe_allow_html=True)
             st.caption(
-                "Review values below. Edit incorrect numbers, uncheck markers to skip, "
-                "then click **Save to Biomarkers**."
+                f"Found **{total_markers}** markers across **{len(grouped)}** date group(s) "
+                f"from {n_files} PDF(s). Review and save below."
             )
 
-            # Editable review table
-            review_df = pd.DataFrame([
-                {"Save": True, "Biomarker": r["name"], "Value": r["value"], "Unit": r["unit"]}
-                for r in extracted
-            ])
-            edited_df = st.data_editor(
-                review_df,
-                column_config={
-                    "Save": st.column_config.CheckboxColumn("Save?", default=True, width="small"),
-                    "Biomarker": st.column_config.TextColumn("Biomarker", disabled=True),
-                    "Value": st.column_config.NumberColumn("Value", min_value=0.0, format="%.2f"),
-                    "Unit": st.column_config.TextColumn("Unit", disabled=True, width="small"),
-                },
-                use_container_width=True,
-                hide_index=True,
-                key="pdf_review_editor",
-            )
+            all_saved = 0
+            for gi, group in enumerate(grouped):
+                n_markers = len(group["results"])
+                date_label = group["lab_date"] or "Unknown Date"
+                lab_label = group["lab_name"] or "Unknown Lab"
+                file_ct = group["file_count"]
 
+                header_html = (
+                    f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
+                    f'border-radius:{A["radius_md"]};padding:10px 14px;margin:16px 0 8px 0;'
+                    f'display:flex;justify-content:space-between;align-items:center">'
+                    f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
+                    f'{n_markers} markers — {date_label}</div>'
+                    f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
+                    f'{file_ct} PDF{"s" if file_ct > 1 else ""} · {lab_label}</div>'
+                    f'</div>'
+                )
+                st.markdown(header_html, unsafe_allow_html=True)
+
+                # Editable date and lab
+                col_d, col_l = st.columns(2)
+                with col_d:
+                    default_date = date.today()
+                    if group["lab_date"]:
+                        try:
+                            from datetime import datetime as _dt
+                            default_date = _dt.strptime(group["lab_date"], "%Y-%m-%d").date()
+                        except ValueError:
+                            pass
+                    group_date = st.date_input(
+                        "Lab Date", value=default_date, key=f"grp_date_{gi}",
+                    )
+                with col_l:
+                    group_lab = st.text_input(
+                        "Lab Name", value=group["lab_name"] or "",
+                        key=f"grp_lab_{gi}",
+                    )
+
+                # Editable marker table
+                review_df = pd.DataFrame([
+                    {"Save": True, "Biomarker": r["name"], "Value": r["value"], "Unit": r["unit"]}
+                    for r in group["results"]
+                ])
+                edited_df = st.data_editor(
+                    review_df,
+                    column_config={
+                        "Save": st.column_config.CheckboxColumn("Save?", default=True, width="small"),
+                        "Biomarker": st.column_config.TextColumn("Biomarker", disabled=True),
+                        "Value": st.column_config.NumberColumn("Value", min_value=0.0, format="%.2f"),
+                        "Unit": st.column_config.TextColumn("Unit", disabled=True, width="small"),
+                    },
+                    use_container_width=True,
+                    hide_index=True,
+                    key=f"grp_editor_{gi}",
+                )
+                # Store edited values back for save
+                grouped[gi]["_edited_df"] = edited_df
+                grouped[gi]["_final_date"] = group_date.isoformat()
+                grouped[gi]["_final_lab"] = group_lab
+
+            # ── Save All / Cancel ────────────────────────────────────────
+            st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             col_save, col_cancel = st.columns([3, 1])
             with col_save:
                 if st.button(
-                    "Save to Biomarkers",
+                    "Save All Groups to Biomarkers",
                     type="primary",
                     use_container_width=True,
-                    key="pdf_save_btn",
+                    key="pdf_save_all",
                 ):
                     saved_n = 0
-                    for i, row in edited_df.iterrows():
-                        if row["Save"] and float(row["Value"]) > 0:
-                            bm = extracted[i]
-                            log_biomarker_result(
-                                user_id,
-                                bm["biomarker_id"],
-                                float(row["Value"]),
-                                ext_date,
-                                ext_lab or None,
-                            )
-                            saved_n += 1
-                    for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
-                        st.session_state.pop(_k, None)
-                    st.toast(f"Saved {saved_n} biomarker results!")
+                    for g in grouped:
+                        edf = g.get("_edited_df")
+                        if edf is None:
+                            continue
+                        for i, row in edf.iterrows():
+                            if row["Save"] and float(row["Value"]) > 0:
+                                bm = g["results"][i]
+                                log_biomarker_result(
+                                    user_id,
+                                    bm["biomarker_id"],
+                                    float(row["Value"]),
+                                    g["_final_date"],
+                                    g["_final_lab"] or None,
+                                )
+                                saved_n += 1
+                    for _k in list(st.session_state):
+                        if _k.startswith("pdf_") or _k.startswith("grp_"):
+                            del st.session_state[_k]
+                    st.toast(f"Saved {saved_n} biomarker results across {len(grouped)} date(s)!")
                     st.rerun()
             with col_cancel:
                 if st.button("Cancel", use_container_width=True, key="pdf_cancel_btn"):
-                    for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
-                        st.session_state.pop(_k, None)
+                    for _k in list(st.session_state):
+                        if _k.startswith("pdf_") or _k.startswith("grp_"):
+                            del st.session_state[_k]
                     st.rerun()

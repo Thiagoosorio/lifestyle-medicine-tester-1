@@ -553,7 +553,8 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     3. Multi-level fuzzy matching against our definitions on our side
 
     Returns:
-        List of dicts: {biomarker_id, code, name, value, unit}
+        List of dicts: {biomarker_id, code, name, value, unit, lab_date, lab_name}
+        lab_date/lab_name are auto-detected from the PDF (may be None).
     Raises:
         Exception: propagated so the UI can display the real error message.
     """
@@ -581,16 +582,28 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     # ── Step 2: Ask Claude to parse the lab text ─────────────────────────────
     prompt_text = (
-        "Below is the text extracted from a blood test lab report PDF.\n"
-        "Extract every numeric lab result you can find.\n"
-        "Return ONLY a valid JSON array — no markdown, no explanation.\n"
-        "Each element: {\"name\": \"<biomarker name>\", \"value\": <number>, \"unit\": \"<unit>\"}\n\n"
-        "Rules:\n"
+        "Below is text from a blood test lab report PDF.\n"
+        "Extract every numeric lab result AND the report metadata.\n\n"
+        "Return ONLY a valid JSON object with this structure:\n"
+        "{\n"
+        '  "lab_date": "YYYY-MM-DD or null",\n'
+        '  "lab_name": "laboratory/hospital name or null",\n'
+        '  "results": [\n'
+        '    {"name": "<biomarker name>", "value": <number>, "unit": "<unit>"},\n'
+        "    ...\n"
+        "  ]\n"
+        "}\n\n"
+        "Metadata rules:\n"
+        "- lab_date: the SAMPLE COLLECTION date (not print/report date).\n"
+        "  Look for 'Collection date:', 'Sampling:', 'Date:', 'Data do exame:'\n"
+        "  Convert any format (DD/MM/YYYY, DD Mon YYYY, etc.) to YYYY-MM-DD.\n"
+        "- lab_name: the lab or hospital (e.g. 'Cleveland Clinic', 'Cerba Belgium')\n\n"
+        "Result rules:\n"
         "- Include ALL numeric results (even if abnormal or flagged)\n"
         "- For '<X' or '>X' values (e.g. '<0.2'), use X as the number\n"
         "- The text may have spaced-out characters (e.g. 'C 3' means 'C3')\n"
         "- Skip text-only results (Positive/Negative/See comment)\n"
-        "- Return ONLY the JSON array\n\n"
+        "- Return ONLY the JSON object\n\n"
         "--- LAB REPORT TEXT ---\n"
         f"{pdf_text}"
     )
@@ -604,15 +617,36 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     raw = response.content[0].text.strip()
 
-    # Robustly find the JSON array anywhere in the response
-    json_match = re.search(r'\[.*\]', raw, re.DOTALL)
-    if not json_match:
-        raise ValueError(f"Claude did not return a JSON array. Response: {raw[:400]}")
+    # Try to parse as JSON object first, then fall back to array
+    detected_date = None
+    detected_lab = None
+    extracted_raw = []
 
-    try:
-        extracted_raw = json.loads(json_match.group())
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"JSON parse error: {exc}. Raw: {raw[:400]}") from exc
+    # Find JSON object or array
+    json_obj_match = re.search(r'\{.*\}', raw, re.DOTALL)
+    json_arr_match = re.search(r'\[.*\]', raw, re.DOTALL)
+
+    if json_obj_match:
+        try:
+            parsed = json.loads(json_obj_match.group())
+            if isinstance(parsed, dict) and "results" in parsed:
+                detected_date = parsed.get("lab_date")
+                detected_lab = parsed.get("lab_name")
+                extracted_raw = parsed.get("results", [])
+            elif isinstance(parsed, dict):
+                # Single result object — wrap in list
+                extracted_raw = [parsed]
+        except json.JSONDecodeError:
+            pass
+
+    if not extracted_raw and json_arr_match:
+        try:
+            extracted_raw = json.loads(json_arr_match.group())
+        except json.JSONDecodeError:
+            pass
+
+    if not extracted_raw:
+        raise ValueError(f"Could not parse results from response: {raw[:400]}")
 
     # ── Lookup tables ────────────────────────────────────────────────────────
     def _norm(s: str) -> str:
@@ -689,6 +723,8 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
                 "name":         defn["name"],
                 "value":        val,
                 "unit":         defn["unit"],
+                "lab_date":     detected_date,
+                "lab_name":     detected_lab,
             })
 
     return results
