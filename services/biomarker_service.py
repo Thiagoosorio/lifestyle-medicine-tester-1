@@ -537,3 +537,118 @@ def save_blood_analysis(
         pass  # Table may not exist yet on first deploy
     finally:
         conn.close()
+
+
+# ── PDF Lab Report Extraction ───────────────────────────────────────────────
+
+def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dict]:
+    """Use Claude to extract biomarker values from a PDF blood test report.
+
+    Sends the PDF as a base64-encoded document to the Claude API and asks it to
+    match each lab result to our known biomarker codes.
+
+    Args:
+        pdf_bytes:   Raw bytes of the uploaded PDF file.
+        definitions: List of biomarker definition dicts (from get_all_definitions()).
+
+    Returns:
+        List of dicts: {biomarker_id, code, name, value, unit}
+        Returns an empty list if extraction fails or no markers are matched.
+    """
+    import anthropic
+    import base64
+    import json
+
+    # Build a reference list for the AI: "code: Name (unit)"
+    defs_text = "\n".join(
+        f"  {d['code']}: {d['name']} ({d['unit']})"
+        for d in definitions
+    )
+
+    prompt_text = (
+        "Extract all biomarker values from this blood test PDF report.\n"
+        "Return ONLY a JSON array — no explanation, no markdown fences.\n"
+        "Each element must have exactly two keys:\n"
+        "  \"code\":  the matching code from the list below (lowercase, underscores)\n"
+        "  \"value\": the numeric result as a number (not a string)\n\n"
+        "Rules:\n"
+        "- Only include markers you can clearly read with a numeric value\n"
+        "- If a value has a '<' or '>' prefix, use the boundary number\n"
+        "- Skip calculated ratios unless they appear explicitly in the list below\n"
+        "- Match by name similarity — the PDF may use different wording\n\n"
+        f"Known biomarker codes:\n{defs_text}"
+    )
+
+    client = anthropic.Anthropic()
+    try:
+        response = client.messages.create(
+            model="claude-sonnet-4-5-20250514",
+            max_tokens=2000,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {
+                        "type": "document",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "application/pdf",
+                            "data": base64.standard_b64encode(pdf_bytes).decode("utf-8"),
+                        },
+                    },
+                    {"type": "text", "text": prompt_text},
+                ],
+            }],
+        )
+    except Exception:
+        return []
+
+    raw = response.content[0].text.strip()
+
+    # Strip markdown code fences if Claude wraps the JSON
+    if "```" in raw:
+        for part in raw.split("```"):
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("["):
+                raw = part
+                break
+
+    try:
+        extracted_raw = json.loads(raw)
+    except Exception:
+        return []
+
+    # Primary lookup by code; secondary fuzzy lookup by name
+    defs_by_code = {d["code"]: d for d in definitions}
+    defs_by_name = {d["name"].lower(): d for d in definitions}
+
+    results = []
+    seen_ids: set[int] = set()
+
+    for item in extracted_raw:
+        code = str(item.get("code", "")).lower().strip()
+        val = item.get("value")
+        if val is None:
+            continue
+        try:
+            val = float(val)
+        except (TypeError, ValueError):
+            continue
+
+        defn = defs_by_code.get(code)
+        if not defn:
+            # Fallback: match by biomarker name
+            name_key = str(item.get("name", "")).lower().strip()
+            defn = defs_by_name.get(name_key)
+        if defn and val >= 0 and defn["id"] not in seen_ids:
+            seen_ids.add(defn["id"])
+            results.append({
+                "biomarker_id": defn["id"],
+                "code":         defn["code"],
+                "name":         defn["name"],
+                "value":        val,
+                "unit":         defn["unit"],
+            })
+
+    return results

@@ -2,6 +2,7 @@
 
 import streamlit as st
 import plotly.graph_objects as go
+import pandas as pd
 from datetime import date, datetime
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
 from components.biomarker_display import (
@@ -25,6 +26,7 @@ from services.biomarker_service import (
     get_results_by_date,
     get_cached_analysis,
     save_blood_analysis,
+    extract_biomarkers_from_pdf,
 )
 from services.coaching_service import get_blood_ai_analysis
 
@@ -37,8 +39,8 @@ render_hero_banner(
 )
 
 # ── Tabs ─────────────────────────────────────────────────────────────────
-tab_dashboard, tab_log, tab_trends, tab_history, tab_ai = st.tabs([
-    "Dashboard", "Log Results", "Trends", "Lab History", "AI Analysis"
+tab_dashboard, tab_log, tab_trends, tab_history, tab_ai, tab_upload = st.tabs([
+    "Dashboard", "Log Results", "Trends", "Lab History", "AI Analysis", "Upload Lab PDF"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -353,3 +355,155 @@ with tab_ai:
                 f'</div>'
             )
             st.markdown(prompt_html, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 6: Upload Lab PDF
+# ══════════════════════════════════════════════════════════════════════════
+with tab_upload:
+    render_section_header(
+        "Upload Lab PDF",
+        "AI reads your blood test report and extracts all values automatically",
+    )
+
+    info_html = (
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-radius:{A["radius_md"]};padding:12px 16px;margin-bottom:16px">'
+        f'<div style="font-size:13px;color:{A["label_secondary"]};line-height:19px">'
+        f'<strong>How it works:</strong> Upload a PDF blood test from any lab (Quest, LabCorp, '
+        f'NHS, etc.). Claude AI reads the report, matches each result to our biomarker database, '
+        f'and shows you the values for review before saving. No manual entry needed.'
+        f'</div></div>'
+    )
+    st.markdown(info_html, unsafe_allow_html=True)
+
+    if "pdf_extracted" not in st.session_state:
+        # ── Step 1: Upload ────────────────────────────────────────────────
+        col_up, col_meta = st.columns([3, 2])
+        with col_up:
+            uploaded_pdf = st.file_uploader(
+                "Blood Test PDF",
+                type=["pdf"],
+                key="pdf_uploader",
+                help="PDF blood test report from any laboratory",
+            )
+        with col_meta:
+            pdf_date_val = st.date_input("Lab Date", value=date.today(), key="pdf_date_input")
+            pdf_lab_val  = st.text_input(
+                "Lab Name (optional)",
+                placeholder="e.g. Quest Diagnostics",
+                key="pdf_lab_input",
+            )
+
+        if uploaded_pdf:
+            if st.button(
+                "Extract Values with AI",
+                type="primary",
+                use_container_width=True,
+                key="pdf_extract_btn",
+            ):
+                with st.spinner("Reading lab report with AI… (10–20 seconds)"):
+                    try:
+                        pdf_bytes = uploaded_pdf.read()
+                        all_defs  = get_all_definitions()
+                        extracted = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
+                        st.session_state["pdf_extracted"] = extracted
+                        st.session_state["pdf_date_str"]  = pdf_date_val.isoformat()
+                        st.session_state["pdf_lab_str"]   = pdf_lab_val
+                    except Exception as _exc:
+                        st.error(f"Extraction failed: {_exc}")
+                st.rerun()
+        else:
+            upload_cta_html = (
+                f'<div style="background:{A["bg_elevated"]};border:2px dashed {A["separator"]};'
+                f'border-radius:{A["radius_lg"]};padding:40px;text-align:center;margin-top:8px">'
+                f'<div style="font-size:36px;margin-bottom:10px">📄</div>'
+                f'<div style="font-size:14px;font-weight:600;color:{A["label_primary"]};'
+                f'margin-bottom:6px">Drop your lab report PDF above</div>'
+                f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:17px">'
+                f'Quest Diagnostics · LabCorp · NHS · Private labs · Any standard blood panel'
+                f'</div></div>'
+            )
+            st.markdown(upload_cta_html, unsafe_allow_html=True)
+
+    else:
+        # ── Step 2: Review & confirm ──────────────────────────────────────
+        extracted = st.session_state["pdf_extracted"]
+        ext_date  = st.session_state.get("pdf_date_str", date.today().isoformat())
+        ext_lab   = st.session_state.get("pdf_lab_str", "")
+
+        if not extracted:
+            st.warning(
+                "No biomarkers could be matched from this PDF. The report may use "
+                "non-standard terminology or the file may be a scanned image. "
+                "Try entering values manually in the **Log Results** tab."
+            )
+            if st.button("Try Another PDF", key="pdf_retry_empty_btn"):
+                st.session_state.pop("pdf_extracted", None)
+                st.rerun()
+        else:
+            # Meta header card
+            meta_html = (
+                f'<div style="background:{A["bg_secondary"]};border:1px solid {A["separator"]};'
+                f'border-radius:{A["radius_md"]};padding:10px 14px;margin-bottom:12px;'
+                f'display:flex;justify-content:space-between;align-items:center">'
+                f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]}">'
+                f'{len(extracted)} markers extracted — {ext_date}</div>'
+                f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
+                f'{ext_lab if ext_lab else "Lab not specified"}</div>'
+                f'</div>'
+            )
+            st.markdown(meta_html, unsafe_allow_html=True)
+            st.caption(
+                "Review values below. Edit incorrect numbers, uncheck markers to skip, "
+                "then click **Save to Biomarkers**."
+            )
+
+            # Editable review table
+            review_df = pd.DataFrame([
+                {"Save": True, "Biomarker": r["name"], "Value": r["value"], "Unit": r["unit"]}
+                for r in extracted
+            ])
+            edited_df = st.data_editor(
+                review_df,
+                column_config={
+                    "Save": st.column_config.CheckboxColumn("Save?", default=True, width="small"),
+                    "Biomarker": st.column_config.TextColumn("Biomarker", disabled=True),
+                    "Value": st.column_config.NumberColumn("Value", min_value=0.0, format="%.2f"),
+                    "Unit": st.column_config.TextColumn("Unit", disabled=True, width="small"),
+                },
+                use_container_width=True,
+                hide_index=True,
+                key="pdf_review_editor",
+            )
+
+            col_save, col_cancel = st.columns([3, 1])
+            with col_save:
+                if st.button(
+                    "Save to Biomarkers",
+                    type="primary",
+                    use_container_width=True,
+                    key="pdf_save_btn",
+                ):
+                    saved_n = 0
+                    for i, row in edited_df.iterrows():
+                        if row["Save"] and float(row["Value"]) > 0:
+                            bm = extracted[i]
+                            log_biomarker_result(
+                                user_id,
+                                bm["biomarker_id"],
+                                float(row["Value"]),
+                                ext_date,
+                                ext_lab or None,
+                            )
+                            saved_n += 1
+                    st.session_state.pop("pdf_extracted", None)
+                    st.session_state.pop("pdf_date_str", None)
+                    st.session_state.pop("pdf_lab_str", None)
+                    st.toast(f"Saved {saved_n} biomarker results!")
+                    st.rerun()
+            with col_cancel:
+                if st.button("Cancel", use_container_width=True, key="pdf_cancel_btn"):
+                    st.session_state.pop("pdf_extracted", None)
+                    st.session_state.pop("pdf_date_str", None)
+                    st.session_state.pop("pdf_lab_str", None)
+                    st.rerun()
