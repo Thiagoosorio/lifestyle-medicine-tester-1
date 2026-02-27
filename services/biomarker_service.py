@@ -2,6 +2,9 @@
 
 from db.database import get_connection
 from datetime import date
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 def seed_biomarker_definitions():
@@ -544,9 +547,10 @@ def save_blood_analysis(
 def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dict]:
     """Use Claude to extract biomarker values from a PDF blood test report.
 
-    Asks Claude to return raw names+values as seen in the PDF, then does
-    multi-level fuzzy matching against our definition names/codes on our side.
-    This is far more robust than asking Claude to return exact internal codes.
+    Strategy:
+    1. Extract text from PDF with pypdf (fast, cheap, works for digital PDFs)
+    2. Send extracted text to Claude to parse biomarker names + values
+    3. Multi-level fuzzy matching against our definitions on our side
 
     Returns:
         List of dicts: {biomarker_id, code, name, value, unit}
@@ -554,43 +558,48 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
         Exception: propagated so the UI can display the real error message.
     """
     import anthropic
-    import base64
     import json
     import re
+    import io
 
+    # ── Step 1: Extract text from PDF ────────────────────────────────────────
+    try:
+        import pypdf
+        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
+        pages_text = []
+        for page in reader.pages:
+            pages_text.append(page.extract_text() or "")
+        pdf_text = "\n".join(pages_text).strip()
+    except Exception as exc:
+        raise ValueError(f"Could not read PDF: {exc}") from exc
+
+    if len(pdf_text) < 20:
+        raise ValueError(
+            "PDF has no readable text — it may be a scanned image. "
+            "Please use a digital PDF (not a photo/scan)."
+        )
+
+    # ── Step 2: Ask Claude to parse the lab text ─────────────────────────────
     prompt_text = (
-        "Extract every numeric lab result from this blood test PDF report.\n"
-        "Return ONLY a valid JSON array — no markdown, no explanation, nothing else.\n"
-        "Each element must have exactly these keys:\n"
-        "  \"name\":  the biomarker name exactly as printed in the report\n"
-        "  \"value\": the numeric result as a JSON number (not a string)\n"
-        "  \"unit\":  the unit string (e.g. mg/dL, g/L, %)\n\n"
+        "Below is the text extracted from a blood test lab report PDF.\n"
+        "Extract every numeric lab result you can find.\n"
+        "Return ONLY a valid JSON array — no markdown, no explanation.\n"
+        "Each element: {\"name\": \"<biomarker name>\", \"value\": <number>, \"unit\": \"<unit>\"}\n\n"
         "Rules:\n"
-        "- Include ALL numeric results you can clearly read\n"
-        "- For '<X' or '>X' values, use X as the number\n"
+        "- Include ALL numeric results (even if abnormal or flagged)\n"
+        "- For '<X' or '>X' values (e.g. '<0.2'), use X as the number\n"
+        "- The text may have spaced-out characters (e.g. 'C 3' means 'C3')\n"
         "- Skip text-only results (Positive/Negative/See comment)\n"
-        "- Do NOT skip abnormal or flagged values\n"
-        "- Return ONLY the JSON array, starting with [ and ending with ]"
+        "- Return ONLY the JSON array\n\n"
+        "--- LAB REPORT TEXT ---\n"
+        f"{pdf_text}"
     )
 
     client = anthropic.Anthropic()
     response = client.messages.create(
         model="claude-sonnet-4-5-20250514",
         max_tokens=2000,
-        messages=[{
-            "role": "user",
-            "content": [
-                {
-                    "type": "document",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "application/pdf",
-                        "data": base64.standard_b64encode(pdf_bytes).decode("utf-8"),
-                    },
-                },
-                {"type": "text", "text": prompt_text},
-            ],
-        }],
+        messages=[{"role": "user", "content": prompt_text}],
     )
 
     raw = response.content[0].text.strip()

@@ -445,21 +445,24 @@ with tab_upload:
         ext_date  = st.session_state.get("pdf_date_str", date.today().isoformat())
         ext_lab   = st.session_state.get("pdf_lab_str", "")
 
+        # Show per-file errors first (API errors, parse errors, etc.)
+        pdf_errors = st.session_state.pop("pdf_errors", [])
+        if pdf_errors:
+            for _err in pdf_errors:
+                st.error(_err)
+
         if not extracted:
-            st.warning(
-                "No biomarkers could be matched from this PDF. The report may use "
-                "non-standard terminology or the file may be a scanned image. "
-                "Try entering values manually in the **Log Results** tab."
-            )
+            if not pdf_errors:
+                st.warning(
+                    "No biomarkers could be matched from this PDF. The report may use "
+                    "non-standard terminology or the file may be a scanned image. "
+                    "Try entering values manually in the **Log Results** tab."
+                )
             if st.button("Try Another PDF", key="pdf_retry_empty_btn"):
-                for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count"):
+                for _k in ("pdf_extracted", "pdf_date_str", "pdf_lab_str", "pdf_file_count", "pdf_errors"):
                     st.session_state.pop(_k, None)
                 st.rerun()
         else:
-            # Show any per-file errors as a warning
-            pdf_errors = st.session_state.pop("pdf_errors", [])
-            if pdf_errors:
-                st.warning("Some files could not be read: " + " | ".join(pdf_errors))
 
             # Meta header card
             n_files = st.session_state.get("pdf_file_count", 1)
