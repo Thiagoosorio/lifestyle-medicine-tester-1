@@ -494,8 +494,11 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
     return "\n".join(lines)
 
 
-def get_cached_analysis(user_id: int, lab_date: str) -> dict | None:
-    """Retrieve a cached BloodGPT analysis for a specific lab date, or None."""
+def get_cached_analysis(user_id: int, lab_date: str):
+    """Retrieve a cached BloodGPT analysis for a specific lab date, or None.
+
+    Returns None if the cache table does not yet exist (first deploy before migration).
+    """
     conn = get_connection()
     try:
         row = conn.execute(
@@ -505,6 +508,8 @@ def get_cached_analysis(user_id: int, lab_date: str) -> dict | None:
             (user_id, lab_date),
         ).fetchone()
         return dict(row) if row else None
+    except Exception:
+        return None  # Table may not exist yet on first deploy
     finally:
         conn.close()
 
@@ -515,7 +520,10 @@ def save_blood_analysis(
     analysis_text: str,
     model: str = "claude-sonnet-4-5-20250514",
 ) -> None:
-    """Cache or update a BloodGPT AI analysis for a specific lab date."""
+    """Cache or update a BloodGPT AI analysis for a specific lab date.
+
+    Silently no-ops if the cache table does not yet exist (first deploy before migration).
+    """
     conn = get_connection()
     try:
         conn.execute(
@@ -525,5 +533,7 @@ def save_blood_analysis(
             (user_id, lab_date, analysis_text, model),
         )
         conn.commit()
+    except Exception:
+        pass  # Table may not exist yet on first deploy
     finally:
         conn.close()

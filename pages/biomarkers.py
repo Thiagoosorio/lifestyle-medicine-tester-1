@@ -23,7 +23,10 @@ from services.biomarker_service import (
     get_classification_display,
     get_lab_dates,
     get_results_by_date,
+    get_cached_analysis,
+    save_blood_analysis,
 )
+from services.coaching_service import get_blood_ai_analysis
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -256,9 +259,6 @@ with tab_history:
 # Tab 5: AI Analysis (BloodGPT)
 # ══════════════════════════════════════════════════════════════════════════
 with tab_ai:
-    from services.biomarker_service import get_cached_analysis, save_blood_analysis
-    from services.coaching_service import get_blood_ai_analysis
-
     render_section_header(
         "AI Blood Analysis",
         "BloodGPT-powered holistic analysis with scientific rigor",
