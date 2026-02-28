@@ -257,7 +257,7 @@ def _call_anthropic(system_prompt: str, messages: list) -> str:
     import anthropic
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-5-20250514",
+        model="claude-sonnet-4-20250514",
         max_tokens=1024,
         system=system_prompt,
         messages=messages,
@@ -379,7 +379,7 @@ def get_blood_ai_analysis(user_id: int, lab_date: str) -> str:
         import anthropic
         client = anthropic.Anthropic()
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250514",
+            model="claude-sonnet-4-20250514",
             max_tokens=2000,
             system=full_prompt,
             messages=[{"role": "user", "content": "Please analyse my blood panel."}],
@@ -446,7 +446,7 @@ def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
         import anthropic
         client = anthropic.Anthropic()
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250514",
+            model="claude-sonnet-4-20250514",
             max_tokens=1500,
             system=system_prompt,
             messages=messages,

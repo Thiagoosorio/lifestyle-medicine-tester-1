@@ -523,7 +523,7 @@ def save_blood_analysis(
     user_id: int,
     lab_date: str,
     analysis_text: str,
-    model: str = "claude-sonnet-4-5-20250514",
+    model: str = "claude-sonnet-4-20250514",
 ) -> None:
     """Cache or update a BloodGPT AI analysis for a specific lab date.
 
@@ -612,7 +612,7 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-5-20250514",
+        model="claude-sonnet-4-20250514",
         max_tokens=2000,
         messages=[{"role": "user", "content": prompt_text}],
     )

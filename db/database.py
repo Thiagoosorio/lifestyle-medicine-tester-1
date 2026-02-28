@@ -194,7 +194,7 @@ def _migrate(conn):
             user_id INTEGER NOT NULL REFERENCES users(id),
             lab_date TEXT NOT NULL,
             analysis_text TEXT NOT NULL,
-            model_used TEXT DEFAULT 'claude-sonnet-4-5-20250514',
+            model_used TEXT DEFAULT 'claude-sonnet-4-20250514',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, lab_date))""",
         # DEXA body composition scans
