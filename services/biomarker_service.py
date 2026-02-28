@@ -613,11 +613,16 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     client = anthropic.Anthropic()
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=2000,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt_text}],
     )
 
     raw = response.content[0].text.strip()
+
+    # Strip markdown code fences if present
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    raw = raw.strip()
 
     # Try to parse as JSON object first, then fall back to array
     detected_date = None

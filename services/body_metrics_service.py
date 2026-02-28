@@ -320,6 +320,10 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
     )
 
     raw = response.content[0].text.strip()
+    # Strip markdown code fences if present
+    raw = re.sub(r'^```(?:json)?\s*', '', raw)
+    raw = re.sub(r'\s*```$', '', raw)
+    raw = raw.strip()
     json_match = re.search(r'\{.*\}', raw, re.DOTALL)
     if not json_match:
         raise ValueError(f"Claude did not return JSON. Response: {raw[:400]}")
