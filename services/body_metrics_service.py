@@ -315,7 +315,7 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
     client = anthropic.Anthropic()
     response = client.messages.create(
         model="claude-sonnet-4-20250514",
-        max_tokens=1500,
+        max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
 

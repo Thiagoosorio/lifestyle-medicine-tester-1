@@ -401,6 +401,7 @@ with tab_upload:
             ):
                 all_defs = get_all_definitions()
                 all_results: list[dict] = []
+                all_unmatched: list[dict] = []
                 errors: list[str] = []
                 progress = st.progress(0, text="Starting extraction...")
 
@@ -411,10 +412,11 @@ with tab_upload:
                     )
                     try:
                         pdf_bytes = pdf_file.read()
-                        batch = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
+                        batch, unmatched = extract_biomarkers_from_pdf(pdf_bytes, all_defs)
                         for item in batch:
                             item["_source_file"] = pdf_file.name
                         all_results.extend(batch)
+                        all_unmatched.extend(unmatched)
                     except Exception as _fe:
                         errors.append(f"{pdf_file.name}: {_fe}")
                 progress.empty()
@@ -439,7 +441,16 @@ with tab_upload:
                         "lab_name": lab if lab != "Unknown Lab" else "",
                         "file_count": len(file_counts[(d, lab)]),
                         "results": results_list,
+                        "unmatched": [],
                     })
+
+                # Attach unmatched items to the first group (they have no date grouping)
+                if all_unmatched and grouped:
+                    seen_unmatched = set()
+                    for u in all_unmatched:
+                        if u["name"] not in seen_unmatched:
+                            seen_unmatched.add(u["name"])
+                            grouped[0]["unmatched"].append(u)
 
                 st.session_state["pdf_grouped"] = grouped
                 st.session_state["pdf_file_count"] = n
@@ -537,6 +548,16 @@ with tab_upload:
                 grouped[gi]["_final_date"] = group_date.isoformat()
                 grouped[gi]["_final_lab"] = group_lab
 
+                # Show unmatched biomarkers (only on first group to avoid repetition)
+                unmatched_list = group.get("unmatched", [])
+                if unmatched_list:
+                    names = ", ".join(u["name"] for u in unmatched_list[:10])
+                    extra = f" (+{len(unmatched_list) - 10} more)" if len(unmatched_list) > 10 else ""
+                    st.warning(
+                        f"**{len(unmatched_list)} biomarker(s) not recognized** and were skipped: "
+                        f"{names}{extra}. Add them manually in the Log Results tab."
+                    )
+
             # ── Save All / Cancel ────────────────────────────────────────
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             col_save, col_cancel = st.columns([3, 1])
@@ -553,12 +574,16 @@ with tab_upload:
                         if edf is None:
                             continue
                         for i, row in edf.iterrows():
-                            if row["Save"] and float(row["Value"]) > 0:
+                            try:
+                                val_f = float(row["Value"])
+                            except (TypeError, ValueError):
+                                continue
+                            if row["Save"] and val_f > 0:
                                 bm = g["results"][i]
                                 log_biomarker_result(
                                     user_id,
                                     bm["biomarker_id"],
-                                    float(row["Value"]),
+                                    val_f,
                                     g["_final_date"],
                                     g["_final_lab"] or None,
                                 )

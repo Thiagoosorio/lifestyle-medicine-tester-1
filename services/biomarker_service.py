@@ -670,26 +670,90 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     # Common abbreviations / synonyms → internal code
     ALIASES = {
-        "wbc": "wbc_count", "rbc": "rbc_count", "hgb": "hemoglobin",
-        "hb": "hemoglobin", "hct": "hematocrit", "plt": "platelet_count",
+        # CBC / Haematology
+        "wbc": "wbc_count", "rbc": "rbc_count",
+        "hgb": "hemoglobin", "hb": "hemoglobin",
+        "haemoglobin": "hemoglobin", "hemoglobina": "hemoglobin",
+        "hct": "hematocrit", "haematocrit": "hematocrit",
+        "plt": "platelet_count", "platelets": "platelet_count",
+        "plaquetas": "platelet_count", "thrombocytes": "platelet_count",
+        "mcv": "mcv", "mch": "mch", "mchc": "mchc", "rdw": "rdw",
+        "neutrophils": "neutrophils", "neutrofilos": "neutrophils",
+        "lymphocytes": "lymphocytes", "linfocitos": "lymphocytes",
+        "monocytes": "monocytes", "monocitos": "monocytes",
+        "eosinophils": "eosinophils", "eosinofilos": "eosinophils",
+        "basophils": "basophils", "basofilos": "basophils",
+        # Glucose / Diabetes
         "glu": "fasting_glucose", "gluc": "fasting_glucose",
-        "cr": "creatinine", "cre": "creatinine",
-        "alt": "alt", "ast": "ast", "ggt": "ggt",
-        "tb": "total_bilirubin", "alb": "albumin",
-        "tsh": "tsh", "ft4": "free_t4", "ft3": "free_t3",
-        "ferr": "ferritin",
-        "tg": "triglycerides", "hdl": "hdl_cholesterol",
-        "ldl": "ldl_cholesterol", "tc": "total_cholesterol",
-        "crp": "hs_crp", "hscrp": "hs_crp",
+        "glicose": "fasting_glucose", "glucose": "fasting_glucose",
+        "fastingglucose": "fasting_glucose",
         "hba1c": "hba1c", "a1c": "hba1c", "hbaic": "hba1c",
+        "glycatedhemoglobin": "hba1c", "glycatedhaemoglobin": "hba1c",
+        "hemoglobinaglicada": "hba1c",
+        # Lipids
+        "tg": "triglycerides", "trig": "triglycerides",
+        "triglicerides": "triglycerides", "trigliceridos": "triglycerides",
+        "hdl": "hdl_cholesterol", "hdlc": "hdl_cholesterol",
+        "ldl": "ldl_cholesterol", "ldlc": "ldl_cholesterol",
+        "tc": "total_cholesterol", "chol": "total_cholesterol",
+        "totalcholesterol": "total_cholesterol", "colesterol": "total_cholesterol",
+        "nonhdlcholesterol": "non_hdl_cholesterol", "nonhdl": "non_hdl_cholesterol",
+        # Liver
+        "alt": "alt", "alat": "alt", "alanineaminotransferase": "alt",
+        "ast": "ast", "asat": "ast", "aspartateaminotransferase": "ast",
+        "ggt": "ggt", "gammaglutamyltransferase": "ggt",
+        "gammaglutamyltranspeptidase": "ggt",
+        "alp": "alp", "alkalinephosphatase": "alp", "fosfatasealcalina": "alp",
+        "tb": "total_bilirubin", "bilirubin": "total_bilirubin",
+        "bilirrubina": "total_bilirubin", "totalbilirubin": "total_bilirubin",
+        "alb": "albumin", "albumina": "albumin",
+        # Kidney
+        "cr": "creatinine", "cre": "creatinine", "creat": "creatinine",
+        "creatinina": "creatinine",
+        "bun": "bun", "ureianitrogen": "bun", "ureianitrogenio": "bun",
+        "urea": "urea",
+        "egfr": "egfr", "mdrdegfr": "egfr", "ckdepiegfr": "egfr",
+        "uricacid": "uric_acid", "acidourico": "uric_acid",
+        # Thyroid
+        "tsh": "tsh", "thyroidstimulatinghormone": "tsh",
+        "ft4": "free_t4", "freethyroxine": "free_t4", "t4livre": "free_t4",
+        "ft3": "free_t3", "freetriiodothyronine": "free_t3", "t3livre": "free_t3",
+        # Iron
+        "ferr": "ferritin", "ferritina": "ferritin",
+        "ironserum": "serum_iron", "serumferrum": "serum_iron",
+        "tibc": "tibc", "transferrin": "transferrin",
+        # Vitamins / Minerals
         "25ohd": "vitamin_d25", "vitd": "vitamin_d25",
+        "vitamind": "vitamin_d25", "calcidiol": "vitamin_d25",
         "b12": "vitamin_b12", "vitb12": "vitamin_b12",
-        "uricacid": "uric_acid",
-        "nonhdlcholesterol": "non_hdl_cholesterol",
-        "freetestosterone": "free_testosterone",
+        "cobalamin": "vitamin_b12", "cianocobalamina": "vitamin_b12",
+        "folate": "folate", "folicacid": "folate", "acidofolico": "folate",
+        "zinc": "zinc", "zinco": "zinc",
+        "magnesium": "magnesium", "magnesio": "magnesium",
+        # Inflammation / Cardiac
+        "crp": "hs_crp", "hscrp": "hs_crp", "hsCRP": "hs_crp",
+        "highsensitivitycrp": "hs_crp", "ultrasensiblecrp": "hs_crp",
+        "ck": "ck_cpk", "cpk": "ck_cpk", "creatinekinase": "ck_cpk",
+        # Hormones
+        "freetestosterone": "free_testosterone", "testosteronelivreserum": "free_testosterone",
+        "testosterone": "total_testosterone", "testosterona": "total_testosterone",
+        "shbg": "shbg", "sexhormonebindingglobulin": "shbg",
+        "e2": "estradiol", "estradiol": "estradiol", "oestradiol": "estradiol",
+        "prog": "progesterone", "progesterona": "progesterone",
+        "fsh": "fsh", "folliclestimulatinghamormone": "fsh",
+        "lh": "lh", "luteinizinghormone": "lh",
+        "prolactin": "prolactin", "prolactina": "prolactin",
+        "cortisol": "cortisol", "cortisola": "cortisol",
+        "gh": "growth_hormone", "growthhormone": "growth_hormone",
+        "igf1": "igf1", "igf1insulinlikegrowthfactor": "igf1",
+        "insulinlikegrowthfactor1": "igf1",
+        "dheas": "dhea_s", "dehydroepiandrosterone": "dhea_s",
+        "dhea": "dhea_s",
+        "psa": "psa", "prostatespecificantigen": "psa",
     }
 
     results = []
+    unmatched = []
     seen_ids: set[int] = set()
 
     for item in extracted_raw:
@@ -733,5 +797,11 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
                 "lab_date":     detected_date,
                 "lab_name":     detected_lab,
             })
+        elif not defn and val >= 0:
+            unmatched.append({
+                "name": raw_name,
+                "value": val,
+                "unit": str(item.get("unit", "")),
+            })
 
-    return results
+    return results, unmatched
