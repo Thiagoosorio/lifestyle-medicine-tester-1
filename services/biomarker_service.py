@@ -1,10 +1,12 @@
 """Service for managing biomarker definitions, results, and scoring."""
 
+import os
+from pathlib import Path
 from db.database import get_connection
 from datetime import date
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def seed_biomarker_definitions():

@@ -1,9 +1,10 @@
 """Service for body metrics tracking — weight, measurements, BMI, composition, DEXA."""
 
+from pathlib import Path
 from db.database import get_connection
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def log_body_metrics(user_id, log_date, weight_kg, height_cm=None,

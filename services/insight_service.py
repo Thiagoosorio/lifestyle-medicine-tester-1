@@ -72,8 +72,9 @@ def _generate_insight(user_id: int, today_str: str) -> str | None:
 def _llm_insight(user_id: int, today_data: dict, recent: list) -> str:
     """Generate an AI-powered insight using the LLM."""
     import os
+    from pathlib import Path
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
     api_key = os.getenv("ANTHROPIC_API_KEY", "")
     if not api_key or api_key == "your-anthropic-api-key-here":

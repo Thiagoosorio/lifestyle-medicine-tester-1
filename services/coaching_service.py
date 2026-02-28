@@ -1,6 +1,7 @@
 """AI coaching service: LLM integration, context assembly, conversation management."""
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 from db.database import get_connection
 from config.prompts import BASE_SYSTEM_PROMPT, CONTEXT_TEMPLATE, get_context_prompt, build_user_context
@@ -10,7 +11,7 @@ from services.habit_service import get_overall_streak, get_week_completion_rate
 from services.checkin_service import get_week_averages
 from datetime import date, timedelta
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def _get_llm_provider():
