@@ -3,6 +3,7 @@ import streamlit as st
 from datetime import date, timedelta
 from config.settings import PILLARS
 from models.habit import toggle_habit, get_habit_streak
+from services.microhabit_service import get_never_miss_twice_alerts, get_missed_yesterday
 
 # Celebration messages for different streak milestones
 CELEBRATIONS = {
@@ -23,6 +24,47 @@ def _get_celebration(streak: int) -> str | None:
     return None
 
 
+def _render_never_miss_twice_banner(user_id: int):
+    """Show Never Miss Twice alerts above the habit grid."""
+    try:
+        alerts = get_never_miss_twice_alerts(user_id)
+        missed = get_missed_yesterday(user_id)
+    except Exception:
+        return
+
+    if alerts:
+        for a in alerts:
+            banner = (
+                f'<div style="background:rgba(255,59,48,0.12);border:1px solid rgba(255,59,48,0.3);'
+                f'border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;'
+                f'align-items:center;gap:10px">'
+                f'<span style="font-size:1.3rem">🔴</span>'
+                f'<div>'
+                f'<div style="font-weight:600;color:#FF3B30;font-size:14px">'
+                f'Never Miss Twice!</div>'
+                f'<div style="color:#ccc;font-size:13px">{a["message"]}</div>'
+                f'</div></div>'
+            )
+            st.markdown(banner, unsafe_allow_html=True)
+
+    missed_only = [m for m in missed if m["id"] not in {a["id"] for a in alerts}]
+    if missed_only:
+        names = ", ".join(m["name"] for m in missed_only[:5])
+        extra = f" +{len(missed_only)-5} more" if len(missed_only) > 5 else ""
+        banner = (
+            f'<div style="background:rgba(255,204,0,0.10);border:1px solid rgba(255,204,0,0.3);'
+            f'border-radius:12px;padding:12px 16px;margin-bottom:8px;display:flex;'
+            f'align-items:center;gap:10px">'
+            f'<span style="font-size:1.3rem">🟡</span>'
+            f'<div>'
+            f'<div style="font-weight:600;color:#FFCC00;font-size:14px">'
+            f'Missed Yesterday</div>'
+            f'<div style="color:#ccc;font-size:13px">{names}{extra} — get back on track today!</div>'
+            f'</div></div>'
+        )
+        st.markdown(banner, unsafe_allow_html=True)
+
+
 def render_habit_grid(user_id: int, week_data: dict, week_start: date):
     """Render a 7-column habit tracker grid with celebrations.
     week_data = {habit_id: {habit: {...}, completions: {date_str: bool}}}
@@ -30,6 +72,8 @@ def render_habit_grid(user_id: int, week_data: dict, week_start: date):
     if not week_data:
         st.info("No habits set up yet. Add habits in the Goals page or Settings.")
         return
+
+    _render_never_miss_twice_banner(user_id)
 
     days = [(week_start + timedelta(days=i)) for i in range(7)]
     day_labels = [d.strftime("%a\n%b %d") for d in days]

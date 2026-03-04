@@ -43,6 +43,7 @@ else:
                 st.Page("pages/weekly_plan.py", title="Weekly Plan", icon=":material/calendar_view_week:"),
                 st.Page("pages/monthly_plan.py", title="Monthly Plan", icon=":material/calendar_month:"),
                 st.Page("pages/goals.py", title="Goals", icon=":material/flag:"),
+                st.Page("pages/microhabits.py", title="Atomic Habits", icon=":material/psychology_alt:"),
             ],
             "Tracking": [
                 st.Page("pages/progress.py", title="Progress", icon=":material/trending_up:"),

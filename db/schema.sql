@@ -140,10 +140,33 @@ CREATE TABLE IF NOT EXISTS habits (
     cue_behavior    TEXT,
     location        TEXT,
     implementation_intention TEXT,
+    -- Atomic Habits fields
+    micro_version   TEXT,
+    is_micro        INTEGER DEFAULT 0,
+    stack_id        INTEGER REFERENCES habit_stacks(id),
+    stack_order     INTEGER DEFAULT 0,
+    law_obvious     INTEGER,
+    law_attractive  INTEGER,
+    law_easy        INTEGER,
+    law_satisfying  INTEGER,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_habits_user ON habits(user_id, is_active);
+
+-- Habit Stacks (Atomic Habits: habit stacking chains)
+CREATE TABLE IF NOT EXISTS habit_stacks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    name        TEXT NOT NULL,
+    anchor_time TEXT,
+    anchor_cue  TEXT,
+    is_active   INTEGER NOT NULL DEFAULT 1,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_habit_stacks_user ON habit_stacks(user_id, is_active);
 
 -- Daily habit completion log
 CREATE TABLE IF NOT EXISTS habit_log (

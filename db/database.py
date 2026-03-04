@@ -217,13 +217,35 @@ def _migrate(conn):
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, scan_date))""",
         "CREATE INDEX IF NOT EXISTS idx_dexa_scans_user ON dexa_scans(user_id, scan_date)",
+        # Atomic Habits: habit stacks table
+        """CREATE TABLE IF NOT EXISTS habit_stacks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            name TEXT NOT NULL,
+            anchor_time TEXT,
+            anchor_cue TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, name))""",
+        "CREATE INDEX IF NOT EXISTS idx_habit_stacks_user ON habit_stacks(user_id, is_active)",
+    ]
+    # Atomic Habits columns on habits table
+    atomic_habits_migrations = [
+        "ALTER TABLE habits ADD COLUMN micro_version TEXT",
+        "ALTER TABLE habits ADD COLUMN is_micro INTEGER DEFAULT 0",
+        "ALTER TABLE habits ADD COLUMN stack_id INTEGER REFERENCES habit_stacks(id)",
+        "ALTER TABLE habits ADD COLUMN stack_order INTEGER DEFAULT 0",
+        "ALTER TABLE habits ADD COLUMN law_obvious INTEGER",
+        "ALTER TABLE habits ADD COLUMN law_attractive INTEGER",
+        "ALTER TABLE habits ADD COLUMN law_easy INTEGER",
+        "ALTER TABLE habits ADD COLUMN law_satisfying INTEGER",
     ]
     for sql in table_migrations:
         try:
             conn.execute(sql)
         except Exception:
             pass
-    for sql in migrations:
+    for sql in migrations + atomic_habits_migrations:
         try:
             conn.execute(sql)
         except Exception:

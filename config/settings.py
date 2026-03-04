@@ -174,3 +174,73 @@ DEFAULT_HABITS = {
         "Mindful about substance choices",
     ],
 }
+
+# ── Atomic Habits: 2-Minute Rule Micro Versions ──────────────────────────────
+
+MICRO_VERSIONS = {
+    # Nutrition
+    "Eat 5+ servings of fruits/vegetables": "Eat 1 piece of fruit",
+    "Drink 8 glasses of water": "Drink 1 glass of water",
+    "Eat a whole-food meal": "Add 1 vegetable to your plate",
+    # Physical Activity
+    "30 minutes of movement": "Put on your workout shoes",
+    "Take 8,000+ steps": "Walk to the end of your street",
+    "Stretching or flexibility exercise": "Do 1 stretch for 30 seconds",
+    # Sleep
+    "In bed by target bedtime": "Set a bedtime alarm",
+    "No screens 30 min before bed": "Put your phone in another room",
+    "7+ hours of sleep": "Lie down and close your eyes",
+    # Stress Management
+    "5 minutes of meditation/breathing": "Take 3 deep breaths",
+    "Spend time in nature": "Step outside for 1 minute",
+    "Practice gratitude": "Write 1 thing you are grateful for",
+    # Social Connection
+    "Connect with a friend or family member": "Send a message to someone you care about",
+    "Act of kindness": "Smile at someone",
+    "Quality time with loved ones": "Ask someone how their day was",
+    # Substance Avoidance
+    "Alcohol-free day": "Delay your first drink by 10 minutes",
+    "Tobacco-free day": "Wait 2 minutes before lighting up",
+    "Mindful about substance choices": "Pause and notice your craving for 60 seconds",
+}
+
+# ── Atomic Habits: 4 Laws of Behavior Change ─────────────────────────────────
+
+FOUR_LAWS_QUESTIONS = {
+    "obvious": {
+        "label": "Make it Obvious",
+        "question": "How visible is the cue for this habit?",
+        "tips": [
+            "Use implementation intentions: 'I will [behavior] at [time] in [location]'",
+            "Use habit stacking: 'After [current habit], I will [new habit]'",
+            "Design your environment: make cues visible",
+        ],
+    },
+    "attractive": {
+        "label": "Make it Attractive",
+        "question": "How appealing is doing this habit?",
+        "tips": [
+            "Pair the habit with something you enjoy (temptation bundling)",
+            "Join a group where the behavior is normal",
+            "Create a motivation ritual before the habit",
+        ],
+    },
+    "easy": {
+        "label": "Make it Easy",
+        "question": "How easy is it to start?",
+        "tips": [
+            "Use the 2-Minute Rule: scale it down to 2 minutes",
+            "Reduce friction: prepare your environment in advance",
+            "Automate what you can",
+        ],
+    },
+    "satisfying": {
+        "label": "Make it Satisfying",
+        "question": "How rewarding does it feel after?",
+        "tips": [
+            "Use a habit tracker: 'Don't break the chain'",
+            "Give yourself an immediate reward after completion",
+            "Use a habit contract with an accountability partner",
+        ],
+    },
+}

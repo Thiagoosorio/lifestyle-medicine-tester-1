@@ -105,6 +105,16 @@ def get_habit_streak(habit_id: int, user_id: int) -> int:
         conn.close()
 
 
+def get_habit_by_id(habit_id: int) -> dict | None:
+    """Fetch a single habit by its primary key."""
+    conn = get_connection()
+    try:
+        row = conn.execute("SELECT * FROM habits WHERE id = ?", (habit_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
 def get_all_habits(user_id: int) -> list:
     """Get all habits including inactive ones."""
     conn = get_connection()
