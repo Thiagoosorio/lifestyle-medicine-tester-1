@@ -149,6 +149,8 @@ CREATE TABLE IF NOT EXISTS habits (
     law_attractive  INTEGER,
     law_easy        INTEGER,
     law_satisfying  INTEGER,
+    identity_statement TEXT,
+    temptation_bundle TEXT,
     created_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

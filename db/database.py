@@ -239,6 +239,8 @@ def _migrate(conn):
         "ALTER TABLE habits ADD COLUMN law_attractive INTEGER",
         "ALTER TABLE habits ADD COLUMN law_easy INTEGER",
         "ALTER TABLE habits ADD COLUMN law_satisfying INTEGER",
+        "ALTER TABLE habits ADD COLUMN identity_statement TEXT",
+        "ALTER TABLE habits ADD COLUMN temptation_bundle TEXT",
     ]
     for sql in table_migrations:
         try:

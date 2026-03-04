@@ -1,7 +1,8 @@
-"""TDD tests for the Atomic Habits microhabit service.
+"""TDD tests for the Micro Habits service.
 
 Written FIRST (Red phase) — all tests fail until the service is implemented.
-Covers: 2-Minute Rule, Habit Stacking, 4 Laws Scorecard, Never Miss Twice.
+Covers: 2-Minute Rule, Habit Stacking, 4 Laws Scorecard, Never Miss Twice,
+        Identity Statements, Temptation Bundling, Completion Heatmap, Milestones.
 """
 
 from datetime import date, timedelta
@@ -351,3 +352,155 @@ def test_never_miss_twice_alert(test_user, db_conn):
     alert_names = [a["name"] for a in alerts]
     assert "Meditate" in alert_names
     assert "Exercise" not in alert_names
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Identity Statement Tests (2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def test_set_and_get_identity(test_user, db_conn):
+    """set_identity() stores text and get_identity() retrieves it."""
+    from services.microhabit_service import set_identity, get_identity
+
+    hid = _create_habit(db_conn, test_user, "30 minutes of movement")
+    set_identity(hid, "I am a person who moves every day")
+    assert get_identity(hid) == "I am a person who moves every day"
+
+
+def test_get_identity_none(test_user, db_conn):
+    """get_identity() returns None when no identity is set."""
+    from services.microhabit_service import get_identity
+
+    hid = _create_habit(db_conn, test_user, "Read")
+    assert get_identity(hid) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Temptation Bundling Tests (2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def test_set_and_get_temptation_bundle(test_user, db_conn):
+    """set_temptation_bundle() stores and get_temptation_bundle() retrieves."""
+    from services.microhabit_service import set_temptation_bundle, get_temptation_bundle
+
+    hid = _create_habit(db_conn, test_user, "Exercise")
+    set_temptation_bundle(hid, "Watch my favorite show while on the treadmill")
+    assert get_temptation_bundle(hid) == "Watch my favorite show while on the treadmill"
+
+
+def test_get_temptation_bundle_none(test_user, db_conn):
+    """get_temptation_bundle() returns None when not set."""
+    from services.microhabit_service import get_temptation_bundle
+
+    hid = _create_habit(db_conn, test_user, "Meditate")
+    assert get_temptation_bundle(hid) is None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Completion Heatmap Tests (3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def test_heatmap_with_completions(test_user, db_conn):
+    """get_completion_heatmap_data() returns correct rates for logged days."""
+    from services.microhabit_service import get_completion_heatmap_data
+
+    today = date(2026, 3, 4)
+    h1 = _create_habit(db_conn, test_user, "A")
+    h2 = _create_habit(db_conn, test_user, "B")
+
+    # Both completed yesterday
+    yesterday = (today - timedelta(days=1)).isoformat()
+    _log_habit(db_conn, h1, test_user, yesterday)
+    _log_habit(db_conn, h2, test_user, yesterday)
+
+    data = get_completion_heatmap_data(test_user, weeks=2, ref_date=today)
+    assert data[yesterday] == 1.0  # 2/2 = 100%
+
+
+def test_heatmap_empty(test_user, db_conn):
+    """get_completion_heatmap_data() returns zeros when no habits exist."""
+    from services.microhabit_service import get_completion_heatmap_data
+
+    today = date(2026, 3, 4)
+    data = get_completion_heatmap_data(test_user, weeks=2, ref_date=today)
+    # Should return a dict (possibly empty or all zeros)
+    assert isinstance(data, dict)
+
+
+def test_heatmap_partial(test_user, db_conn):
+    """get_completion_heatmap_data() returns partial rates for mixed completion."""
+    from services.microhabit_service import get_completion_heatmap_data
+
+    today = date(2026, 3, 4)
+    h1 = _create_habit(db_conn, test_user, "A")
+    h2 = _create_habit(db_conn, test_user, "B")
+
+    # Only h1 completed yesterday
+    yesterday = (today - timedelta(days=1)).isoformat()
+    _log_habit(db_conn, h1, test_user, yesterday)
+
+    data = get_completion_heatmap_data(test_user, weeks=2, ref_date=today)
+    assert data[yesterday] == 0.5  # 1/2 = 50%
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Milestone Badge Tests (3)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def test_milestone_earned_7_days(test_user, db_conn):
+    """get_habit_milestones() marks 7-day milestone as earned for 7+ day streak."""
+    from services.microhabit_service import get_habit_milestones
+
+    today = date(2026, 3, 4)
+    hid = _create_habit(db_conn, test_user, "Exercise")
+
+    # Log 7 consecutive days
+    for i in range(7):
+        d = (today - timedelta(days=i + 1)).isoformat()
+        _log_habit(db_conn, hid, test_user, d)
+
+    milestones = get_habit_milestones(hid, test_user, ref_date=today)
+    seven_day = next(m for m in milestones if m["days"] == 7)
+    assert seven_day["earned"] is True
+
+
+def test_milestone_not_earned(test_user, db_conn):
+    """get_habit_milestones() shows unearned for short streaks."""
+    from services.microhabit_service import get_habit_milestones
+
+    today = date(2026, 3, 4)
+    hid = _create_habit(db_conn, test_user, "Read")
+
+    # Log only 3 days
+    for i in range(3):
+        d = (today - timedelta(days=i + 1)).isoformat()
+        _log_habit(db_conn, hid, test_user, d)
+
+    milestones = get_habit_milestones(hid, test_user, ref_date=today)
+    seven_day = next(m for m in milestones if m["days"] == 7)
+    assert seven_day["earned"] is False
+
+
+def test_all_milestones_summary(test_user, db_conn):
+    """get_all_milestones_summary() returns correct totals across habits."""
+    from services.microhabit_service import get_all_milestones_summary
+
+    today = date(2026, 3, 4)
+    h1 = _create_habit(db_conn, test_user, "Exercise")
+    h2 = _create_habit(db_conn, test_user, "Read")
+
+    # h1: 8 day streak (earns 7-day badge)
+    for i in range(8):
+        _log_habit(db_conn, h1, test_user, (today - timedelta(days=i + 1)).isoformat())
+
+    # h2: 3 day streak (no badges)
+    for i in range(3):
+        _log_habit(db_conn, h2, test_user, (today - timedelta(days=i + 1)).isoformat())
+
+    summary = get_all_milestones_summary(test_user, ref_date=today)
+    assert summary["total_earned"] >= 1  # At least the 7-day badge for h1
+    assert summary["best_streak"] >= 8

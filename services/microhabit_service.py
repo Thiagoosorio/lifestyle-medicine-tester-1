@@ -1,8 +1,9 @@
-"""Atomic Habits microhabit service: 2-Minute Rule, Habit Stacking, 4 Laws, Never Miss Twice."""
+"""Micro Habits service: 2-Minute Rule, Habit Stacking, 4 Laws, Never Miss Twice,
+Identity Statements, Temptation Bundling, Completion Heatmap, Milestones."""
 
 from datetime import date, timedelta
 from db.database import get_connection
-from config.settings import MICRO_VERSIONS, FOUR_LAWS_QUESTIONS
+from config.settings import MICRO_VERSIONS, FOUR_LAWS_QUESTIONS, MILESTONE_THRESHOLDS
 from models.habit import get_habit_by_id, get_active_habits
 
 
@@ -351,3 +352,173 @@ def get_never_miss_twice_alerts(user_id: int, ref_date: date = None) -> list[dic
         return alerts
     finally:
         conn.close()
+
+
+# ── Identity Statements ──────────────────────────────────────────────────────
+
+def set_identity(habit_id: int, statement: str) -> None:
+    """Set or update the identity_statement column for a habit."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE habits SET identity_statement = ? WHERE id = ?",
+            (statement, habit_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_identity(habit_id: int) -> str | None:
+    """Get the identity statement for a habit. Returns None if not set."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT identity_statement FROM habits WHERE id = ?", (habit_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return row["identity_statement"]
+    finally:
+        conn.close()
+
+
+# ── Temptation Bundling ──────────────────────────────────────────────────────
+
+def set_temptation_bundle(habit_id: int, bundle_text: str) -> None:
+    """Set or update the temptation_bundle column for a habit."""
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE habits SET temptation_bundle = ? WHERE id = ?",
+            (bundle_text, habit_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_temptation_bundle(habit_id: int) -> str | None:
+    """Get the temptation bundle for a habit. Returns None if not set."""
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT temptation_bundle FROM habits WHERE id = ?", (habit_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return row["temptation_bundle"]
+    finally:
+        conn.close()
+
+
+# ── Completion Heatmap ───────────────────────────────────────────────────────
+
+def get_completion_heatmap_data(user_id: int, weeks: int = 12,
+                                ref_date: date = None) -> dict:
+    """Return {date_str: completion_rate} for the past N weeks.
+
+    completion_rate = completed_habits / total_active_habits for each day.
+    """
+    if ref_date is None:
+        ref_date = date.today()
+    start = ref_date - timedelta(days=weeks * 7)
+
+    conn = get_connection()
+    try:
+        # Count active habits
+        habit_rows = conn.execute(
+            "SELECT id FROM habits WHERE user_id = ? AND is_active = 1",
+            (user_id,),
+        ).fetchall()
+        total_habits = len(habit_rows)
+        if total_habits == 0:
+            return {}
+
+        # Get all completions in the date range
+        logs = conn.execute(
+            "SELECT log_date, COUNT(DISTINCT habit_id) AS done "
+            "FROM habit_log "
+            "WHERE user_id = ? AND log_date >= ? AND log_date < ? "
+            "AND completed_count > 0 "
+            "GROUP BY log_date",
+            (user_id, start.isoformat(), ref_date.isoformat()),
+        ).fetchall()
+
+        log_map = {r["log_date"]: r["done"] for r in logs}
+
+        result = {}
+        for i in range(weeks * 7):
+            d = (start + timedelta(days=i)).isoformat()
+            done = log_map.get(d, 0)
+            result[d] = round(done / total_habits, 2)
+        return result
+    finally:
+        conn.close()
+
+
+# ── Milestone Badges ─────────────────────────────────────────────────────────
+
+def _get_max_streak(habit_id: int, user_id: int, ref_date: date) -> int:
+    """Compute the maximum consecutive-day streak for a habit up to ref_date."""
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT DISTINCT log_date FROM habit_log "
+            "WHERE habit_id = ? AND user_id = ? AND completed_count > 0 "
+            "AND log_date <= ? "
+            "ORDER BY log_date DESC",
+            (habit_id, user_id, ref_date.isoformat()),
+        ).fetchall()
+        if not rows:
+            return 0
+
+        dates = sorted(date.fromisoformat(r["log_date"]) for r in rows)
+        max_streak = 1
+        current = 1
+        for i in range(1, len(dates)):
+            if (dates[i] - dates[i - 1]).days == 1:
+                current += 1
+                max_streak = max(max_streak, current)
+            else:
+                current = 1
+        return max_streak
+    finally:
+        conn.close()
+
+
+def get_habit_milestones(habit_id: int, user_id: int,
+                         ref_date: date = None) -> list[dict]:
+    """Return milestone badge status for a habit.
+
+    Each item: {days, label, emoji, tier, earned: bool}
+    """
+    if ref_date is None:
+        ref_date = date.today()
+    streak = _get_max_streak(habit_id, user_id, ref_date)
+    result = []
+    for m in MILESTONE_THRESHOLDS:
+        result.append({
+            "days": m["days"],
+            "label": m["label"],
+            "emoji": m["emoji"],
+            "tier": m["tier"],
+            "earned": streak >= m["days"],
+        })
+    return result
+
+
+def get_all_milestones_summary(user_id: int, ref_date: date = None) -> dict:
+    """Return summary: total_earned, best_streak across all active habits."""
+    if ref_date is None:
+        ref_date = date.today()
+    habits = get_active_habits(user_id)
+    total_earned = 0
+    best_streak = 0
+    for h in habits:
+        streak = _get_max_streak(h["id"], user_id, ref_date)
+        best_streak = max(best_streak, streak)
+        for m in MILESTONE_THRESHOLDS:
+            if streak >= m["days"]:
+                total_earned += 1
+    return {"total_earned": total_earned, "best_streak": best_streak}

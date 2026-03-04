@@ -1,11 +1,17 @@
-"""Atomic Habits — 2-Minute Rule, Habit Stacking, 4 Laws Scorecard, Never Miss Twice."""
+"""Micro Habits — 2-Minute Rule, Habit Stacking, 4 Laws Scorecard, Never Miss Twice."""
 
 import streamlit as st
 import plotly.graph_objects as go
-from datetime import date
+from datetime import date, timedelta
 
-from components.custom_theme import APPLE, render_hero_banner, render_section_header
-from config.settings import PILLARS, FOUR_LAWS_QUESTIONS
+from components.custom_theme import (
+    APPLE, render_hero_banner, render_section_header,
+    render_hero_stats, render_glass_card,
+)
+from config.settings import (
+    PILLARS, FOUR_LAWS_QUESTIONS, SCIENCE_TIPS,
+    MILESTONE_THRESHOLDS, MILESTONE_COLORS,
+)
 from models.habit import get_active_habits
 from services.habit_service import get_habit_streak
 from services.microhabit_service import (
@@ -15,27 +21,91 @@ from services.microhabit_service import (
     save_four_laws, get_four_laws, get_weakest_law,
     diagnose_all_habits, get_four_laws_averages,
     get_missed_yesterday, get_never_miss_twice_alerts,
+    set_identity, get_identity,
+    set_temptation_bundle, get_temptation_bundle,
+    get_completion_heatmap_data, get_habit_milestones, get_all_milestones_summary,
 )
 
 A = APPLE
 user_id = st.session_state.user_id
 
 render_hero_banner(
-    "Atomic Habits",
+    "Micro Habits",
     "Small changes, remarkable results. Build habits using the science of behavior change.",
 )
+
+# ── Hero Stats ───────────────────────────────────────────────────────────────
+
+habits = get_active_habits(user_id)
+stacks = get_user_stacks(user_id)
+avgs = get_four_laws_averages(user_id)
+avg_score = sum(avgs.values()) / 4 if any(v > 0 for v in avgs.values()) else 0
+milestone_summary = get_all_milestones_summary(user_id)
+
+best_streak = 0
+for h in habits:
+    s = get_habit_streak(h["id"], user_id)
+    best_streak = max(best_streak, s)
+
+render_hero_stats([
+    {"label": "Active Habits", "value": str(len(habits)), "icon": "\u2705", "color": A["green"]},
+    {"label": "Best Streak", "value": f"{best_streak}d", "icon": "\U0001F525", "color": A["move"]},
+    {"label": "4 Laws Avg", "value": f"{avg_score:.1f}/5", "icon": "\U0001F3AF", "color": A["indigo"]},
+    {"label": "Badges Earned", "value": str(milestone_summary["total_earned"]), "icon": "\U0001F3C6", "color": "#FFD700"},
+])
+
+
+# ── Science Card Helper ──────────────────────────────────────────────────────
+
+def _render_science_card(key: str):
+    tip = SCIENCE_TIPS.get(key)
+    if tip:
+        render_glass_card(
+            tip["title"],
+            f'{tip["text"]}<br><span style="font-size:11px;color:{A["label_quaternary"]}">'
+            f'— {tip["source"]}</span>',
+            color=A["indigo"],
+            icon="\U0001F52C",
+        )
+
+
+# ── Milestone Badges Helper ─────────────────────────────────────────────────
+
+def _render_milestone_badges(habit_id: int):
+    milestones = get_habit_milestones(habit_id, user_id)
+    badges_html = '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+    for m in milestones:
+        color = MILESTONE_COLORS[m["tier"]]
+        if m["earned"]:
+            badges_html += (
+                f'<span style="background:{color};color:#1D1B20;font-size:11px;'
+                f'font-weight:600;padding:2px 8px;border-radius:12px;'
+                f'font-family:{A["font_text"]}">'
+                f'{m["emoji"]} {m["label"]}</span>'
+            )
+        else:
+            badges_html += (
+                f'<span style="background:{A["bg_tertiary"]};color:{A["label_quaternary"]};'
+                f'font-size:11px;padding:2px 8px;border-radius:12px;'
+                f'font-family:{A["font_text"]}">'
+                f'{m["emoji"]} {m["label"]}</span>'
+            )
+    badges_html += '</div>'
+    st.markdown(badges_html, unsafe_allow_html=True)
+
 
 tab_micro, tab_stacks, tab_laws, tab_miss = st.tabs([
     "2-Minute Rule", "Habit Stacks", "4 Laws Scorecard", "Never Miss Twice",
 ])
 
-habits = get_active_habits(user_id)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Tab 1: 2-Minute Rule
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_micro:
+    _render_science_card("two_minute_rule")
+
     render_section_header(
         "The 2-Minute Rule",
         '"When you start a new habit, it should take less than two minutes to do." — James Clear',
@@ -49,10 +119,20 @@ with tab_micro:
             micro = get_micro_version(h["id"])
             streak = get_habit_streak(h["id"], user_id)
             pillar_color = pillar.get("color", A["blue"])
+            identity = get_identity(h["id"])
+
+            # Build card with identity statement
+            identity_html = ""
+            if identity:
+                identity_html = (
+                    f'<div style="margin-top:8px;font-family:{A["font_text"]};font-size:13px;'
+                    f'color:{A["indigo"]};font-style:italic">'
+                    f'&ldquo;{identity}&rdquo;</div>'
+                )
 
             card_html = (
                 f'<div style="background:{A["bg_elevated"]};border-radius:{A["radius_md"]};'
-                f'padding:16px;margin-bottom:12px;border-left:4px solid {pillar_color};'
+                f'padding:16px;margin-bottom:4px;border-left:4px solid {pillar_color};'
                 f'box-shadow:0 1px 3px rgba(0,0,0,0.06)">'
                 f'<div style="display:flex;justify-content:space-between;align-items:center">'
                 f'<div>'
@@ -64,6 +144,7 @@ with tab_micro:
                 f'<div style="font-family:{A["font_display"]};font-size:13px;color:{pillar_color};'
                 f'font-weight:600">{streak}d streak</div>'
                 f'</div>'
+                f'{identity_html}'
                 f'<div style="margin-top:10px;padding:10px;background:{A["bg_secondary"]};'
                 f'border-radius:{A["radius_sm"]};font-family:{A["font_text"]};font-size:13px;'
                 f'color:{A["label_secondary"]}">'
@@ -73,34 +154,41 @@ with tab_micro:
             )
             st.markdown(card_html, unsafe_allow_html=True)
 
-            c1, c2 = st.columns([3, 1])
-            with c1:
+            # Milestone badges
+            _render_milestone_badges(h["id"])
+
+            with st.expander("Edit", expanded=False):
+                # Identity statement input
+                id_val = identity or ""
+                new_identity = st.text_input(
+                    "I am a person who...",
+                    value=id_val,
+                    key=f"identity_{h['id']}",
+                    placeholder="e.g. I am a person who moves every day",
+                )
+                if st.button("Save Identity", key=f"id_save_{h['id']}"):
+                    if new_identity.strip():
+                        set_identity(h["id"], new_identity.strip())
+                        st.toast(f"Identity saved for {h['name']}")
+                        st.rerun()
+
+                # Micro version input
                 new_micro = st.text_input(
-                    "Edit micro version",
+                    "Micro version (2 min)",
                     value=micro,
                     key=f"micro_edit_{h['id']}",
-                    label_visibility="collapsed",
                     placeholder="Type a 2-minute version...",
                 )
-            with c2:
-                if st.button("Save", key=f"micro_save_{h['id']}", use_container_width=True):
+                if st.button("Save Micro", key=f"micro_save_{h['id']}"):
                     set_micro_version(h["id"], new_micro)
                     st.toast(f"Micro version saved for {h['name']}")
                     st.rerun()
 
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # Identity science card
     st.divider()
-    html_quote = (
-        f'<div style="background:{A["bg_secondary"]};border-radius:{A["radius_md"]};'
-        f'padding:20px;font-family:{A["font_text"]};font-size:14px;'
-        f'color:{A["label_secondary"]};font-style:italic;line-height:1.6">'
-        f'"Habits are the compound interest of self-improvement. '
-        f'The same way that money multiplies through compound interest, '
-        f'the effects of your habits multiply as you repeat them."'
-        f'<div style="margin-top:8px;font-style:normal;font-weight:600;'
-        f'color:{A["label_primary"]}">— James Clear, Atomic Habits</div>'
-        f'</div>'
-    )
-    st.markdown(html_quote, unsafe_allow_html=True)
+    _render_science_card("identity")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -108,12 +196,12 @@ with tab_micro:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_stacks:
+    _render_science_card("habit_stacking")
+
     render_section_header(
         "Habit Stacking",
         '"After [CURRENT HABIT], I will [NEW HABIT]."',
     )
-
-    stacks = get_user_stacks(user_id)
 
     if stacks:
         for s in stacks:
@@ -144,7 +232,7 @@ with tab_stacks:
                 pillar_color = PILLARS.get(sh["pillar_id"], {}).get("color", A["blue"])
                 arrow = "" if idx == 0 else (
                     f'<div style="text-align:center;color:{A["label_tertiary"]};'
-                    f'font-size:18px;margin:4px 0">↓</div>'
+                    f'font-size:18px;margin:4px 0">\u2193</div>'
                 )
                 node_html = (
                     f'{arrow}'
@@ -218,13 +306,14 @@ with tab_stacks:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_laws:
+    _render_science_card("four_laws")
+
     render_section_header(
         "4 Laws Scorecard",
         "Rate each habit to find what's holding you back.",
     )
 
     # Radar chart of averages
-    avgs = get_four_laws_averages(user_id)
     if any(v > 0 for v in avgs.values()):
         fig = go.Figure()
         categories = ["Obvious", "Attractive", "Easy", "Satisfying", "Obvious"]
@@ -262,6 +351,7 @@ with tab_laws:
             for h in by_pillar[pid]:
                 scores = get_four_laws(h["id"]) or {"obvious": 3, "attractive": 3, "easy": 3, "satisfying": 3}
                 weakest = get_weakest_law(h["id"])
+                bundle = get_temptation_bundle(h["id"])
 
                 with st.expander(h["name"], expanded=False):
                     c1, c2, c3, c4 = st.columns(4)
@@ -290,6 +380,27 @@ with tab_laws:
                             f'</div>'
                         )
                         st.markdown(tip_html, unsafe_allow_html=True)
+
+                    # Temptation bundling
+                    st.markdown(
+                        f'<div style="margin-top:12px;font-family:{A["font_text"]};font-size:12px;'
+                        f'color:{A["label_tertiary"]};text-transform:uppercase;letter-spacing:0.06em">'
+                        f'Temptation Bundling</div>',
+                        unsafe_allow_html=True,
+                    )
+                    bundle_val = bundle or ""
+                    new_bundle = st.text_input(
+                        "After this habit, I get to...",
+                        value=bundle_val,
+                        key=f"bundle_{h['id']}",
+                        placeholder="e.g. Watch my favorite show",
+                        label_visibility="collapsed",
+                    )
+                    if st.button("Save Bundle", key=f"bundle_save_{h['id']}"):
+                        if new_bundle.strip():
+                            set_temptation_bundle(h["id"], new_bundle.strip())
+                            st.toast(f"Temptation bundle saved for {h['name']}")
+                            st.rerun()
 
     # Diagnosis table
     diagnosis = diagnose_all_habits(user_id)
@@ -320,9 +431,12 @@ with tab_laws:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_miss:
+    _render_science_card("never_miss_twice")
+
     render_section_header(
         "Never Miss Twice",
-        '"The first mistake is never the one that ruins you. It is the spiral of repeated mistakes that follows." — James Clear',
+        '"The first mistake is never the one that ruins you. It is the spiral of repeated '
+        'mistakes that follows." \u2014 James Clear',
     )
 
     alerts = get_never_miss_twice_alerts(user_id)
@@ -370,3 +484,94 @@ with tab_miss:
             f'</div>'
         )
         st.markdown(ok_html, unsafe_allow_html=True)
+
+    # ── Completion Heatmap ───────────────────────────────────────────────────
+    st.divider()
+    render_section_header("Completion Heatmap", "12-week overview of your daily habit completion rate")
+
+    heatmap_data = get_completion_heatmap_data(user_id, weeks=12)
+    if heatmap_data:
+        # Build 7 rows (Mon-Sun) x N weeks grid
+        sorted_dates = sorted(heatmap_data.keys())
+        start_date = date.fromisoformat(sorted_dates[0])
+
+        # Organize into weeks (columns) x weekdays (rows)
+        weeks_grid = []
+        week_labels = []
+        current = start_date
+        week = []
+        for d_str in sorted_dates:
+            d = date.fromisoformat(d_str)
+            weekday = d.weekday()  # 0=Mon, 6=Sun
+            while len(week) <= weekday:
+                week.append(heatmap_data.get(d_str, 0))
+            if weekday == 6 or d_str == sorted_dates[-1]:
+                # Pad remaining days
+                while len(week) < 7:
+                    week.append(None)
+                weeks_grid.append(week)
+                week_labels.append(d.strftime("%b %d"))
+                week = []
+
+        if weeks_grid:
+            # Transpose: rows=weekdays, cols=weeks
+            n_weeks = len(weeks_grid)
+            z = []
+            for day_idx in range(7):
+                row = []
+                for w_idx in range(n_weeks):
+                    val = weeks_grid[w_idx][day_idx] if day_idx < len(weeks_grid[w_idx]) else None
+                    row.append(val)
+                z.append(row)
+
+            day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+            fig = go.Figure(data=go.Heatmap(
+                z=z,
+                x=week_labels,
+                y=day_names,
+                colorscale=[
+                    [0.0, "#EBEDF0"],
+                    [0.25, "#9BE9A8"],
+                    [0.5, "#40C463"],
+                    [0.75, "#30A14E"],
+                    [1.0, "#216E39"],
+                ],
+                zmin=0, zmax=1,
+                hoverongaps=False,
+                hovertemplate="Week of %{x}<br>%{y}: %{z:.0%}<extra></extra>",
+                showscale=False,
+            ))
+            fig.update_layout(
+                height=200,
+                margin=dict(l=40, r=10, t=10, b=30),
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color=A["chart_text"], size=11),
+                xaxis=dict(side="bottom", tickangle=-45),
+                yaxis=dict(autorange="reversed"),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("Start tracking habits to see your completion heatmap.")
+
+    # ── Milestone Summary ────────────────────────────────────────────────────
+    st.divider()
+    render_section_header("Milestone Progress", "Badges earned across all habits")
+
+    if habits:
+        for h in habits:
+            streak = get_habit_streak(h["id"], user_id)
+            pillar_color = PILLARS.get(h["pillar_id"], {}).get("color", A["blue"])
+            name_html = (
+                f'<div style="font-family:{A["font_text"]};font-size:14px;'
+                f'color:{A["label_primary"]};margin-top:12px">'
+                f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+                f'background:{pillar_color};margin-right:8px"></span>'
+                f'{h["name"]} <span style="color:{A["label_tertiary"]};font-size:12px">'
+                f'({streak}d streak)</span></div>'
+            )
+            st.markdown(name_html, unsafe_allow_html=True)
+            _render_milestone_badges(h["id"])
+    else:
+        st.info("No active habits yet.")

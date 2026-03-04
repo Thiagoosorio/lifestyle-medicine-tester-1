@@ -175,7 +175,76 @@ DEFAULT_HABITS = {
     ],
 }
 
-# ── Atomic Habits: 2-Minute Rule Micro Versions ──────────────────────────────
+# ── Micro Habits: Milestone Thresholds ─────────────────────────────────────────
+
+MILESTONE_THRESHOLDS = [
+    {"days": 7, "label": "7 days", "emoji": "\u26A1", "tier": "bronze"},
+    {"days": 14, "label": "14 days", "emoji": "\U0001F525", "tier": "bronze"},
+    {"days": 21, "label": "21 days", "emoji": "\U0001F31F", "tier": "silver"},
+    {"days": 30, "label": "30 days", "emoji": "\U0001F3C6", "tier": "silver"},
+    {"days": 60, "label": "60 days", "emoji": "\U0001F48E", "tier": "gold"},
+    {"days": 90, "label": "90 days", "emoji": "\U0001F451", "tier": "gold"},
+    {"days": 365, "label": "1 year", "emoji": "\U0001F30D", "tier": "platinum"},
+]
+
+MILESTONE_COLORS = {
+    "bronze": "#CD7F32",
+    "silver": "#C0C0C0",
+    "gold": "#FFD700",
+    "platinum": "#E5E4E2",
+}
+
+# ── Micro Habits: Science Tips per Tab ─────────────────────────────────────────
+
+SCIENCE_TIPS = {
+    "two_minute_rule": {
+        "title": "The Science of Starting Small",
+        "text": (
+            "BJ Fogg's research at Stanford shows that scaling habits to under "
+            "2 minutes makes them dramatically more likely to stick. The key insight: "
+            "motivation is unreliable, but making a habit tiny removes the need for it."
+        ),
+        "source": "BJ Fogg, Tiny Habits (2019)",
+    },
+    "habit_stacking": {
+        "title": "The Power of Anchoring",
+        "text": (
+            "Implementation intentions ('After I [X], I will [Y]') increase follow-through "
+            "by 2-3x compared to motivation alone. Your existing routines are the strongest "
+            "anchors for new behaviors."
+        ),
+        "source": "Gollwitzer & Sheeran, Advances in Experimental Social Psychology (2006)",
+    },
+    "four_laws": {
+        "title": "The 4 Laws of Behavior Change",
+        "text": (
+            "Every habit follows a loop: Cue \u2192 Craving \u2192 Response \u2192 Reward. "
+            "To build a habit, make it Obvious, Attractive, Easy, and Satisfying. "
+            "To break one, invert the laws."
+        ),
+        "source": "James Clear, Atomic Habits (2018)",
+    },
+    "never_miss_twice": {
+        "title": "The Chain Effect",
+        "text": (
+            "Missing once is an accident. Missing twice is the start of a new pattern. "
+            "Research shows that maintaining a 'never miss twice' rule preserves 90% of the "
+            "benefits of a perfect streak."
+        ),
+        "source": "James Clear, Atomic Habits (2018)",
+    },
+    "identity": {
+        "title": "Identity-Based Habits",
+        "text": (
+            "The most effective way to change your habits is to focus on who you wish to become, "
+            "not what you want to achieve. Every action is a vote for the type of person you "
+            "wish to become."
+        ),
+        "source": "James Clear, Atomic Habits (2018)",
+    },
+}
+
+# ── Micro Habits: 2-Minute Rule Micro Versions ──────────────────────────────
 
 MICRO_VERSIONS = {
     # Nutrition
@@ -204,7 +273,7 @@ MICRO_VERSIONS = {
     "Mindful about substance choices": "Pause and notice your craving for 60 seconds",
 }
 
-# ── Atomic Habits: 4 Laws of Behavior Change ─────────────────────────────────
+# ── Micro Habits: 4 Laws of Behavior Change ──────────────────────────────────
 
 FOUR_LAWS_QUESTIONS = {
     "obvious": {
