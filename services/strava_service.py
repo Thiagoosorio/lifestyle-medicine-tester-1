@@ -11,6 +11,7 @@ Requires environment variables or st.secrets:
 import os
 import time
 from datetime import date, timedelta
+from urllib.parse import urlencode
 from db.database import get_connection
 from config.exercise_data import (
     STRAVA_TYPE_MAP,
@@ -60,19 +61,21 @@ def is_strava_configured():
 #  OAuth 2.0
 # ---------------------------------------------------------------------------
 
-def get_strava_auth_url(redirect_uri):
+def get_strava_auth_url(redirect_uri, state=None):
     """Generate the Strava OAuth authorization URL."""
     client_id = _get_client_id()
     if not client_id:
         return None
-    return (
-        f"{STRAVA_AUTH_URL}?"
-        f"client_id={client_id}&"
-        f"redirect_uri={redirect_uri}&"
-        f"response_type=code&"
-        f"scope=read,activity:read_all&"
-        f"approval_prompt=auto"
-    )
+    params = {
+        "client_id": client_id,
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "scope": "read,activity:read_all",
+        "approval_prompt": "auto",
+    }
+    if state:
+        params["state"] = state
+    return f"{STRAVA_AUTH_URL}?{urlencode(params)}"
 
 
 def exchange_strava_code(user_id, code):

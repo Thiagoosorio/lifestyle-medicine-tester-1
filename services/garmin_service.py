@@ -1,7 +1,10 @@
 """Garmin Connect integration — import sleep, activity, body composition, heart rate."""
 
+import logging
 from datetime import date, timedelta
 from db.database import get_connection
+
+LOGGER = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +98,7 @@ def import_sleep_data(user_id, client, days=7):
                 garmin_score = dto.get("overallSleepScore", {})
                 quality_score = garmin_score.get("value") if isinstance(garmin_score, dict) else None
 
-                conn.execute(
+                cursor = conn.execute(
                     """INSERT OR IGNORE INTO sleep_logs
                        (user_id, sleep_date, bedtime, wake_time, total_sleep_min,
                         sleep_efficiency, sleep_score, awakenings, wake_duration_min,
@@ -111,8 +114,10 @@ def import_sleep_data(user_id, client, days=7):
                         "Imported from Garmin Connect",
                     ),
                 )
-                imported += 1
+                if cursor.rowcount > 0:
+                    imported += 1
             except Exception:
+                LOGGER.exception("Failed to import Garmin sleep for %s", d.isoformat())
                 continue
         conn.commit()
     finally:
@@ -164,6 +169,7 @@ def import_activity_data(user_id, client, days=7):
                     )
                     imported += 1
             except Exception:
+                LOGGER.exception("Failed to import Garmin activity for %s", d.isoformat())
                 continue
         conn.commit()
     finally:
@@ -189,10 +195,9 @@ def import_body_composition(user_id, client, days=30):
                         continue
 
                     weight_kg = round(weight_g / 1000, 1)
-                    bmi = entry.get("bmi")
                     body_fat = entry.get("bodyFat")
 
-                    conn.execute(
+                    cursor = conn.execute(
                         """INSERT OR IGNORE INTO body_metrics
                            (user_id, log_date, weight_kg, body_fat_pct, notes)
                            VALUES (?, ?, ?, ?, ?)""",
@@ -202,9 +207,10 @@ def import_body_composition(user_id, client, days=30):
                             "Imported from Garmin Connect",
                         ),
                     )
-                    imported += 1
+                    if cursor.rowcount > 0:
+                        imported += 1
         except Exception:
-            pass
+            LOGGER.exception("Failed to import Garmin body composition")
 
         conn.commit()
     finally:
@@ -238,15 +244,17 @@ def import_heart_rate(user_id, client, days=7):
                 if not rhr:
                     continue
 
-                conn.execute(
+                cursor = conn.execute(
                     """INSERT OR IGNORE INTO biomarker_results
                        (user_id, biomarker_id, value, lab_date, lab_name, notes)
                        VALUES (?, ?, ?, ?, ?, ?)""",
                     (user_id, bio_id, rhr, d.isoformat(),
                      "Garmin Connect", "Auto-imported from Garmin"),
                 )
-                imported += 1
+                if cursor.rowcount > 0:
+                    imported += 1
             except Exception:
+                LOGGER.exception("Failed to import Garmin resting heart rate for %s", d.isoformat())
                 continue
         conn.commit()
     finally:

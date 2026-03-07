@@ -1,8 +1,10 @@
 import sqlite3
 import os
+import logging
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "lifestyle_medicine.db")
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
+LOGGER = logging.getLogger(__name__)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -245,37 +247,54 @@ def _migrate(conn):
     for sql in table_migrations:
         try:
             conn.execute(sql)
-        except Exception:
-            pass
+        except sqlite3.Error:
+            LOGGER.exception("Table/index migration failed: %s", sql)
+            raise
     for sql in migrations + atomic_habits_migrations:
         try:
             conn.execute(sql)
-        except Exception:
-            pass  # Column already exists
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" in str(exc).lower():
+                continue
+            LOGGER.exception("Column migration failed: %s", sql)
+            raise
     conn.commit()
 
 
 def _seed_science_data():
     """Seed the evidence library, protocols, and biomarker definitions (idempotent)."""
+    def _safe_seed(seed_name, seed_callable):
+        try:
+            seed_callable()
+        except Exception:
+            LOGGER.exception("Seed step failed: %s", seed_name)
+
     try:
         from services.evidence_service import seed_evidence
         from services.protocol_service import seed_protocols
-        seed_protocols()
-        seed_evidence()
     except Exception:
-        pass  # Tables may not exist yet on first run
+        LOGGER.exception("Unable to import evidence/protocol seeders")
+    else:
+        _safe_seed("protocols", seed_protocols)
+        _safe_seed("evidence", seed_evidence)
+
     try:
         from services.biomarker_service import seed_biomarker_definitions
-        seed_biomarker_definitions()
     except Exception:
-        pass
+        LOGGER.exception("Unable to import biomarker seeders")
+    else:
+        _safe_seed("biomarkers", seed_biomarker_definitions)
+
     try:
         from services.calorie_service import seed_food_database
-        seed_food_database()
     except Exception:
-        pass
+        LOGGER.exception("Unable to import calorie seeder")
+    else:
+        _safe_seed("calorie_food_db", seed_food_database)
+
     try:
         from services.organ_score_service import seed_organ_score_definitions
-        seed_organ_score_definitions()
     except Exception:
-        pass
+        LOGGER.exception("Unable to import organ score seeder")
+    else:
+        _safe_seed("organ_scores", seed_organ_score_definitions)

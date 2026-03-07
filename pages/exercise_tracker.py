@@ -1,5 +1,7 @@
 """Exercise Tracker — Log workouts, track weekly volume, connect Strava."""
 
+import logging
+import secrets
 import streamlit as st
 import plotly.graph_objects as go
 from datetime import date, timedelta
@@ -29,6 +31,14 @@ from services.exercise_service import (
 
 A = APPLE
 user_id = st.session_state.user_id
+LOGGER = logging.getLogger(__name__)
+
+
+def _qp_value(query_params, key):
+    value = query_params.get(key)
+    if isinstance(value, list):
+        return value[0] if value else None
+    return value
 
 render_hero_banner(
     "Exercise Tracker",
@@ -196,16 +206,25 @@ with tab_strava:
 
         # Handle OAuth callback
         query_params = st.query_params
-        if "code" in query_params and "scope" in query_params:
-            code = query_params["code"]
-            try:
-                exchange_strava_code(user_id, code)
+        code = _qp_value(query_params, "code")
+        state = _qp_value(query_params, "state")
+        if code:
+            expected_state = st.session_state.get("strava_oauth_state")
+            if not expected_state or state != expected_state:
+                st.error("Strava connection could not be verified. Please try again.")
+                st.session_state.pop("strava_oauth_state", None)
                 st.query_params.clear()
-                st.toast("Connected to Strava!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Strava connection failed: {str(e)}")
-                st.query_params.clear()
+            else:
+                try:
+                    exchange_strava_code(user_id, code)
+                    st.session_state.pop("strava_oauth_state", None)
+                    st.query_params.clear()
+                    st.toast("Connected to Strava!")
+                    st.rerun()
+                except Exception:
+                    LOGGER.exception("Failed to exchange Strava OAuth code")
+                    st.error("Strava connection failed. Please try again.")
+                    st.query_params.clear()
 
         if strava_conn and strava_conn.get("access_token"):
             # Connected state
@@ -234,8 +253,9 @@ with tab_strava:
                         update_weekly_summary(user_id)
                         st.toast(f"Imported {count} activities from Strava!")
                         st.rerun()
-                    except Exception as e:
-                        st.error(f"Import failed: {str(e)}")
+                    except Exception:
+                        LOGGER.exception("Strava activity import failed")
+                        st.error("Import failed. Please try again.")
 
             st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
             if st.button("Disconnect Strava", use_container_width=True):
@@ -245,7 +265,11 @@ with tab_strava:
         else:
             # Not connected — show connect button
             redirect_uri = "http://localhost:8501/"
-            auth_url = get_strava_auth_url(redirect_uri)
+            oauth_state = st.session_state.get("strava_oauth_state")
+            if not oauth_state:
+                oauth_state = secrets.token_urlsafe(24)
+                st.session_state["strava_oauth_state"] = oauth_state
+            auth_url = get_strava_auth_url(redirect_uri, state=oauth_state)
 
             if auth_url:
                 connect_html = (

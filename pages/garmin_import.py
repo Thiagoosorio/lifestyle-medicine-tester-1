@@ -1,5 +1,6 @@
 """Garmin Connect — Import health data from your Garmin wearable."""
 
+import logging
 import streamlit as st
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
 from services.garmin_service import (
@@ -15,6 +16,7 @@ from services.garmin_service import (
 
 A = APPLE
 user_id = st.session_state.user_id
+LOGGER = logging.getLogger(__name__)
 
 render_hero_banner(
     "Garmin Connect",
@@ -76,8 +78,9 @@ with tab_connect:
                             save_garmin_credentials(user_id, email)
                             st.toast("Connected to Garmin Connect!")
                             st.rerun()
-                        except Exception as e:
-                            st.error(f"Connection failed: {str(e)}")
+                        except Exception:
+                            LOGGER.exception("Garmin connection failed")
+                            st.error("Connection failed. Please check your credentials and try again.")
 
 # ══════════════════════════════════════════════════════════════════════════
 # Tab 2: Import Data
@@ -126,32 +129,43 @@ with tab_import:
 
                             update_last_sync(user_id)
                             st.toast(f"Imported {count} {opt['label'].lower()} records!")
-                        except Exception as e:
-                            st.error(f"Import failed: {str(e)}")
+                        except Exception:
+                            LOGGER.exception("Garmin %s import failed", key)
+                            st.error("Import failed. Please try again.")
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
 
         if st.button("Import All", use_container_width=True, type="primary"):
             results = {}
+            successful_imports = 0
             with st.spinner("Importing all data from Garmin Connect..."):
                 try:
                     results["Sleep"] = import_sleep_data(user_id, garmin_client, days=days)
+                    successful_imports += 1
                 except Exception:
+                    LOGGER.exception("Garmin sleep import failed")
                     results["Sleep"] = "Error"
                 try:
                     results["Activity"] = import_activity_data(user_id, garmin_client, days=days)
+                    successful_imports += 1
                 except Exception:
+                    LOGGER.exception("Garmin activity import failed")
                     results["Activity"] = "Error"
                 try:
                     results["Body"] = import_body_composition(user_id, garmin_client, days=days)
+                    successful_imports += 1
                 except Exception:
+                    LOGGER.exception("Garmin body composition import failed")
                     results["Body"] = "Error"
                 try:
                     results["Heart Rate"] = import_heart_rate(user_id, garmin_client, days=days)
+                    successful_imports += 1
                 except Exception:
+                    LOGGER.exception("Garmin heart rate import failed")
                     results["Heart Rate"] = "Error"
 
-                update_last_sync(user_id)
+                if successful_imports > 0:
+                    update_last_sync(user_id)
 
             # Show results
             result_parts = []

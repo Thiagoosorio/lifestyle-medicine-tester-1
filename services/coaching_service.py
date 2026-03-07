@@ -1,6 +1,7 @@
 """AI coaching service: LLM integration, context assembly, conversation management."""
 
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 from db.database import get_connection
@@ -12,6 +13,7 @@ from services.checkin_service import get_week_averages
 from datetime import date, timedelta
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+LOGGER = logging.getLogger(__name__)
 
 
 def _get_llm_provider():
@@ -245,8 +247,12 @@ def get_coaching_response(user_id: int, message: str, context_type: str = "gener
             response = _call_openai(system_prompt, history)
         else:
             response = _fallback_response(context_type, user_context)
-    except Exception as e:
-        response = f"I'm having trouble connecting to the AI service right now. Error: {str(e)}\n\nIn the meantime, here's a quick tip: {_get_quick_tip(context_type)}"
+    except Exception:
+        LOGGER.exception("AI coaching call failed")
+        response = (
+            "I'm having trouble connecting to the AI service right now.\n\n"
+            f"In the meantime, here's a quick tip: {_get_quick_tip(context_type)}"
+        )
 
     # Save the response
     _save_message(user_id, "assistant", response, context_type)
@@ -385,9 +391,10 @@ def get_blood_ai_analysis(user_id: int, lab_date: str) -> str:
             messages=[{"role": "user", "content": "Please analyse my blood panel."}],
         )
         return response.content[0].text
-    except Exception as exc:
+    except Exception:
+        LOGGER.exception("Blood AI analysis call failed")
         return (
-            f"**Unable to reach AI analysis service:** {exc}\n\n"
+            "**Unable to reach AI analysis service right now.**\n\n"
             "Check that your `ANTHROPIC_API_KEY` is set in the `.env` file."
         )
 
@@ -452,9 +459,10 @@ def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
             messages=messages,
         )
         ai_response = response.content[0].text
-    except Exception as exc:
+    except Exception:
+        LOGGER.exception("Cycling coaching call failed")
         ai_response = (
-            f"Unable to reach the coaching service: {exc}\n\n"
+            "Unable to reach the coaching service right now.\n\n"
             "Check that your ANTHROPIC_API_KEY is set in the .env file."
         )
 

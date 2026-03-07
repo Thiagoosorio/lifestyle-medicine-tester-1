@@ -1,8 +1,12 @@
+import logging
+import sqlite3
 import streamlit as st
 from models.user import create_user, verify_user
 from components.custom_theme import APPLE, render_pillar_icons
+from config.env_flags import is_demo_mode
 
 A = APPLE
+LOGGER = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # LOGIN PAGE — All HTML uses single-line strings (no indentation, no blank lines)
@@ -40,29 +44,30 @@ render_pillar_icons()
 
 
 # ── Quick Demo Login Banner ───────────────────────────────────────────────────
-demo_html = (
-    f'<div style="border-radius:{A["radius_lg"]};padding:16px;margin-bottom:24px;'
-    f'text-align:center;background:rgba(94,92,230,0.12);'
-    f'border:1px solid rgba(94,92,230,0.25)">'
-    f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
-    f'letter-spacing:0.06em;color:{A["indigo"]};margin-bottom:4px">'
-    f'&#128640; Try the Demo</div>'
-    f'<div style="font-size:13px;color:{A["label_secondary"]}">'
-    f'Experience Maria\'s 12-month transformation journey</div>'
-    f'</div>'
-)
-st.markdown(demo_html, unsafe_allow_html=True)
+if is_demo_mode():
+    demo_html = (
+        f'<div style="border-radius:{A["radius_lg"]};padding:16px;margin-bottom:24px;'
+        f'text-align:center;background:rgba(94,92,230,0.12);'
+        f'border:1px solid rgba(94,92,230,0.25)">'
+        f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
+        f'letter-spacing:0.06em;color:{A["indigo"]};margin-bottom:4px">'
+        f'&#128640; Try the Demo</div>'
+        f'<div style="font-size:13px;color:{A["label_secondary"]}">'
+        f'Experience Maria\'s 12-month transformation journey</div>'
+        f'</div>'
+    )
+    st.markdown(demo_html, unsafe_allow_html=True)
 
-if st.button("Quick Demo Login (maria.silva)", use_container_width=True, type="primary"):
-    user = verify_user("maria.silva", "demo123456")
-    if user:
-        st.session_state.user_id = user["id"]
-        st.session_state.display_name = user["display_name"]
-        st.rerun()
-    else:
-        st.error("Demo account not found. Run `python seed_demo.py` first.")
+    if st.button("Quick Demo Login (maria.silva)", use_container_width=True, type="primary"):
+        user = verify_user("maria.silva", "demo123456")
+        if user:
+            st.session_state.user_id = user["id"]
+            st.session_state.display_name = user["display_name"]
+            st.rerun()
+        else:
+            st.error("Demo account not found. Run `python seed_demo.py` first.")
 
-st.markdown("---")
+    st.markdown("---")
 
 
 # ── Login / Register Tabs ────────────────────────────────────────────────────
@@ -70,7 +75,7 @@ tab_login, tab_register = st.tabs(["Sign In", "Create Account"])
 
 with tab_login:
     with st.form("login_form"):
-        username = st.text_input("Username", key="login_username", placeholder="Enter your username")
+        username = st.text_input("Username or Email", key="login_username", placeholder="Enter your username or email")
         password = st.text_input("Password", type="password", key="login_password", placeholder="Enter your password")
         submitted = st.form_submit_button("Sign In", use_container_width=True)
         if submitted:
@@ -83,7 +88,7 @@ with tab_login:
                     st.session_state.display_name = user["display_name"]
                     st.rerun()
                 else:
-                    st.error("Invalid username or password.")
+                    st.error("Invalid username/email or password.")
 
 with tab_register:
     with st.form("register_form"):
@@ -107,11 +112,11 @@ with tab_register:
                     st.session_state.display_name = new_display_name or new_username
                     st.success("Account created! Redirecting...")
                     st.rerun()
-                except Exception as e:
-                    if "UNIQUE constraint" in str(e):
-                        st.error("Username already taken.")
-                    else:
-                        st.error(f"Error: {e}")
+                except sqlite3.IntegrityError:
+                    st.error("Username already taken.")
+                except Exception:
+                    LOGGER.exception("Failed to create account")
+                    st.error("Could not create account right now. Please try again.")
 
 
 # ── Footer ────────────────────────────────────────────────────────────────────
