@@ -55,8 +55,9 @@ ELITE_JOURNALS = {
     "cochrane database syst rev",
 }
 
-_GRADE_SCORES = {"A": 40, "B": 30, "C": 20, "D": 10}
-_TIER_SCORES = {"elite": 12, "q1": 8, "q2": 4, "q3": 2, "q4": 1}
+# Must match evidence_quality_service._GRADE_SCORE / _TIER_SCORE
+_GRADE_SCORES = {"A": 40, "B": 28, "C": 16, "D": 8}
+_TIER_SCORES = {"elite": 14, "q1": 9, "q2": 5, "q3": 2, "q4": 1}
 
 
 def _get_api_key() -> str | None:
@@ -65,6 +66,9 @@ def _get_api_key() -> str | None:
 
 
 def _request_json(endpoint: str, params: dict) -> dict:
+    import logging
+    logger = logging.getLogger(__name__)
+
     full_params = dict(params)
     api_key = _get_api_key()
     if api_key:
@@ -78,8 +82,12 @@ def _request_json(endpoint: str, params: dict) -> dict:
             "Accept": "application/json",
         },
     )
-    with urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+    try:
+        with urlopen(req, timeout=REQUEST_TIMEOUT_SEC) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        logger.warning("PubMed API request failed (%s): %s", endpoint, exc)
+        return {}
 
 
 def _extract_year(value: str | None) -> int | None:

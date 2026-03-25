@@ -124,7 +124,7 @@ def compute_readiness(
     weighted_sum = sum(c["score"] * c["weight"] for c in components)
     score = int(round(weighted_sum / total_weight)) if total_weight > 0 else 50
 
-    zone = next(z for z in _ZONE_DEFS if score >= z["min_score"])
+    zone = next((z for z in _ZONE_DEFS if score >= z["min_score"]), _ZONE_DEFS[-1])
     return {
         "score": score,
         "zone": zone["label"],
@@ -147,8 +147,8 @@ def get_focus_pillar_id(scores: dict[int, int]) -> int:
 def build_focus_mission(scores: dict[int, int], stages: dict | None = None) -> dict:
     """Build a daily mission card based on the user's lowest-scoring pillar."""
     pillar_id = get_focus_pillar_id(scores)
-    template = _FOCUS_TEMPLATES[pillar_id]
-    pillar = PILLARS[pillar_id]
+    template = _FOCUS_TEMPLATES.get(pillar_id, _FOCUS_TEMPLATES[1])
+    pillar = PILLARS.get(pillar_id, PILLARS[1])
 
     stage = (stages or {}).get(pillar_id)
     stage_note = _STAGE_NOTES.get(stage)
