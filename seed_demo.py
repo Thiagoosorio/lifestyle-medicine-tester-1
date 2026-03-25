@@ -64,13 +64,22 @@ def main():
                        "auto_weekly_reports",
                        "body_metrics", "weekly_challenges",
                        "protocol_log", "user_protocols",
-                       "biomarker_results", "chronotype_assessments",
+                       "biomarker_results", "biomarker_ai_analysis",
+                       "chronotype_assessments",
                        "sleep_logs", "fasting_sessions",
                        "meal_logs", "nutrition_daily_summary",
                        "food_log_items", "calorie_daily_summary",
                        "calorie_targets", "diet_assessments",
                        "meditation_sessions", "quote_interactions",
-                       "nudge_shown", "daily_growth_state"]:
+                       "nudge_shown", "daily_growth_state",
+                       "exercise_logs", "exercise_programs", "exercise_weekly_summary",
+                       "workout_sets",
+                       "cycling_plan", "cycling_profile", "cycling_ride_logs",
+                       "dexa_scans", "organ_score_results",
+                       "sibo_fodmap_phase", "sibo_food_logs",
+                       "sibo_reintro_challenges", "sibo_symptom_logs", "sibo_user_state",
+                       "garmin_connections", "strava_connections",
+                       "user_clinical_profile", "user_settings"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
             except Exception:
