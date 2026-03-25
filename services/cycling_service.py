@@ -77,6 +77,41 @@ def get_zones(ftp_watts: int) -> dict:
     return zones
 
 
+# ── Normalized Power (NP) Estimation ──────────────────────────────────────
+
+def estimate_np(avg_power: float, intensity_factor: float = None,
+                variability_index: float = 1.05) -> float:
+    """Estimate Normalized Power from average power when second-by-second data
+    is unavailable.
+
+    NP accounts for the physiological cost of power variability.  Without raw
+    data we approximate NP using a *variability index* (VI = NP / avg_power):
+        NP ≈ avg_power × variability_index
+
+    Typical VI values (Allen & Coggan, 2019):
+      - Steady endurance / TT: 1.02–1.06
+      - Group ride / rolling: 1.06–1.13
+      - Criterium / intervals: 1.13–1.25
+
+    If *intensity_factor* is provided (IF = NP / FTP), NP can be derived
+    directly: NP = IF × FTP, but that requires FTP — so the caller must
+    resolve that externally.  This function deliberately keeps it simple.
+
+    Args:
+        avg_power: Average power in watts.
+        intensity_factor: Not used for calculation here; reserved for
+            future overrides when IF is known.
+        variability_index: VI multiplier (default 1.05 for steady rides).
+
+    Returns:
+        Estimated Normalized Power in watts, rounded to nearest integer.
+    """
+    if avg_power <= 0:
+        return 0.0
+    vi = max(1.0, variability_index)
+    return round(avg_power * vi)
+
+
 # ── TSS / IF Calculations ──────────────────────────────────────────────────
 
 def calculate_if(avg_power: float, ftp_watts: int) -> float:
@@ -86,33 +121,47 @@ def calculate_if(avg_power: float, ftp_watts: int) -> float:
     return round(avg_power / ftp_watts, 3)
 
 
-def calculate_tss(duration_min: float, avg_power: float, ftp_watts: int) -> float:
-    """Training Stress Score (simplified, no NP — uses avg power).
+def calculate_tss(duration_min: float, avg_power: float, ftp_watts: int,
+                  np_watts: float = None) -> float:
+    """Training Stress Score using NP when available, falling back to avg power.
 
-    TSS = (duration_hr × avg_power × IF) / FTP × 100
-    With IF = avg_power / FTP:
-    TSS = (duration_hr × avg_power²) / FTP² × 100
+    Correct formula (Coggan):
+      TSS = (duration_s × NP × IF) / (FTP × 3600) × 100
+    where IF = NP / FTP.
+
+    When NP is not available the function falls back to:
+      TSS = (duration_hr × avg_power²) / FTP² × 100
+    which is equivalent to substituting avg_power for NP.
     """
     if ftp_watts <= 0 or avg_power <= 0:
         return 0.0
-    if_score = avg_power / ftp_watts
-    tss = (duration_min / 60.0) * avg_power * if_score / ftp_watts * 100
+    power = np_watts if np_watts and np_watts > 0 else avg_power
+    if_score = power / ftp_watts
+    duration_s = duration_min * 60.0
+    tss = (duration_s * power * if_score) / (ftp_watts * 3600) * 100
     return round(tss, 1)
 
 
 # ── Ride Logging ───────────────────────────────────────────────────────────
 
 def log_ride(user_id: int, data: dict) -> int:
-    """Save a completed ride. Returns the new ride id."""
+    """Save a completed ride. Returns the new ride id.
+
+    Accepts optional ``np_watts`` in *data*.  When present the TSS calculation
+    uses Normalized Power for an accurate training load estimate.
+    """
     # Auto-calculate TSS/IF if not already provided
     avg_power = data.get("avg_power") or 0
+    np_watts = data.get("np_watts") or data.get("normalized_power") or None
     if_score = data.get("if_score")
     tss = data.get("tss")
     if avg_power and not if_score:
         profile = get_cycling_profile(user_id)
         ftp = profile["ftp_watts"] if profile else 200
-        if_score = calculate_if(avg_power, ftp)
-        tss = calculate_tss(data.get("duration_min", 60), avg_power, ftp)
+        power_for_if = np_watts if np_watts and np_watts > 0 else avg_power
+        if_score = calculate_if(power_for_if, ftp)
+        tss = calculate_tss(data.get("duration_min", 60), avg_power, ftp,
+                            np_watts=np_watts)
 
     conn = get_connection()
     try:
@@ -551,7 +600,186 @@ def get_adaptive_suggestions(user_id: int) -> list[dict]:
     return suggestions[:4]  # Cap at 4 suggestions
 
 
+# ── Power Curve / Power Bests ──────────────────────────────────────────────
+
+# Standard durations for power-curve display (label, seconds)
+_POWER_CURVE_DURATIONS = [
+    ("5s", 5),
+    ("1min", 60),
+    ("5min", 300),
+    ("20min", 1200),
+    ("60min", 3600),
+]
+
+
+def get_power_bests(user_id: int, days: int = 90) -> dict:
+    """Return best average power for standard durations from ride logs.
+
+    Because we don't store second-by-second data we *estimate* power bests
+    from ride-level metrics using a simple model:
+      - 60-min best ≈ best avg_power for rides >= 60 min
+      - 20-min best ≈ best avg_power for rides >= 20 min × 1.05 (5% fatigue decay)
+      - 5-min best  ≈ best avg_power for rides >= 5 min  × 1.15
+      - 1-min best  ≈ best NP (or avg_power) × 1.35
+      - 5-sec best  ≈ best NP (or avg_power) × 2.00
+
+    These heuristic multipliers are conservative and are improved whenever
+    actual NP is available in the log.
+
+    Returns: {duration_label: {"seconds": int, "watts": int}, ...}
+    """
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT duration_min, avg_power, normalized_power
+               FROM cycling_ride_logs
+               WHERE user_id = ? AND ride_date >= ? AND avg_power IS NOT NULL
+               ORDER BY avg_power DESC""",
+            (user_id, cutoff),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return {}
+
+    rides = [dict(r) for r in rows]
+
+    # Find best raw avg_power for various minimum durations
+    def _best_power(min_dur_min: int) -> float:
+        for r in rides:
+            if r["duration_min"] >= min_dur_min and r["avg_power"]:
+                return float(r["avg_power"])
+        return 0.0
+
+    # Best NP or avg_power across all rides
+    best_np = max(
+        (float(r.get("normalized_power") or r["avg_power"] or 0) for r in rides),
+        default=0.0,
+    )
+
+    # Heuristic multipliers (conservative, ride-level estimates)
+    bests: dict = {}
+    for label, secs in _POWER_CURVE_DURATIONS:
+        if secs >= 3600:
+            watts = _best_power(60)
+        elif secs >= 1200:
+            watts = _best_power(20) * 1.05
+        elif secs >= 300:
+            watts = _best_power(5) * 1.15
+        elif secs >= 60:
+            watts = best_np * 1.35
+        else:
+            watts = best_np * 2.00
+        bests[label] = {"seconds": secs, "watts": round(watts) if watts else 0}
+
+    return bests
+
+
+def get_power_curve_data(user_id: int) -> list[dict]:
+    """Return power-duration data formatted for a Plotly chart.
+
+    Returns a list of dicts: [{"duration_s": int, "label": str, "watts": int}, ...]
+    """
+    bests = get_power_bests(user_id, days=90)
+    if not bests:
+        return []
+    return [
+        {"duration_s": v["seconds"], "label": label, "watts": v["watts"]}
+        for label, v in bests.items()
+        if v["watts"] > 0
+    ]
+
+
+# ── FTP Test Protocol ─────────────────────────────────────────────────────
+
+def calculate_ftp_from_test(
+    test_type: str,
+    power_20min: float = None,
+    power_8min: float = None,
+    ramp_max: float = None,
+) -> dict:
+    """Estimate FTP from a structured test protocol.
+
+    Protocols (Allen & Coggan, 2019):
+      - 20-min test: FTP = avg_power × 0.95  (gold standard field test)
+      - 8-min test:  FTP = avg_power × 0.90  (shorter, slightly less accurate)
+      - Ramp test:   FTP = peak 1-min power × 0.75  (TrainerRoad protocol)
+
+    Args:
+        test_type: One of "20min", "8min", "ramp".
+        power_20min: Average power over 20 min.
+        power_8min:  Average power over 8 min.
+        ramp_max:    Maximum 1-min power from ramp.
+
+    Returns:
+        dict with keys: ftp, test_type, confidence, notes.
+    """
+    if test_type == "20min" and power_20min and power_20min > 0:
+        ftp = round(power_20min * 0.95)
+        return {
+            "ftp": ftp,
+            "test_type": "20-Minute Test",
+            "confidence": "high",
+            "notes": (
+                f"FTP = {power_20min:.0f}W × 0.95 = {ftp}W. "
+                "The 20-minute test is the gold standard field test. "
+                "Ensure you paced the effort evenly for best accuracy."
+            ),
+        }
+
+    if test_type == "8min" and power_8min and power_8min > 0:
+        ftp = round(power_8min * 0.90)
+        return {
+            "ftp": ftp,
+            "test_type": "8-Minute Test",
+            "confidence": "moderate",
+            "notes": (
+                f"FTP = {power_8min:.0f}W × 0.90 = {ftp}W. "
+                "The 8-minute protocol is less precise than the 20-minute test "
+                "but useful when time is limited. Validate with a 20-minute test "
+                "when possible."
+            ),
+        }
+
+    if test_type == "ramp" and ramp_max and ramp_max > 0:
+        ftp = round(ramp_max * 0.75)
+        return {
+            "ftp": ftp,
+            "test_type": "Ramp Test",
+            "confidence": "moderate",
+            "notes": (
+                f"FTP = {ramp_max:.0f}W × 0.75 = {ftp}W. "
+                "The ramp test is quick and repeatable but may over-estimate FTP "
+                "for athletes with a strong anaerobic contribution. Cross-check "
+                "with a 20-minute test if threshold efforts feel too hard."
+            ),
+        }
+
+    return {
+        "ftp": 0,
+        "test_type": test_type,
+        "confidence": "none",
+        "notes": "Invalid input — please provide a positive power value for the selected test type.",
+    }
+
+
 # ── W/kg Utilities ─────────────────────────────────────────────────────────
+
+def get_wkg(ftp_watts: int, weight_kg: float) -> float:
+    """Return watts per kilogram (W/kg) for FTP and body weight.
+
+    This is the single most important metric for comparing cycling ability
+    across athletes of different sizes.  A higher W/kg means better climbing
+    and sustained-effort performance.
+
+    Returns 0.0 when weight_kg is invalid.
+    """
+    if not weight_kg or weight_kg <= 0 or ftp_watts <= 0:
+        return 0.0
+    return round(ftp_watts / weight_kg, 2)
+
 
 def get_wkg_category(ftp_watts: int, weight_kg: float) -> str:
     """Return racer category label for a given W/kg ratio."""

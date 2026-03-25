@@ -870,6 +870,163 @@ def main():
                 )
 
     # ════════════════════════════════════════════════════════════════════════
+    # EXERCISE LOGS — Running, Walking, Strength, Yoga progression
+    # ════════════════════════════════════════════════════════════════════════
+    print("Creating exercise logs (running, walking, strength, yoga)...")
+    import math as _math_ex
+
+    # Maria's running progression:
+    # Month 1-2: walking only (15-20 min)
+    # Month 3-4: walk/jog mix (20-30 min, some with short run segments)
+    # Month 5-7: Couch-to-5K, running 3-5K (30-40 min)
+    # Month 8-10: Running 5-10K regularly (40-60 min)
+    # Month 11-12: Half-marathon training, long runs 12-21K
+
+    _exercise_count = 0
+    for day_offset in range(total_days + 1):
+        _ex_date = START_DATE + timedelta(days=day_offset)
+        _month = day_offset / 30.0
+        _t = day_offset / total_days  # 0.0 → 1.0
+        _dow = _ex_date.weekday()  # 0=Mon
+
+        # Skip some days randomly (more rest early, fewer later)
+        _active_prob = 0.25 + _t * 0.50  # 25% → 75% chance of any exercise
+        if random.random() > _active_prob:
+            continue
+
+        # ── Running / Walking ──
+        if _month < 2:
+            # Walking only
+            _type = "walk"
+            _dur = random.randint(15, 25)
+            _dist = round(_dur * 0.08 + random.gauss(0, 0.2), 1)  # ~5 km/h
+            _intensity = "light"
+            _rpe = random.randint(3, 5)
+        elif _month < 4:
+            # Walk/jog mix
+            _type = random.choice(["walk", "walk", "run"])
+            _dur = random.randint(20, 35)
+            if _type == "run":
+                _dist = round(_dur * 0.10 + random.gauss(0, 0.3), 1)  # ~6 km/h
+                _intensity = "moderate"
+                _rpe = random.randint(5, 7)
+            else:
+                _dist = round(_dur * 0.085 + random.gauss(0, 0.2), 1)
+                _intensity = "light"
+                _rpe = random.randint(3, 5)
+        elif _month < 7:
+            # C25K → regular 5K runner
+            _type = random.choice(["run", "run", "run", "walk"])
+            if _type == "run":
+                _dur = random.randint(25, 45)
+                _pace = 7.5 - _t * 2.0 + random.gauss(0, 0.3)  # min/km improving
+                _pace = max(5.5, min(8.0, _pace))
+                _dist = round(_dur / _pace, 1)
+                _intensity = random.choice(["moderate", "moderate", "vigorous"])
+                _rpe = random.randint(5, 8)
+            else:
+                _dur = random.randint(20, 30)
+                _dist = round(_dur * 0.09, 1)
+                _intensity = "light"
+                _rpe = random.randint(3, 4)
+        elif _month < 10:
+            # Regular 5-10K runner, some strength
+            _type = random.choice(["run", "run", "run", "strength", "yoga"])
+            if _type == "run":
+                _dur = random.randint(30, 55)
+                _pace = 6.5 - _t * 1.0 + random.gauss(0, 0.3)
+                _pace = max(5.2, min(7.0, _pace))
+                _dist = round(_dur / _pace, 1)
+                # Saturday = long run
+                if _dow == 5:
+                    _dur = random.randint(50, 70)
+                    _dist = round(_dur / _pace, 1)
+                _intensity = random.choice(["moderate", "vigorous"])
+                _rpe = random.randint(5, 8)
+            elif _type == "strength":
+                _dur = random.randint(30, 45)
+                _dist = None
+                _intensity = "moderate"
+                _rpe = random.randint(6, 8)
+            else:
+                _dur = random.randint(30, 45)
+                _dist = None
+                _intensity = "light"
+                _rpe = random.randint(3, 5)
+        else:
+            # Half-marathon training
+            _type = random.choice(["run", "run", "run", "run", "strength", "yoga"])
+            if _type == "run":
+                _dur = random.randint(35, 60)
+                _pace = 6.0 - _t * 0.5 + random.gauss(0, 0.25)
+                _pace = max(5.0, min(6.8, _pace))
+                _dist = round(_dur / _pace, 1)
+                # Saturday = long run (progressive: 12→21K)
+                if _dow == 5:
+                    _long_km = 12.0 + (_month - 10) * 3.0 + random.gauss(0, 1)
+                    _long_km = min(21.5, max(12.0, _long_km))
+                    _dist = round(_long_km, 1)
+                    _dur = round(_dist * _pace)
+                _intensity = random.choice(["moderate", "moderate", "vigorous"])
+                _rpe = random.randint(5, 9)
+            elif _type == "strength":
+                _dur = random.randint(35, 50)
+                _dist = None
+                _intensity = "moderate"
+                _rpe = random.randint(6, 8)
+            else:
+                _dur = random.randint(30, 50)
+                _dist = None
+                _intensity = "light"
+                _rpe = random.randint(3, 5)
+
+        # Ensure positive distance
+        if _dist is not None and _dist <= 0:
+            _dist = round(random.uniform(1.0, 3.0), 1)
+
+        # Calculate approximate calories (MET-based)
+        _weight_at_time = 105 - 40 * _t  # linear weight loss
+        _met = {"walk": 3.5, "run": 8.0, "strength": 5.0, "yoga": 3.0}.get(_type, 5.0)
+        if _intensity == "vigorous":
+            _met *= 1.3
+        _cals = round(_met * _weight_at_time * (_dur / 60.0))
+
+        # Estimated heart rate
+        _max_hr = 220 - 43  # Maria is 43
+        _hr_pct = {"light": 0.60, "moderate": 0.72, "vigorous": 0.85}.get(_intensity, 0.70)
+        _avg_hr = round(_max_hr * _hr_pct + random.gauss(0, 3))
+        _peak_hr = round(_avg_hr + random.randint(10, 25))
+
+        _ext_id = f"seed_{_ex_date.isoformat()}_{_type}_{_dur}"
+        _cat = {"walk": "cardio", "run": "cardio", "strength": "strength", "yoga": "flexibility"}.get(_type, "mixed")
+        conn.execute(
+            """INSERT OR IGNORE INTO exercise_logs
+               (user_id, exercise_date, exercise_type, category, duration_min,
+                intensity, distance_km, calories, avg_hr, max_hr, rpe,
+                notes, source, external_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?)""",
+            (user_id, _ex_date.isoformat(), _type, _cat, _dur,
+             _intensity, _dist, _cals, _avg_hr, _peak_hr, _rpe,
+             None, _ext_id),
+        )
+        _exercise_count += 1
+
+    conn.commit()
+    print(f"  Created {_exercise_count} exercise log entries")
+
+    # ── Update weekly summaries for exercise score ────────────────────────
+    print("Updating exercise weekly summaries...")
+    from services.exercise_service import update_weekly_summary as _update_ws
+    _ws_date = START_DATE
+    while _ws_date <= END_DATE:
+        _ws_mon = _ws_date - timedelta(days=_ws_date.weekday())
+        try:
+            _update_ws(user_id, _ws_mon.isoformat())
+        except Exception:
+            pass
+        _ws_date += timedelta(days=7)
+
+    # ════════════════════════════════════════════════════════════════════════
     # PHASE 2: ADVANCED TRACKING DATA
     # ════════════════════════════════════════════════════════════════════════
 
@@ -1615,6 +1772,8 @@ def main():
     print("  - 53 body metrics entries (weight/waist/hip/bf%)")
     print("  - 24 weekly challenges (8 weeks)")
     print("  - 5 adopted protocols with completion logs")
+    print(f"  - ~{_exercise_count} exercise logs (running, walking, strength, yoga)")
+    print("  - Weekly exercise summaries with scores")
     print("  - ~48 biomarker results (12 markers x 4 panels)")
     print("  - ~250 sleep logs with scores")
     print("  - 1 chronotype assessment (Bear)")

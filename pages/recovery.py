@@ -112,7 +112,7 @@ else:
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
         f'border-radius:{A["radius_md"]};padding:12px">'
         f'<div style="font-size:11px;color:{A["label_tertiary"]}">'
-        f'Score = Sleep (35%) + Stress (25%) + Activity (20%) + Habits (10%) + Mood (10%)'
+        f'Score = Sleep (30%) + Stress (20%) + Training Load (20%) + Activity (10%) + Habits (10%) + Mood (10%)'
         f'</div>'
         f'</div>'
     )

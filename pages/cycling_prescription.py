@@ -29,6 +29,7 @@ from services.cycling_service import (
     get_zones,
     calculate_if,
     calculate_tss,
+    estimate_np,
     log_ride,
     get_ride_history,
     get_pmc_data,
@@ -43,9 +44,14 @@ from services.cycling_service import (
     suggest_todays_workout,
     calculate_weekly_tss,
     get_adaptive_suggestions,
+    get_wkg,
     get_wkg_category,
+    get_power_bests,
+    get_power_curve_data,
+    calculate_ftp_from_test,
 )
 from db.database import get_connection
+import plotly.graph_objects as go
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -55,8 +61,8 @@ render_hero_banner(
     "Power-based training with FTP zones, TSS, Performance Management Chart, and adaptive prescription.",
 )
 
-tab_dash, tab_plan, tab_log, tab_workouts, tab_settings, tab_coach = st.tabs([
-    "Dashboard", "Training Plan", "Log Ride", "Workout Library", "Settings", "AI Coach"
+tab_dash, tab_plan, tab_log, tab_workouts, tab_analytics, tab_settings, tab_coach = st.tabs([
+    "Dashboard", "Training Plan", "Log Ride", "Workout Library", "Analytics", "Settings", "AI Coach"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -456,13 +462,15 @@ with tab_log:
         submitted = st.form_submit_button("Save Ride", type="primary", use_container_width=True)
         if submitted:
             if avg_power > 0 and duration_min > 0:
-                if_score = calculate_if(avg_power, ftp)
-                tss = calculate_tss(duration_min, avg_power, ftp)
+                np_val = norm_power if norm_power > 0 else None
+                power_for_if = np_val if np_val else avg_power
+                if_score = calculate_if(power_for_if, ftp)
+                tss = calculate_tss(duration_min, avg_power, ftp, np_watts=np_val)
                 ride_data = {
                     "ride_date": ride_date.isoformat(),
                     "duration_min": duration_min,
                     "avg_power": avg_power,
-                    "normalized_power": norm_power if norm_power > 0 else None,
+                    "normalized_power": np_val,
                     "if_score": if_score,
                     "tss": tss,
                     "elevation_m": elevation_m if elevation_m > 0 else None,
@@ -476,7 +484,8 @@ with tab_log:
                     workout = WORKOUT_LIBRARY_BY_ID.get(selected_wid, {})
                     if workout.get("type"):
                         update_progression_levels(user_id, workout["type"], difficulty_survey)
-                st.toast(f"Ride saved! TSS: {tss:.0f} · IF: {if_score:.3f}")
+                np_label = f" · NP: {np_val}W" if np_val else ""
+                st.toast(f"Ride saved! TSS: {tss:.0f} · IF: {if_score:.3f}{np_label}")
                 st.rerun()
             else:
                 st.warning("Enter a valid average power and duration to log the ride.")
@@ -548,7 +557,296 @@ with tab_workouts:
                 render_workout_card(workout, ftp)
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 5: Settings
+# Tab 5: Analytics
+# ══════════════════════════════════════════════════════════════════════════
+with tab_analytics:
+    profile_a = get_cycling_profile(user_id)
+    ftp_a = profile_a["ftp_watts"] if profile_a else 200
+    weight_a = profile_a.get("weight_kg") if profile_a else None
+
+    # ── W/kg Display ──────────────────────────────────────────────────────
+    render_section_header("Power-to-Weight Ratio")
+    if profile_a and weight_a and weight_a > 0:
+        wkg_val_a = get_wkg(ftp_a, weight_a)
+        cat_a = get_wkg_category(ftp_a, weight_a)
+        cat_color_a = A["blue"]
+        for c_item in WATT_KG_CATEGORIES:
+            if c_item["label"] == cat_a:
+                cat_color_a = c_item["color"]
+                break
+        wkg_display_html = (
+            f'<div style="display:flex;gap:24px;align-items:center;margin-bottom:16px">'
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_lg"]};padding:18px 28px;text-align:center">'
+            f'<div style="font-size:36px;font-weight:800;color:{cat_color_a}">{wkg_val_a:.2f}</div>'
+            f'<div style="font-size:12px;color:{A["label_tertiary"]}">W / kg</div>'
+            f'</div>'
+            f'<div>'
+            f'<div style="font-size:16px;font-weight:700;color:{cat_color_a}">{cat_a}</div>'
+            f'<div style="font-size:12px;color:{A["label_secondary"]};margin-top:4px">'
+            f'FTP {ftp_a}W &middot; {weight_a}kg</div>'
+            f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-top:6px;line-height:16px">'
+            f'W/kg is the single most important metric for comparing cycling ability. '
+            f'Higher W/kg = better climbing and sustained performance.</div>'
+            f'</div>'
+            f'</div>'
+        )
+        st.markdown(wkg_display_html, unsafe_allow_html=True)
+
+        # W/kg scale bar
+        scale_items_html = ""
+        for c_item in WATT_KG_CATEGORIES:
+            is_active = c_item["label"] == cat_a
+            opacity = "1.0" if is_active else "0.5"
+            border = f"2px solid {c_item['color']}" if is_active else f"1px solid {A['separator']}"
+            scale_items_html += (
+                f'<div style="flex:1;background:{c_item["color"]}15;border:{border};'
+                f'border-radius:{A["radius_sm"]};padding:6px 4px;text-align:center;opacity:{opacity}">'
+                f'<div style="font-size:10px;font-weight:700;color:{c_item["color"]}">'
+                f'{c_item["min_wkg"]}–{c_item["max_wkg"] if c_item["max_wkg"] < 90 else "+"}</div>'
+                f'<div style="font-size:9px;color:{A["label_tertiary"]}">{c_item["label"]}</div>'
+                f'</div>'
+            )
+        scale_html = (
+            f'<div style="display:flex;gap:4px;margin-bottom:16px">'
+            f'{scale_items_html}'
+            f'</div>'
+        )
+        st.markdown(scale_html, unsafe_allow_html=True)
+    else:
+        st.info("Set your FTP and body weight in Settings to see your W/kg ratio.")
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── Power Curve Chart ─────────────────────────────────────────────────
+    render_section_header("Power Curve", "Best power at standard durations (estimated from ride logs)")
+    curve_data = get_power_curve_data(user_id)
+    if curve_data:
+        labels = [d["label"] for d in curve_data]
+        watts = [d["watts"] for d in curve_data]
+        seconds = [d["duration_s"] for d in curve_data]
+
+        fig_pc = go.Figure()
+        fig_pc.add_trace(go.Scatter(
+            x=labels, y=watts,
+            mode="lines+markers",
+            name="Best Power",
+            line=dict(color=A["blue"], width=3),
+            marker=dict(size=10, color=A["blue"], line=dict(width=2, color=A["bg_elevated"])),
+            hovertemplate="%{x}<br><b>%{y}W</b><extra></extra>",
+        ))
+
+        # Add zone reference lines if FTP is available
+        if ftp_a:
+            fig_pc.add_hline(
+                y=ftp_a, line_dash="dash", line_color=A["orange"], line_width=1.5,
+                annotation_text=f"FTP {ftp_a}W", annotation_position="top right",
+                annotation_font=dict(size=10, color=A["orange"]),
+            )
+
+        fig_pc.update_layout(
+            height=340,
+            plot_bgcolor=A["chart_bg"],
+            paper_bgcolor=A["chart_bg"],
+            font=dict(family=A["font_text"], color=A["chart_text"], size=11),
+            legend=dict(orientation="h", yanchor="bottom", y=-0.30, xanchor="center", x=0.5),
+            margin=dict(t=20, b=70, l=50, r=30),
+            xaxis=dict(
+                title="Duration",
+                gridcolor=A["chart_grid"],
+                showgrid=True,
+            ),
+            yaxis=dict(
+                title="Watts",
+                gridcolor=A["chart_grid"],
+                zeroline=False,
+            ),
+            hovermode="x unified",
+        )
+        st.plotly_chart(fig_pc, use_container_width=True)
+
+        # Power bests table
+        bests_a = get_power_bests(user_id, days=90)
+        if bests_a:
+            bests_cells_html = ""
+            for label_b, info_b in bests_a.items():
+                bests_cells_html += (
+                    f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+                    f'border-radius:{A["radius_md"]};padding:12px;text-align:center">'
+                    f'<div style="font-size:20px;font-weight:800;color:{A["blue"]}">{info_b["watts"]}W</div>'
+                    f'<div style="font-size:11px;color:{A["label_tertiary"]}">{label_b}</div>'
+                    f'</div>'
+                )
+            bests_html = (
+                f'<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:8px">'
+                f'{bests_cells_html}'
+                f'</div>'
+            )
+            st.markdown(bests_html, unsafe_allow_html=True)
+    else:
+        st.caption("Log some rides with power data to see your power curve.")
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── FTP Test Calculator ───────────────────────────────────────────────
+    render_section_header("FTP Test Calculator", "Estimate your FTP from a structured test protocol")
+
+    ftp_test_info_html = (
+        f'<div style="background:{A["bg_secondary"]};border-radius:{A["radius_md"]};'
+        f'padding:12px;margin-bottom:12px">'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};line-height:17px">'
+        f'FTP (Functional Threshold Power) is the maximum power you can sustain for ~1 hour. '
+        f'It sets all your training zones. Choose a test protocol below and enter your result to '
+        f'estimate your FTP. The 20-minute test is the gold standard.</div>'
+        f'</div>'
+    )
+    st.markdown(ftp_test_info_html, unsafe_allow_html=True)
+
+    with st.form("ftp_test_form"):
+        test_type_labels = {
+            "20min": "20-Minute Test (FTP = avg power × 0.95)",
+            "8min": "8-Minute Test (FTP = avg power × 0.90)",
+            "ramp": "Ramp Test (FTP = peak 1-min power × 0.75)",
+        }
+        test_choice = st.selectbox(
+            "Test Protocol", list(test_type_labels.values()), key="ftp_test_type"
+        )
+        test_key = [k for k, v in test_type_labels.items() if v == test_choice][0]
+
+        col_test_1, col_test_2 = st.columns(2)
+        with col_test_1:
+            if test_key == "20min":
+                test_power = st.number_input(
+                    "Average Power over 20 min (W)", min_value=0, max_value=1000, value=0,
+                    key="ftp_test_power_20"
+                )
+            elif test_key == "8min":
+                test_power = st.number_input(
+                    "Average Power over 8 min (W)", min_value=0, max_value=1000, value=0,
+                    key="ftp_test_power_8"
+                )
+            else:
+                test_power = st.number_input(
+                    "Peak 1-Minute Power from Ramp (W)", min_value=0, max_value=1500, value=0,
+                    key="ftp_test_power_ramp"
+                )
+        with col_test_2:
+            st.markdown(
+                f'<div style="font-size:12px;color:{A["label_secondary"]};padding-top:28px">'
+                f'Enter the power value from your test effort. '
+                f'The calculator will apply the standard multiplier.</div>',
+                unsafe_allow_html=True,
+            )
+
+        ftp_test_submitted = st.form_submit_button(
+            "Calculate FTP", type="primary", use_container_width=True
+        )
+        if ftp_test_submitted and test_power > 0:
+            result = calculate_ftp_from_test(
+                test_key,
+                power_20min=test_power if test_key == "20min" else None,
+                power_8min=test_power if test_key == "8min" else None,
+                ramp_max=test_power if test_key == "ramp" else None,
+            )
+            if result["ftp"] > 0:
+                conf_color = A["green"] if result["confidence"] == "high" else A["orange"]
+                result_html = (
+                    f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+                    f'border-left:4px solid {conf_color};'
+                    f'border-radius:0 {A["radius_md"]} {A["radius_md"]} 0;padding:14px;margin-top:8px">'
+                    f'<div style="display:flex;align-items:center;gap:16px">'
+                    f'<div style="text-align:center">'
+                    f'<div style="font-size:32px;font-weight:800;color:{A["blue"]}">{result["ftp"]}W</div>'
+                    f'<div style="font-size:11px;color:{A["label_tertiary"]}">Estimated FTP</div>'
+                    f'</div>'
+                    f'<div>'
+                    f'<div style="font-size:12px;font-weight:600;color:{conf_color}">'
+                    f'{result["test_type"]} &middot; Confidence: {result["confidence"].title()}</div>'
+                    f'<div style="font-size:11px;color:{A["label_secondary"]};margin-top:4px;'
+                    f'line-height:16px">{result["notes"]}</div>'
+                    f'</div>'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(result_html, unsafe_allow_html=True)
+            else:
+                st.warning(result["notes"])
+
+    st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    # ── Normalized Power Explanation ──────────────────────────────────────
+    render_section_header("About Normalized Power (NP)")
+    np_explain_html = (
+        f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+        f'border-radius:{A["radius_lg"]};padding:16px">'
+        f'<div style="font-size:13px;font-weight:700;color:{A["label_primary"]};margin-bottom:8px">'
+        f'Why NP matters more than Average Power</div>'
+        f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:18px;margin-bottom:10px">'
+        f'Average power understates the physiological cost of variable-intensity riding. '
+        f'A ride with lots of surges (attacks, hills, wind) is harder than steady endurance '
+        f'at the same average — NP captures this difference.</div>'
+        f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]};margin-bottom:6px">'
+        f'How it works</div>'
+        f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:18px;margin-bottom:10px">'
+        f'NP uses a 30-second rolling average of power, raised to the 4th power, averaged, '
+        f'then taken to the &frac14; root. This emphasizes high-power surges that cost more '
+        f'metabolically (Coggan, 2003).</div>'
+        f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]};margin-bottom:6px">'
+        f'Variability Index (VI)</div>'
+        f'<div style="font-size:12px;color:{A["label_secondary"]};line-height:18px;margin-bottom:10px">'
+        f'VI = NP / Average Power. Tells you how variable the ride was:</div>'
+        f'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">'
+        f'<div style="background:{A["bg_secondary"]};border-radius:{A["radius_sm"]};padding:8px;text-align:center">'
+        f'<div style="font-size:14px;font-weight:700;color:{A["green"]}">1.02–1.06</div>'
+        f'<div style="font-size:10px;color:{A["label_tertiary"]}">Steady / TT</div>'
+        f'</div>'
+        f'<div style="background:{A["bg_secondary"]};border-radius:{A["radius_sm"]};padding:8px;text-align:center">'
+        f'<div style="font-size:14px;font-weight:700;color:{A["orange"]}">1.06–1.13</div>'
+        f'<div style="font-size:10px;color:{A["label_tertiary"]}">Group Ride</div>'
+        f'</div>'
+        f'<div style="background:{A["bg_secondary"]};border-radius:{A["radius_sm"]};padding:8px;text-align:center">'
+        f'<div style="font-size:14px;font-weight:700;color:{A["red"]}">1.13–1.25</div>'
+        f'<div style="font-size:10px;color:{A["label_tertiary"]}">Crit / Intervals</div>'
+        f'</div>'
+        f'</div>'
+        f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-top:10px;line-height:16px">'
+        f'When you log a ride with NP, TSS is calculated using NP instead of average power '
+        f'for a more accurate training load estimate. If NP is not available, we estimate it '
+        f'using a default variability index of 1.05.</div>'
+        f'</div>'
+    )
+    st.markdown(np_explain_html, unsafe_allow_html=True)
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+
+    # ── NP Estimator (quick tool) ─────────────────────────────────────────
+    with st.expander("NP Estimator", expanded=False):
+        col_np_1, col_np_2 = st.columns(2)
+        with col_np_1:
+            np_avg = st.number_input(
+                "Average Power (W)", min_value=0, max_value=1000, value=200, key="np_est_avg"
+            )
+        with col_np_2:
+            np_vi = st.number_input(
+                "Variability Index", min_value=1.00, max_value=1.50, value=1.05,
+                step=0.01, format="%.2f", key="np_est_vi",
+                help="1.02–1.06 for steady rides, 1.06–1.13 for group rides, 1.13–1.25 for crits"
+            )
+        if np_avg > 0:
+            np_result = estimate_np(np_avg, variability_index=np_vi)
+            np_est_html = (
+                f'<div style="display:flex;gap:20px;padding:10px;'
+                f'background:{A["bg_secondary"]};border-radius:{A["radius_md"]};margin-top:8px">'
+                f'<div><div style="font-size:20px;font-weight:800;color:{A["blue"]}">{np_result:.0f}W</div>'
+                f'<div style="font-size:10px;color:{A["label_tertiary"]}">Estimated NP</div></div>'
+                f'<div><div style="font-size:20px;font-weight:800;color:{A["orange"]}">{np_vi:.2f}</div>'
+                f'<div style="font-size:10px;color:{A["label_tertiary"]}">Variability Index</div></div>'
+                f'</div>'
+            )
+            st.markdown(np_est_html, unsafe_allow_html=True)
+
+# ══════════════════════════════════════════════════════════════════════════
+# Tab 6: Settings
 # ══════════════════════════════════════════════════════════════════════════
 with tab_settings:
     render_section_header("Cycling Settings", "FTP, profile, and ramp test guide")
@@ -657,7 +955,7 @@ with tab_settings:
     st.markdown(zone_legend_html, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 6: AI Coach
+# Tab 7: AI Coach
 # ══════════════════════════════════════════════════════════════════════════
 with tab_coach:
     from services.coaching_service import get_cycling_coaching_response

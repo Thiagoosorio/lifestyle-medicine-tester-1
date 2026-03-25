@@ -2,9 +2,10 @@
 
 Recovery Score (0-100) based on psychoneuroimmunology research.
 Components:
-  - Sleep (35%): Last night's sleep score
-  - Stress (25%): Inverse of most recent stress rating
-  - Activity strain (20%): Activity balance
+  - Sleep (30%): Last night's sleep score
+  - Stress (20%): Inverse of most recent stress rating
+  - Training Load (20%): Inverse of acute training load (last 48h)
+  - Activity (10%): Exercise consistency score
   - Habit consistency (10%): Recent habit completion rate
   - Mood (10%): Current mood rating
 """
@@ -23,9 +24,10 @@ def calculate_recovery_score(user_id):
         return None
 
     score = round(
-        components["sleep"]["score"] * 0.35
-        + components["stress"]["score"] * 0.25
-        + components["activity"]["score"] * 0.20
+        components["sleep"]["score"] * 0.30
+        + components["stress"]["score"] * 0.20
+        + components["training_load"]["score"] * 0.20
+        + components["activity"]["score"] * 0.10
         + components["habits"]["score"] * 0.10
         + components["mood"]["score"] * 0.10
     )
@@ -44,13 +46,15 @@ def get_recovery_components(user_id):
     """Get individual recovery component scores."""
     sleep_score = _get_sleep_component(user_id)
     stress_score = _get_stress_component(user_id)
+    training_load_score = _get_training_load_component(user_id)
     activity_score = _get_activity_component(user_id)
     habits_score = _get_habits_component(user_id)
     mood_score = _get_mood_component(user_id)
 
     # If we have no data at all, return None
     has_data = any(c["raw"] is not None for c in [
-        sleep_score, stress_score, activity_score, habits_score, mood_score
+        sleep_score, stress_score, training_load_score,
+        activity_score, habits_score, mood_score
     ])
     if not has_data:
         return None
@@ -58,6 +62,7 @@ def get_recovery_components(user_id):
     return {
         "sleep": sleep_score,
         "stress": stress_score,
+        "training_load": training_load_score,
         "activity": activity_score,
         "habits": habits_score,
         "mood": mood_score,
@@ -96,6 +101,55 @@ def _get_stress_component(user_id):
         score = round((10 - raw) / 9 * 100)
         return {"score": score, "raw": raw, "label": "Stress", "icon": "&#129495;"}
     return {"score": 50, "raw": None, "label": "Stress", "icon": "&#129495;"}
+
+
+def _get_training_load_component(user_id):
+    """Training load component: inverse of acute training load from last 48h.
+
+    Calculates load = sum(duration_min * intensity_multiplier) where
+    light=0.5, moderate=1.0, vigorous=2.0. High load means lower recovery
+    readiness; rest days boost recovery.
+
+    Thresholds:
+      load == 0   → rest day, score 90 (boosted recovery)
+      load <= 60  → light load, score 75
+      load <= 120 → moderate load, score 55
+      load > 120  → heavy load, score 30
+    """
+    intensity_multipliers = {"light": 0.5, "moderate": 1.0, "vigorous": 2.0}
+
+    conn = get_connection()
+    cutoff = (date.today() - timedelta(days=2)).isoformat()
+    rows = conn.execute(
+        """SELECT duration_min, intensity FROM exercise_logs
+           WHERE user_id = ? AND exercise_date >= ?""",
+        (user_id, cutoff),
+    ).fetchall()
+    conn.close()
+
+    if not rows:
+        # No exercise data at all — treat as neutral (no load info)
+        return {"score": 90, "raw": 0, "label": "Training Load", "icon": "&#9878;"}
+
+    load = 0.0
+    for r in rows:
+        mult = intensity_multipliers.get(r["intensity"], 1.0)
+        load += r["duration_min"] * mult
+
+    load = round(load, 1)
+
+    # Inverse scoring: higher load → lower recovery readiness
+    if load == 0:
+        score = 90  # Rest day — recovery boosted
+    elif load <= 60:
+        score = 75  # Light load
+    elif load <= 120:
+        score = 55  # Moderate load
+    else:
+        # Scale down from 30 to 10 as load goes from 120 to 240+
+        score = max(10, round(30 - (load - 120) / 120 * 20))
+
+    return {"score": score, "raw": load, "label": "Training Load", "icon": "&#9878;"}
 
 
 def _get_activity_component(user_id):
@@ -221,11 +275,43 @@ def get_recovery_history(user_id, days=30):
            GROUP BY log_date""",
         (user_id, cutoff),
     ).fetchall()
+
+    # Get exercise log data for training load (2-day rolling window)
+    exercise_cutoff = (date.today() - timedelta(days=days + 2)).isoformat()
+    exercise_rows = conn.execute(
+        """SELECT exercise_date, duration_min, intensity FROM exercise_logs
+           WHERE user_id = ? AND exercise_date >= ?
+           ORDER BY exercise_date""",
+        (user_id, exercise_cutoff),
+    ).fetchall()
     conn.close()
 
     sleep_by_date = {r["sleep_date"]: r["sleep_score"] for r in sleep_rows}
     checkin_by_date = {r["checkin_date"]: dict(r) for r in checkin_rows}
     habits_by_date = {r["log_date"]: round(r["done"] / r["total"] * 100) if r["total"] > 0 else 50 for r in habit_rows}
+
+    # Build exercise load by date for 48h rolling window calculation
+    intensity_multipliers = {"light": 0.5, "moderate": 1.0, "vigorous": 2.0}
+    exercise_by_date: dict[str, float] = {}
+    for r in exercise_rows:
+        d = r["exercise_date"]
+        mult = intensity_multipliers.get(r["intensity"], 1.0)
+        exercise_by_date[d] = exercise_by_date.get(d, 0.0) + r["duration_min"] * mult
+
+    def _training_load_score_for_date(d_str):
+        """Compute training load recovery score for a given date (48h window)."""
+        d_date = date.fromisoformat(d_str)
+        d_minus1 = (d_date - timedelta(days=1)).isoformat()
+        d_minus2 = (d_date - timedelta(days=2)).isoformat()
+        load = exercise_by_date.get(d_str, 0) + exercise_by_date.get(d_minus1, 0) + exercise_by_date.get(d_minus2, 0)
+        if load == 0:
+            return 90
+        elif load <= 60:
+            return 75
+        elif load <= 120:
+            return 55
+        else:
+            return max(10, round(30 - (load - 120) / 120 * 20))
 
     # Collect all dates
     all_dates = sorted(set(list(sleep_by_date.keys()) + list(checkin_by_date.keys())))
@@ -241,8 +327,12 @@ def get_recovery_history(user_id, days=30):
         mood_raw = ci.get("mood")
         mood = round(mood_raw / 10 * 100) if mood_raw else 50
         habits = habits_by_date.get(d, 50)
+        training_load = _training_load_score_for_date(d)
 
-        score = round(sleep * 0.35 + stress * 0.25 + activity * 0.20 + habits * 0.10 + mood * 0.10)
+        score = round(
+            sleep * 0.30 + stress * 0.20 + training_load * 0.20
+            + activity * 0.10 + habits * 0.10 + mood * 0.10
+        )
         score = max(0, min(100, score))
         history.append({"date": d, "score": score})
 

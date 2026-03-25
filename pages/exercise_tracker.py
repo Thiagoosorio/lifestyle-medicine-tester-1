@@ -1,6 +1,7 @@
 """Exercise Tracker — Log workouts, track weekly volume, connect Strava."""
 
 import logging
+import os
 import secrets
 import streamlit as st
 import plotly.graph_objects as go
@@ -264,7 +265,16 @@ with tab_strava:
                 st.rerun()
         else:
             # Not connected — show connect button
-            redirect_uri = "http://localhost:8501/"
+            # Dynamic redirect URI: works on localhost and deployed apps
+            _redirect_uri = os.environ.get("STRAVA_REDIRECT_URI")
+            if not _redirect_uri:
+                try:
+                    _host = st.context.headers.get("Host", "localhost:8501")
+                    _proto = "https" if ".streamlit.app" in _host or ".cloud" in _host else "http"
+                    _redirect_uri = f"{_proto}://{_host}/"
+                except Exception:
+                    _redirect_uri = "http://localhost:8501/"
+            redirect_uri = _redirect_uri
             oauth_state = st.session_state.get("strava_oauth_state")
             if not oauth_state:
                 oauth_state = secrets.token_urlsafe(24)

@@ -309,4 +309,217 @@ def get_exercise_summary_for_coach(user_id):
         type_labels = [EXERCISE_TYPES.get(t, {}).get("label", t) for t in stats["types_used"]]
         parts.append(f"Activities: {', '.join(type_labels)}")
 
+    # Running stats (if user runs)
+    running_ctx = _get_running_stats_for_coach(user_id)
+    if running_ctx:
+        parts.append(running_ctx)
+
+    # Training load balance (acute vs chronic)
+    load_ctx = _get_training_load_balance(user_id)
+    if load_ctx:
+        parts.append(load_ctx)
+
+    # Recovery zone
+    try:
+        from services.recovery_service import calculate_recovery_score
+        recovery = calculate_recovery_score(user_id)
+        if recovery:
+            zone = recovery["zone"]
+            parts.append(
+                f"Recovery: {recovery['score']}/100 ({zone['label']} zone)"
+            )
+    except Exception:
+        pass
+
+    # Recent strength PRs
+    try:
+        from services.exercise_prescription_service import get_recent_prs
+        recent_prs = get_recent_prs(user_id, days=14)
+        if recent_prs:
+            pr_strs = [
+                f"{pr['exercise_name']} {pr['estimated_1rm']:.0f}kg e1RM"
+                for pr in recent_prs[:3]
+            ]
+            parts.append(f"Recent PRs: {', '.join(pr_strs)}")
+    except Exception:
+        pass
+
+    # Active training programs (PPL or cycling)
+    try:
+        from services.exercise_prescription_service import get_saved_program
+        ppl = get_saved_program(user_id)
+        if ppl:
+            meso = ppl.get("mesocycle", {}).get("label", "PPL")
+            parts.append(f"Active PPL program: {meso}")
+    except Exception:
+        pass
+
+    try:
+        from services.cycling_service import get_active_plan
+        plan = get_active_plan(user_id)
+        if plan:
+            parts.append(
+                f"Active cycling plan: {plan.get('phase_label', plan.get('phase', ''))}"
+                f" (week {plan.get('weeks', '?')})"
+            )
+    except Exception:
+        pass
+
     return " | ".join(parts)
+
+
+def _get_running_stats_for_coach(user_id):
+    """Get running-specific stats if the user has logged runs recently."""
+    conn = get_connection()
+    cutoff_7d = (date.today() - timedelta(days=7)).isoformat()
+    cutoff_28d = (date.today() - timedelta(days=28)).isoformat()
+
+    # Weekly mileage
+    week_row = conn.execute(
+        """SELECT COALESCE(SUM(distance_km), 0) as km, COUNT(*) as runs,
+                  COALESCE(SUM(duration_min), 0) as mins
+           FROM exercise_logs
+           WHERE user_id = ? AND exercise_type = 'run' AND exercise_date >= ?""",
+        (user_id, cutoff_7d),
+    ).fetchone()
+
+    # 4-week mileage for context
+    month_row = conn.execute(
+        """SELECT COALESCE(SUM(distance_km), 0) as km,
+                  COALESCE(SUM(duration_min), 0) as mins
+           FROM exercise_logs
+           WHERE user_id = ? AND exercise_type = 'run' AND exercise_date >= ?""",
+        (user_id, cutoff_28d),
+    ).fetchone()
+    conn.close()
+
+    if not week_row or (week_row["runs"] == 0 and month_row["km"] == 0):
+        return None
+
+    parts = []
+    weekly_km = round(week_row["km"], 1)
+    if weekly_km > 0:
+        parts.append(f"Running this week: {weekly_km}km in {week_row['runs']} runs")
+        # Average pace (min/km)
+        if week_row["mins"] > 0 and weekly_km > 0:
+            avg_pace = week_row["mins"] / weekly_km
+            pace_min = int(avg_pace)
+            pace_sec = int((avg_pace - pace_min) * 60)
+            parts.append(f"avg pace {pace_min}:{pace_sec:02d}/km")
+
+    monthly_km = round(month_row["km"], 1)
+    if monthly_km > 0:
+        avg_weekly = round(monthly_km / 4, 1)
+        parts.append(f"4-wk avg: {avg_weekly}km/wk")
+
+    return ", ".join(parts) if parts else None
+
+
+def _get_training_load_balance(user_id):
+    """Compute acute:chronic training load ratio (ACWR).
+
+    Acute = last 7 days, Chronic = last 28 days average per week.
+    ACWR between 0.8-1.3 is the "sweet spot" (Gabbett, 2016).
+    """
+    conn = get_connection()
+    cutoff_7d = (date.today() - timedelta(days=7)).isoformat()
+    cutoff_28d = (date.today() - timedelta(days=28)).isoformat()
+
+    intensity_multipliers = {"light": 0.5, "moderate": 1.0, "vigorous": 2.0}
+
+    rows_7d = conn.execute(
+        """SELECT duration_min, intensity FROM exercise_logs
+           WHERE user_id = ? AND exercise_date >= ?""",
+        (user_id, cutoff_7d),
+    ).fetchall()
+
+    rows_28d = conn.execute(
+        """SELECT duration_min, intensity FROM exercise_logs
+           WHERE user_id = ? AND exercise_date >= ?""",
+        (user_id, cutoff_28d),
+    ).fetchall()
+    conn.close()
+
+    acute_load = sum(
+        r["duration_min"] * intensity_multipliers.get(r["intensity"], 1.0)
+        for r in rows_7d
+    )
+    chronic_load = sum(
+        r["duration_min"] * intensity_multipliers.get(r["intensity"], 1.0)
+        for r in rows_28d
+    )
+
+    if chronic_load == 0:
+        return None
+
+    chronic_weekly = chronic_load / 4.0
+    acwr = round(acute_load / chronic_weekly, 2) if chronic_weekly > 0 else 0
+
+    if acwr < 0.8:
+        label = "underloading"
+    elif acwr <= 1.3:
+        label = "sweet spot"
+    else:
+        label = "spike risk"
+
+    return (
+        f"Training load: acute {acute_load:.0f} / chronic avg {chronic_weekly:.0f} per wk"
+        f" (ACWR {acwr:.2f} — {label})"
+    )
+
+
+def get_comprehensive_exercise_context(user_id):
+    """Build comprehensive exercise context for AI coach across all modalities.
+
+    Gathers context from exercise_service (general exercise stats + running),
+    cycling_service (if cycling profile exists), and strength PRs.
+    """
+    sections = []
+
+    # General exercise summary
+    summary = get_exercise_summary_for_coach(user_id)
+    if summary:
+        sections.append(f"=== EXERCISE OVERVIEW ===\n{summary}")
+
+    # Cycling context (if available)
+    try:
+        from services.cycling_service import get_cycling_coach_context, get_cycling_profile
+        profile = get_cycling_profile(user_id)
+        if profile:
+            cycling_ctx = get_cycling_coach_context(user_id)
+            if cycling_ctx:
+                sections.append(cycling_ctx)
+    except Exception:
+        pass
+
+    # Strength training context
+    try:
+        from services.exercise_prescription_service import get_strength_summary_for_coach
+        strength_ctx = get_strength_summary_for_coach(user_id)
+        if strength_ctx and "No strength training data" not in strength_ctx:
+            sections.append(f"=== STRENGTH TRAINING ===\n{strength_ctx}")
+    except Exception:
+        pass
+
+    # Recovery context
+    try:
+        from services.recovery_service import calculate_recovery_score
+        recovery = calculate_recovery_score(user_id)
+        if recovery:
+            zone = recovery["zone"]
+            comp_parts = []
+            for key, comp in recovery["components"].items():
+                comp_parts.append(f"{comp['label']}: {comp['score']}/100")
+            sections.append(
+                f"=== RECOVERY STATUS ===\n"
+                f"Score: {recovery['score']}/100 ({zone['label']} zone)\n"
+                f"Components: {' | '.join(comp_parts)}\n"
+                f"Recommendation: {zone['recommendation']}"
+            )
+    except Exception:
+        pass
+
+    if not sections:
+        return "No exercise data available for this user."
+
+    return "\n\n".join(sections)

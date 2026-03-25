@@ -52,6 +52,7 @@ else:
                 st.Page("pages/exercise_tracker.py", title="Exercise", icon=":material/fitness_center:"),
                 st.Page("pages/exercise_library.py", title="Exercise Library", icon=":material/menu_book:"),
                 st.Page("pages/exercise_prescription.py", title="Training Program", icon=":material/assignment:"),
+                st.Page("pages/running_training.py", title="Running Training", icon=":material/directions_run:"),
                 st.Page("pages/cycling_prescription.py", title="Cycling Training", icon=":material/directions_bike:"),
                 st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
                 st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),

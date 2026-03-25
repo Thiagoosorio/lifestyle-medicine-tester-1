@@ -388,3 +388,121 @@ def get_last_weight_for_exercise(user_id: int, exercise_id: str) -> float | None
         return row[0] if row else None
     finally:
         conn.close()
+
+
+# ── 1RM Estimation & Personal Records ─────────────────────────────────
+
+def estimate_1rm(weight_kg: float, reps: int) -> float:
+    """Estimate 1RM using the Epley formula: 1RM = weight * (1 + reps/30).
+
+    Reference: Epley (1985). Poundage Chart. *Boyd Epley Workout*.
+    """
+    if reps <= 0 or weight_kg <= 0:
+        return 0.0
+    if reps == 1:
+        return weight_kg
+    return round(weight_kg * (1 + reps / 30), 1)
+
+
+def get_personal_records(user_id: int) -> list[dict]:
+    """Get personal records (best estimated 1RM) for each exercise.
+
+    Queries all workout_sets, computes estimated 1RM for each set,
+    and returns the best for each exercise_id.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """SELECT exercise_id, exercise_name, workout_date,
+                      actual_reps, weight_kg
+               FROM workout_sets
+               WHERE user_id = ? AND weight_kg IS NOT NULL
+                     AND weight_kg > 0 AND actual_reps IS NOT NULL
+                     AND actual_reps > 0
+               ORDER BY exercise_id, workout_date""",
+            (user_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    # Track the best estimated 1RM per exercise
+    best: dict[str, dict] = {}
+    for r in rows:
+        r = dict(r)
+        e1rm = estimate_1rm(r["weight_kg"], r["actual_reps"])
+        eid = r["exercise_id"]
+        if eid not in best or e1rm > best[eid]["estimated_1rm"]:
+            best[eid] = {
+                "exercise_id": eid,
+                "exercise_name": r["exercise_name"],
+                "estimated_1rm": e1rm,
+                "weight_kg": r["weight_kg"],
+                "reps": r["actual_reps"],
+                "date": r["workout_date"],
+            }
+
+    return sorted(best.values(), key=lambda x: x["estimated_1rm"], reverse=True)
+
+
+def get_recent_prs(user_id: int, days: int = 14) -> list[dict]:
+    """Get PRs that were set within the last N days."""
+    all_prs = get_personal_records(user_id)
+    if not all_prs:
+        return []
+    cutoff = (date.today() - timedelta(days=days)).isoformat()
+    return [pr for pr in all_prs if pr["date"] >= cutoff]
+
+
+def get_strength_summary_for_coach(user_id: int) -> str:
+    """Build strength training context for AI coach.
+
+    Includes active program info, recent workout count, recent PRs,
+    and current mesocycle week.
+    """
+    parts: list[str] = []
+
+    # Active PPL program info
+    program = get_saved_program(user_id)
+    if program:
+        level = program.get("level", "unknown")
+        schedule = program.get("schedule_info", {}).get("label", "unknown")
+        meso_label = program.get("mesocycle", {}).get("label", "")
+        parts.append(f"Active program: {meso_label} ({level}, {schedule})")
+
+        # Determine current mesocycle week based on recent workout dates
+        recent = get_recent_workouts(user_id, limit=1)
+        if recent:
+            last_week = recent[0].get("week_number", 1)
+            total_weeks = program.get("mesocycle", {}).get("weeks", "?")
+            parts.append(f"Current mesocycle week: {last_week}/{total_weeks}")
+
+    # Recent workout count
+    recent_workouts = get_recent_workouts(user_id, limit=20)
+    cutoff_14d = (date.today() - timedelta(days=14)).isoformat()
+    recent_count = sum(
+        1 for w in recent_workouts if w.get("workout_date", "") >= cutoff_14d
+    )
+    parts.append(f"Workouts last 14 days: {recent_count}")
+
+    # Recent PRs
+    recent_prs = get_recent_prs(user_id, days=14)
+    if recent_prs:
+        pr_strs = [
+            f"{pr['exercise_name']} {pr['estimated_1rm']:.0f}kg e1RM"
+            for pr in recent_prs[:5]
+        ]
+        parts.append(f"Recent PRs: {', '.join(pr_strs)}")
+
+    # Top lifetime PRs (for context)
+    all_prs = get_personal_records(user_id)
+    if all_prs:
+        top_strs = [
+            f"{pr['exercise_name']} {pr['estimated_1rm']:.0f}kg"
+            for pr in all_prs[:5]
+        ]
+        parts.append(f"Top lifts (e1RM): {', '.join(top_strs)}")
+
+    if not parts:
+        return "No strength training data available."
+
+    return " | ".join(parts)
