@@ -28,6 +28,7 @@ from services.evidence_refresh_service import (
 )
 from services.evidence_quality_service import (
     contradiction_watchlist_for_display,
+    protocol_evidence_confidence,
     sort_guideline_first,
 )
 from services.protocol_service import (
@@ -361,10 +362,21 @@ with tab_protocols:
             # Get linked evidence
             linked_evidence = get_evidence_for_entity("protocol", proto["id"])
             evidence_count_html = ""
+            confidence_html = ""
+            confidence = protocol_evidence_confidence(linked_evidence)
             if linked_evidence:
                 evidence_count_html = (
                     f'<span style="font-size:11px;color:{A["blue"]};margin-left:8px">'
                     f'&#128218; {len(linked_evidence)} studies</span>'
+                )
+                confidence_html = (
+                    f'<span style="font-size:11px;color:{confidence["color"]};margin-left:8px;'
+                    f'font-weight:700">Confidence {confidence["score"]}/100 ({confidence["label"]})</span>'
+                )
+            else:
+                confidence_html = (
+                    f'<span style="font-size:11px;color:{A["orange"]};margin-left:8px;">'
+                    f'Confidence pending evidence links</span>'
                 )
 
             card_html = (
@@ -377,7 +389,7 @@ with tab_protocols:
                 f'color:{A["label_primary"]}">{proto["name"]}{status_badge}</div>'
                 f'<div style="font-size:11px;color:{pillar_color};font-weight:600;'
                 f'text-transform:uppercase;letter-spacing:0.06em;margin-top:4px">'
-                f'{pillar_name} &middot; {difficulty_stars}{evidence_count_html}</div>'
+                f'{pillar_name} &middot; {difficulty_stars}{evidence_count_html}{confidence_html}</div>'
                 f'</div>'
                 f'<div style="font-size:12px;color:{A["label_tertiary"]}">'
                 f'{timing_html}{duration_html}</div>'
@@ -395,6 +407,16 @@ with tab_protocols:
                     st.markdown(f"**Expected Benefit:** {proto['expected_benefit']}")
                 if proto.get("contraindications"):
                     st.warning(f"**Contraindications:** {proto['contraindications']}")
+
+                st.caption(
+                    f"Evidence confidence: {confidence['score']}/100 ({confidence['label']}) - "
+                    f"{confidence['summary']}"
+                )
+                if confidence.get("contradictions", 0) > 0:
+                    st.warning(
+                        "Contradiction signal detected in linked studies. "
+                        "Review newer and older findings before strict protocol enforcement."
+                    )
 
                 # Show linked evidence
                 if linked_evidence:

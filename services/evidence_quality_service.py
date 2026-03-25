@@ -240,3 +240,57 @@ def contradiction_watchlist_for_display(
         max_results=max_results * 2,
     )
     return [item for item in items if item["confidence"] >= min_confidence][:max_results]
+
+
+def protocol_evidence_confidence(
+    evidence_rows: list[dict],
+    reference_year: int | None = None,
+) -> dict:
+    """Compute confidence score/label for a protocol's linked evidence."""
+    if reference_year is None:
+        reference_year = date.today().year
+
+    rows = list(evidence_rows or [])
+    if not rows:
+        return {
+            "score": 0,
+            "label": "Insufficient",
+            "color": "#FF9F0A",
+            "study_count": 0,
+            "contradictions": 0,
+            "summary": "No linked studies yet.",
+        }
+
+    base_scores = [guideline_priority_score(ev, reference_year=reference_year) for ev in rows]
+    avg_score = sum(base_scores) / len(base_scores) if base_scores else 0
+    normalized = max(0, min(100, int(round(avg_score))))
+
+    # Quantity bonus (saturates quickly to avoid overrewarding volume).
+    quantity_bonus = min(12, int(len(rows) * 2.0))
+    score_with_volume = min(100, normalized + quantity_bonus)
+
+    contradiction_count = len(detect_evidence_contradictions(rows, min_year_gap=1, max_results=50))
+    penalty = min(18, contradiction_count * 6)
+    final_score = max(0, score_with_volume - penalty)
+
+    if final_score >= 80:
+        label, color = "High", "#34C759"
+    elif final_score >= 60:
+        label, color = "Moderate", "#64D2FF"
+    elif final_score >= 40:
+        label, color = "Caution", "#FF9F0A"
+    else:
+        label, color = "Low", "#FF453A"
+
+    summary = (
+        f"{len(rows)} linked studies; "
+        f"{'no' if contradiction_count == 0 else contradiction_count} contradiction signal(s)."
+    )
+    return {
+        "score": final_score,
+        "label": label,
+        "color": color,
+        "study_count": len(rows),
+        "contradictions": contradiction_count,
+        "summary": summary,
+    }

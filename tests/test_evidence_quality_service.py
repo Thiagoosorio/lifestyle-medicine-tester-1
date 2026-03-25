@@ -2,6 +2,7 @@ from services.evidence_quality_service import (
     contradiction_watchlist_for_display,
     detect_evidence_contradictions,
     guideline_priority_score,
+    protocol_evidence_confidence,
     sort_guideline_first,
 )
 
@@ -106,3 +107,50 @@ def test_contradiction_watchlist_filters_by_confidence():
     ]
     watchlist = contradiction_watchlist_for_display(rows, min_confidence=8, max_results=5)
     assert len(watchlist) == 1
+
+
+def test_protocol_evidence_confidence_returns_insufficient_without_studies():
+    result = protocol_evidence_confidence([])
+    assert result["label"] == "Insufficient"
+    assert result["score"] == 0
+
+
+def test_protocol_evidence_confidence_penalizes_contradictions():
+    coherent = [
+        {
+            "title": "Guideline",
+            "summary": "Guideline recommends intervention and shows reduced risk.",
+            "key_finding": "Reduced risk.",
+            "tags": "bp,hypertension",
+            "study_type": "guideline",
+            "evidence_grade": "A",
+            "journal_tier": "elite",
+            "year": 2025,
+        },
+        {
+            "title": "Meta-analysis",
+            "summary": "Intervention reduced risk.",
+            "key_finding": "Improved outcomes.",
+            "tags": "bp,hypertension",
+            "study_type": "meta_analysis",
+            "evidence_grade": "A",
+            "journal_tier": "q1",
+            "year": 2024,
+        },
+    ]
+    contradictory = coherent + [
+        {
+            "title": "New trial",
+            "summary": "No effect on risk reduction.",
+            "key_finding": "Did not improve outcomes.",
+            "tags": "bp,hypertension",
+            "study_type": "rct",
+            "evidence_grade": "B",
+            "journal_tier": "q1",
+            "year": 2026,
+        }
+    ]
+
+    score_coherent = protocol_evidence_confidence(coherent, reference_year=2026)["score"]
+    score_contradictory = protocol_evidence_confidence(contradictory, reference_year=2026)["score"]
+    assert score_contradictory < score_coherent
