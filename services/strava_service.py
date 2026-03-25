@@ -10,7 +10,7 @@ Requires environment variables or st.secrets:
 
 import os
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlencode
 from db.database import get_connection
 from config.exercise_data import (
@@ -55,6 +55,14 @@ def _get_client_secret():
 def is_strava_configured():
     """Check if Strava client credentials are available."""
     return bool(_get_client_id() and _get_client_secret())
+
+
+def _days_ago_unix_timestamp(days: int) -> int:
+    """Return a cross-platform Unix timestamp for midnight UTC `days` ago."""
+    safe_days = max(0, int(days))
+    target_day = date.today() - timedelta(days=safe_days)
+    target_dt = datetime(target_day.year, target_day.month, target_day.day, tzinfo=timezone.utc)
+    return int(target_dt.timestamp())
 
 
 # ---------------------------------------------------------------------------
@@ -224,7 +232,7 @@ def import_strava_activities(user_id, days=30):
     if not token:
         raise ValueError("No valid Strava token. Please reconnect.")
 
-    after_ts = int((date.today() - timedelta(days=days)).strftime("%s"))
+    after_ts = _days_ago_unix_timestamp(days)
 
     headers = {"Authorization": f"Bearer {token}"}
     imported = 0

@@ -1,10 +1,11 @@
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import streamlit as st
-from db.database import init_db
 from config.env_flags import is_demo_mode
+from db.database import get_connection, init_db
 
 st.set_page_config(
     page_title="Lifestyle Medicine Coach",
@@ -13,18 +14,35 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Initialize database on first run
-init_db()
+LOGGER = logging.getLogger(__name__)
 
-# Auto-seed demo account only when explicitly enabled.
-if is_demo_mode():
-    from db.database import get_connection as _get_conn
-    _c = _get_conn()
-    _demo_exists = _c.execute("SELECT id FROM users WHERE username = 'maria.silva'").fetchone()
-    _c.close()
-    if not _demo_exists:
-        from seed_demo import main as _seed_demo
-        _seed_demo()
+
+@st.cache_resource(show_spinner=False)
+def _bootstrap_app_data() -> bool:
+    """Initialize DB schema/migrations once per server process."""
+    init_db()
+
+    if not is_demo_mode():
+        return True
+
+    conn = get_connection()
+    try:
+        demo_exists = conn.execute(
+            "SELECT id FROM users WHERE username = ?",
+            ("maria.silva",),
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if not demo_exists:
+        from seed_demo import main as seed_demo_main
+
+        seed_demo_main()
+        LOGGER.info("Seeded demo account for DEMO_MODE session")
+    return True
+
+
+_bootstrap_app_data()
 
 # Inject Apple Design System + Tailwind utility CSS
 from components.custom_theme import inject_custom_css

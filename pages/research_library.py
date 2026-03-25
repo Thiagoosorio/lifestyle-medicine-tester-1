@@ -1,5 +1,7 @@
 """Research Library — Browse, search, and explore the evidence behind every recommendation."""
 
+from datetime import date
+
 import streamlit as st
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
 from components.evidence_display import (
@@ -17,6 +19,16 @@ from services.evidence_service import (
     get_evidence_stats,
     get_evidence_for_entity,
     get_evidence_for_domain,
+)
+from services.evidence_refresh_service import (
+    get_latest_auto_evidence,
+    refresh_recent_evidence_for_all_pillars,
+    refresh_recent_evidence_for_pillar,
+    score_evidence_priority,
+)
+from services.evidence_quality_service import (
+    contradiction_watchlist_for_display,
+    sort_guideline_first,
 )
 from services.protocol_service import (
     get_all_protocols,
@@ -42,8 +54,13 @@ st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 # ══════════════════════════════════════════════════════════════════════════
 # TABS
 # ══════════════════════════════════════════════════════════════════════════
-tab_browse, tab_domain, tab_search, tab_hierarchy, tab_protocols = st.tabs([
-    "Browse by Pillar", "Browse by Domain", "Search", "Evidence Hierarchy", "Protocol Library"
+tab_browse, tab_domain, tab_search, tab_latest, tab_hierarchy, tab_protocols = st.tabs([
+    "Browse by Pillar",
+    "Browse by Domain",
+    "Search",
+    "Latest & Best",
+    "Evidence Hierarchy",
+    "Protocol Library",
 ])
 
 # ── Tab 1: Browse by Pillar ───────────────────────────────────────────────
@@ -115,6 +132,113 @@ with tab_search:
         st.caption("Enter a keyword to search across titles, summaries, findings, and tags.")
 
 # ── Tab 3: Evidence Hierarchy ─────────────────────────────────────────────
+with tab_latest:
+    render_section_header(
+        "Latest & Best Evidence",
+        "Refresh recent PubMed studies and rank the strongest, most current evidence.",
+    )
+
+    _pillar_labels = ["All Pillars"] + [PILLARS[pid]["display_name"] for pid in sorted(PILLARS.keys())]
+    _c1, _c2, _c3 = st.columns([2, 1, 1])
+    with _c1:
+        _selected_latest_pillar = st.selectbox("Pillar Scope", _pillar_labels, key="latest_pillar_scope")
+    with _c2:
+        _years_back = st.slider("Years Back", min_value=1, max_value=5, value=2, key="latest_years_back")
+    with _c3:
+        _retmax = st.slider("Per-Pillar Pull", min_value=5, max_value=30, value=10, step=5, key="latest_retmax")
+    _f1, _f2 = st.columns(2)
+    with _f1:
+        _guideline_first = st.toggle(
+            "Guideline-First Mode",
+            value=True,
+            help="Prioritize guidelines/consensus and authoritative bodies before other evidence.",
+            key="latest_guideline_first",
+        )
+    with _f2:
+        _show_contradictions = st.toggle(
+            "Show Contradiction Watchlist",
+            value=True,
+            help="Flag topics where newer and older evidence disagree.",
+            key="latest_contradictions",
+        )
+
+    _latest_pid = None
+    if _selected_latest_pillar != "All Pillars":
+        _latest_pid = next(pid for pid, p in PILLARS.items() if p["display_name"] == _selected_latest_pillar)
+
+    if st.button("Refresh from PubMed", use_container_width=True, key="refresh_pubmed_evidence"):
+        with st.spinner("Refreshing evidence from PubMed..."):
+            try:
+                if _latest_pid is None:
+                    _result = refresh_recent_evidence_for_all_pillars(
+                        years_back=_years_back,
+                        retmax_per_pillar=_retmax,
+                    )
+                    st.success(
+                        f"Fetched {_result['fetched']} studies | "
+                        f"inserted {_result['inserted']} | updated {_result['updated']} | skipped {_result['skipped']}."
+                    )
+                else:
+                    _result = refresh_recent_evidence_for_pillar(
+                        _latest_pid,
+                        years_back=_years_back,
+                        retmax=_retmax,
+                    )
+                    st.success(
+                        f"Pillar refresh complete: fetched {_result['fetched']} | "
+                        f"inserted {_result['inserted']} | updated {_result['updated']} | skipped {_result['skipped']}."
+                    )
+            except Exception as exc:
+                st.error(f"PubMed refresh failed: {exc}")
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+    render_section_header("Newest Auto-Imported Studies", "Latest entries pulled via PubMed API")
+    _auto_rows = get_latest_auto_evidence(limit=25, pillar_id=_latest_pid)
+    if _auto_rows:
+        for _ev in _auto_rows:
+            render_evidence_card(_ev)
+    else:
+        st.caption("No auto-imported studies yet. Use 'Refresh from PubMed' to pull the latest evidence.")
+
+    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+    render_section_header("Best Available This Period", "Quality + recency ranked view")
+    _all_rows = get_all_evidence()
+    if _latest_pid is not None:
+        _all_rows = [e for e in _all_rows if e.get("pillar_id") == _latest_pid]
+    _cutoff_year = date.today().year - _years_back
+    _all_rows = [e for e in _all_rows if isinstance(e.get("year"), int) and e["year"] >= _cutoff_year]
+    if _guideline_first:
+        _all_rows = sort_guideline_first(_all_rows, reference_year=date.today().year)
+    else:
+        _all_rows.sort(key=lambda e: score_evidence_priority(e), reverse=True)
+    if _all_rows:
+        _ranking_mode = "Guideline-first" if _guideline_first else "Quality + recency"
+        st.caption(f"Top {min(20, len(_all_rows))} ranked studies since {_cutoff_year} ({_ranking_mode})")
+        for _ev in _all_rows[:20]:
+            render_evidence_card(_ev)
+    else:
+        st.caption("No studies available for the selected time window.")
+
+    if _show_contradictions:
+        st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+        render_section_header("Contradiction Watchlist", "Potential evidence conflicts to review clinically")
+        _watchlist = contradiction_watchlist_for_display(_all_rows, min_confidence=8, max_results=8)
+        if not _watchlist:
+            st.caption("No high-confidence contradictions detected for this filter.")
+        else:
+            for _item in _watchlist:
+                _newer = _item["newer"]
+                _older = _item["older"]
+                _tags = ", ".join(_item["topic_tags"][:4]) if _item["topic_tags"] else "topic overlap"
+                _msg = (
+                    f"**{_tags}** - {_item['summary']}  \n"
+                    f"Newer: {_newer.get('title', 'N/A')} ({_newer.get('year', 'N/A')}) | "
+                    f"Grade {_newer.get('evidence_grade', '?')}  \n"
+                    f"Older: {_older.get('title', 'N/A')} ({_older.get('year', 'N/A')}) | "
+                    f"Grade {_older.get('evidence_grade', '?')}"
+                )
+                st.warning(_msg)
+
 with tab_hierarchy:
     render_evidence_pyramid()
 

@@ -1,12 +1,19 @@
 import random
+from datetime import date as _date, timedelta as _td
+
 import streamlit as st
 import plotly.graph_objects as go
 from config.settings import PILLARS, MOTIVATIONAL_QUOTES, get_score_label, get_score_color
-from services.wheel_service import get_current_wheel, get_total_score, get_score_summary
+from services.wheel_service import get_current_wheel, get_stages, get_total_score, get_score_summary
 from components.wheel_chart import create_wheel_chart
 from components.custom_theme import APPLE, render_hero_stats, render_hero_banner, render_section_header
 from services.nudge_engine import get_active_nudges
 from services.coin_service import get_coin_balance, award_daily_coins
+from services.dashboard_experience_service import (
+    build_focus_mission,
+    compute_readiness,
+    get_streak_badge,
+)
 from db.database import get_connection
 from services.sleep_service import get_sleep_history as _get_sleep_hist
 from services.recovery_service import calculate_recovery_score as _calc_recovery
@@ -25,7 +32,6 @@ render_hero_banner(f"Welcome back, {display_name}!", quote)
 
 
 # ── Future Self Letter Delivery ─────────────────────────────────────────────
-from datetime import date as _date
 _today_str = _date.today().isoformat()
 _conn_letters = get_connection()
 try:
@@ -95,8 +101,8 @@ else:
             "SELECT COUNT(*) as cnt FROM goals WHERE user_id = ? AND status = 'active'", (user_id,)
         ).fetchone()["cnt"]
 
-        from datetime import date
-        today = date.today().isoformat()
+        _today_date = _date.today()
+        today = _today_date.isoformat()
         habits_total = conn.execute(
             "SELECT COUNT(*) as cnt FROM habits WHERE user_id = ? AND is_active = 1", (user_id,)
         ).fetchone()["cnt"]
@@ -109,15 +115,19 @@ else:
             "SELECT DISTINCT checkin_date FROM daily_checkins WHERE user_id = ? ORDER BY checkin_date DESC",
             (user_id,),
         ).fetchall()
+        checkins_last7 = sum(
+            1
+            for row in checkin_dates
+            if row["checkin_date"] >= (_today_date - _td(days=6)).isoformat()
+        )
         streak = 0
         if checkin_dates:
-            from datetime import timedelta
-            expected = date.today()
+            expected = _today_date
             for row in checkin_dates:
-                d = date.fromisoformat(row["checkin_date"])
+                d = _date.fromisoformat(row["checkin_date"])
                 if d == expected:
                     streak += 1
-                    expected -= timedelta(days=1)
+                    expected -= _td(days=1)
                 elif d < expected:
                     break
     finally:
@@ -127,19 +137,23 @@ else:
 
     # ── Extra health stats ────────────────────────────────────────────────
     _sleep_val = "--"
+    _sleep_score = None
     try:
         _sl = _get_sleep_hist(user_id, days=1)
         if _sl:
-            _sleep_val = f"{_sl[0].get('sleep_score', 0)}/100"
+            _sleep_score = int(_sl[0].get("sleep_score", 0) or 0)
+            _sleep_val = f"{_sleep_score}/100"
     except Exception:
         pass
 
     _recovery_val = "--"
     _recovery_color = "#64D2FF"
+    _recovery_score = None
     try:
         _rec = _calc_recovery(user_id)
         if _rec:
-            _recovery_val = str(_rec["score"])
+            _recovery_score = int(_rec["score"])
+            _recovery_val = str(_recovery_score)
             _recovery_color = _rec["zone"]["color"]
     except Exception:
         pass
@@ -176,6 +190,115 @@ else:
     render_hero_stats(_hero_cards)
 
     st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
+
+    readiness = compute_readiness(
+        sleep_score=_sleep_score,
+        recovery_score=_recovery_score,
+        habits_done=habits_done,
+        habits_total=habits_total,
+        checkins_last7=checkins_last7,
+    )
+    focus_mission = build_focus_mission(scores, stages=get_stages(user_id))
+    streak_badge = get_streak_badge(streak)
+
+    st.divider()
+    render_section_header(
+        "Daily Command Center",
+        "Readiness score, focus mission, and one-tap tracking inspired by top apps.",
+    )
+
+    _quick_cols = st.columns(5)
+    with _quick_cols[0]:
+        if st.button("Log Exercise", use_container_width=True, key="quick_exercise"):
+            st.switch_page("pages/exercise_tracker.py")
+    with _quick_cols[1]:
+        if st.button("Add Meal", use_container_width=True, key="quick_nutrition"):
+            st.switch_page("pages/nutrition_logger.py")
+    with _quick_cols[2]:
+        if st.button("Track Weight", use_container_width=True, key="quick_weight"):
+            st.switch_page("pages/body_metrics.py")
+    with _quick_cols[3]:
+        if st.button("Sleep Log", use_container_width=True, key="quick_sleep"):
+            st.switch_page("pages/sleep_tracker.py")
+    with _quick_cols[4]:
+        if st.button("Fast Timer", use_container_width=True, key="quick_fasting"):
+            st.switch_page("pages/fasting_tracker.py")
+
+    _cmd_col1, _cmd_col2 = st.columns([2, 3])
+
+    with _cmd_col1:
+        _readiness_fig = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=readiness["score"],
+                number={"suffix": "/100", "font": {"size": 34, "color": A["label_primary"]}},
+                gauge={
+                    "axis": {"range": [0, 100], "tickwidth": 0, "tickcolor": A["chart_text"]},
+                    "bar": {"color": readiness["color"], "thickness": 0.28},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 45], "color": "rgba(255,69,58,0.18)"},
+                        {"range": [45, 65], "color": "rgba(255,159,10,0.18)"},
+                        {"range": [65, 80], "color": "rgba(100,210,255,0.18)"},
+                        {"range": [80, 100], "color": "rgba(52,199,89,0.18)"},
+                    ],
+                },
+            )
+        )
+        _readiness_fig.update_layout(
+            height=230,
+            margin=dict(t=12, b=12, l=12, r=12),
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color=A["chart_text"]),
+        )
+        st.plotly_chart(_readiness_fig, use_container_width=True, key="readiness_gauge")
+        st.caption(f"**{readiness['zone']}** - {readiness['summary']}")
+        for _component in readiness["components"]:
+            st.caption(f"{_component['name']}: {_component['score']}/100")
+
+    with _cmd_col2:
+        _mission_html = (
+            f'<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.08);'
+            f'border-left:4px solid {focus_mission["pillar_color"]};'
+            f'border-radius:{A["radius_xl"]};padding:16px;margin-bottom:12px">'
+            f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;'
+            f'color:{focus_mission["pillar_color"]};margin-bottom:6px">Focus Pillar</div>'
+            f'<div style="font-family:{A["font_display"]};font-size:19px;line-height:24px;font-weight:700;'
+            f'color:{A["label_primary"]}">{focus_mission["pillar_name"]}: {focus_mission["title"]}</div>'
+            f'<div style="font-size:13px;line-height:18px;color:{A["label_secondary"]};margin-top:6px">'
+            f'Current wheel score: {focus_mission["pillar_score"]}/10</div>'
+            f'</div>'
+        )
+        st.markdown(_mission_html, unsafe_allow_html=True)
+
+        _mission_key_prefix = f"focus_{today}_{focus_mission['pillar_id']}"
+        _mission_keys = []
+        for _idx, _action in enumerate(focus_mission["actions"]):
+            _k = f"{_mission_key_prefix}_{_idx}"
+            _mission_keys.append(_k)
+            st.checkbox(_action, key=_k)
+
+        _done_actions = sum(1 for _k in _mission_keys if st.session_state.get(_k))
+        _total_actions = len(_mission_keys)
+        st.progress((_done_actions / _total_actions) if _total_actions else 0)
+        st.caption(f"{_done_actions}/{_total_actions} mission actions complete")
+        st.caption(f"Streak badge: {streak_badge['emoji']} {streak_badge['label']}")
+        if focus_mission.get("stage_note"):
+            st.caption(focus_mission["stage_note"])
+
+        _mission_done_key = f"focus_done_{today}_{focus_mission['pillar_id']}"
+        if _total_actions and _done_actions == _total_actions:
+            if not st.session_state.get(_mission_done_key):
+                st.session_state[_mission_done_key] = True
+                st.toast("Mission complete. Momentum protected for today.")
+        else:
+            st.session_state[_mission_done_key] = False
+
+        if st.button(focus_mission["cta_label"], use_container_width=True, key="focus_cta"):
+            st.switch_page(focus_mission["cta_page"])
+
+    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
     # ── Today's Protocols Checklist ────────────────────────────────────────
     from services.protocol_service import get_daily_protocol_status, log_protocol_completion
@@ -247,8 +370,7 @@ else:
     st.divider()
     render_section_header("14-Day Snapshot", "Mood, energy & habit trends")
 
-    from datetime import timedelta as _td
-    _spark_start = (date.today() - _td(days=13)).isoformat()
+    _spark_start = (_date.today() - _td(days=13)).isoformat()
     conn = get_connection()
     try:
         _spark_rows = conn.execute(
@@ -257,7 +379,7 @@ else:
         ).fetchall()
         _habit_rates = []
         for i in range(14):
-            _d = (date.today() - _td(days=13 - i)).isoformat()
+            _d = (_date.today() - _td(days=13 - i)).isoformat()
             _htotal = conn.execute(
                 "SELECT COUNT(*) as c FROM habits WHERE user_id = ? AND is_active = 1", (user_id,)
             ).fetchone()["c"]

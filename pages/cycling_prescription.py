@@ -23,38 +23,65 @@ from config.cycling_data import (
     ATHLETE_TYPES,
     WATT_KG_CATEGORIES,
 )
-from services.cycling_service import (
-    get_cycling_profile,
-    save_cycling_profile,
-    get_zones,
-    calculate_if,
-    calculate_tss,
-    estimate_np,
-    log_ride,
-    get_ride_history,
-    get_pmc_data,
-    get_progression_levels,
-    update_progression_levels,
-    generate_training_plan,
-    save_training_plan,
-    get_active_plan,
-    get_this_week_workouts,
-    complete_workout,
-    reschedule_workout,
-    suggest_todays_workout,
-    calculate_weekly_tss,
-    get_adaptive_suggestions,
-    get_wkg,
-    get_wkg_category,
-    get_power_bests,
-    get_power_curve_data,
-    calculate_ftp_from_test,
-)
 from db.database import get_connection
 import plotly.graph_objects as go
 
 A = APPLE
 user_id = st.session_state.user_id
+
+_CYCLING_IMPORT_ERROR = None
+try:
+    import services.cycling_service as _cycling_service
+except Exception as exc:
+    _cycling_service = None
+    _CYCLING_IMPORT_ERROR = exc
+
+
+def _resolve_cycling_fn(name):
+    if _cycling_service is not None and hasattr(_cycling_service, name):
+        return getattr(_cycling_service, name)
+
+    def _missing(*args, **kwargs):
+        raise RuntimeError(
+            f"Cycling service function unavailable: {name}. "
+            f"Underlying import error: {_CYCLING_IMPORT_ERROR}"
+        )
+
+    return _missing
+
+
+get_cycling_profile = _resolve_cycling_fn("get_cycling_profile")
+save_cycling_profile = _resolve_cycling_fn("save_cycling_profile")
+get_zones = _resolve_cycling_fn("get_zones")
+calculate_if = _resolve_cycling_fn("calculate_if")
+calculate_tss = _resolve_cycling_fn("calculate_tss")
+estimate_np = _resolve_cycling_fn("estimate_np")
+log_ride = _resolve_cycling_fn("log_ride")
+get_ride_history = _resolve_cycling_fn("get_ride_history")
+get_pmc_data = _resolve_cycling_fn("get_pmc_data")
+get_progression_levels = _resolve_cycling_fn("get_progression_levels")
+update_progression_levels = _resolve_cycling_fn("update_progression_levels")
+generate_training_plan = _resolve_cycling_fn("generate_training_plan")
+save_training_plan = _resolve_cycling_fn("save_training_plan")
+get_active_plan = _resolve_cycling_fn("get_active_plan")
+get_this_week_workouts = _resolve_cycling_fn("get_this_week_workouts")
+complete_workout = _resolve_cycling_fn("complete_workout")
+reschedule_workout = _resolve_cycling_fn("reschedule_workout")
+suggest_todays_workout = _resolve_cycling_fn("suggest_todays_workout")
+calculate_weekly_tss = _resolve_cycling_fn("calculate_weekly_tss")
+get_adaptive_suggestions = _resolve_cycling_fn("get_adaptive_suggestions")
+get_wkg = _resolve_cycling_fn("get_wkg")
+get_wkg_category = _resolve_cycling_fn("get_wkg_category")
+get_power_bests = _resolve_cycling_fn("get_power_bests")
+get_power_curve_data = _resolve_cycling_fn("get_power_curve_data")
+calculate_ftp_from_test = _resolve_cycling_fn("calculate_ftp_from_test")
+
+if _CYCLING_IMPORT_ERROR is not None:
+    st.error(
+        "Cycling module failed to load. Please update to the latest version or check server logs."
+    )
+    st.code(str(_CYCLING_IMPORT_ERROR))
+    st.stop()
 
 render_hero_banner(
     "Cycling Training",
