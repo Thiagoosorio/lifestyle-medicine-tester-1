@@ -19,6 +19,11 @@ from services.protocol_service import (
     is_protocol_adopted,
 )
 from services.evidence_service import get_evidence_for_entity
+from services.evidence_quality_service import (
+    evidence_expiry_signal,
+    protocol_evidence_confidence,
+    recommendation_audit_trail,
+)
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -220,10 +225,39 @@ for up in user_protocols:
 
         # Linked evidence
         linked = get_evidence_for_entity("protocol", up["protocol_id"])
+        confidence = protocol_evidence_confidence(linked)
+        expiry = evidence_expiry_signal(linked)
+        audit = recommendation_audit_trail(linked, top_n=3)
+
+        conf_html = (
+            f'<div style="font-size:12px;color:{confidence["color"]};font-weight:700;'
+            f'margin-top:6px">Evidence confidence: {confidence["score"]}/100 ({confidence["label"]})</div>'
+        )
+        st.markdown(conf_html, unsafe_allow_html=True)
+        st.caption(confidence["summary"])
+
+        expiry_html = (
+            f'<div style="font-size:12px;color:{expiry["color"]};font-weight:600;'
+            f'margin-top:2px">Evidence freshness: {expiry["status"].upper()}</div>'
+        )
+        st.markdown(expiry_html, unsafe_allow_html=True)
+        st.caption(expiry["summary"])
+        if expiry["status"] in {"stale", "expired"}:
+            st.warning("This protocol's supporting evidence may be outdated. Re-check latest studies.")
+
         if linked:
             st.markdown("**Supporting Research:**")
             for ev in linked:
                 render_evidence_card(ev, show_details=False)
+
+        if audit:
+            st.markdown("**Recommendation Audit Trail (Top Drivers):**")
+            for item in audit:
+                reasons = ", ".join(item["reasons"])
+                line = (
+                    f"- {item['title']} ({item.get('year', 'N/A')}) | score {item['score']} | {reasons}"
+                )
+                st.markdown(line)
 
         col_pause, col_abandon = st.columns(2)
         with col_pause:

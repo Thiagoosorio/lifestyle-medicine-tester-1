@@ -294,3 +294,99 @@ def protocol_evidence_confidence(
         "contradictions": contradiction_count,
         "summary": summary,
     }
+
+
+def evidence_expiry_signal(
+    evidence_rows: list[dict],
+    reference_year: int | None = None,
+) -> dict:
+    """Assess whether a recommendation's supporting evidence is becoming stale."""
+    if reference_year is None:
+        reference_year = date.today().year
+
+    years = [ev.get("year") for ev in (evidence_rows or []) if isinstance(ev.get("year"), int)]
+    if not years:
+        return {
+            "status": "unknown",
+            "color": "#FF9F0A",
+            "newest_year": None,
+            "age_years": None,
+            "summary": "No dated evidence available.",
+        }
+
+    newest = max(years)
+    age = max(0, reference_year - newest)
+
+    if age <= 2:
+        status, color = "fresh", "#34C759"
+    elif age <= 4:
+        status, color = "monitor", "#FF9F0A"
+    elif age <= 6:
+        status, color = "stale", "#FF453A"
+    else:
+        status, color = "expired", "#B00020"
+
+    if status == "fresh":
+        summary = f"Evidence base is current (latest {newest})."
+    elif status == "monitor":
+        summary = f"Latest evidence is {age} years old ({newest}); monitor for updates."
+    elif status == "stale":
+        summary = f"Latest evidence is {age} years old ({newest}); refresh recommended."
+    else:
+        summary = f"Latest evidence is {age}+ years old ({newest}); urgent refresh advised."
+
+    return {
+        "status": status,
+        "color": color,
+        "newest_year": newest,
+        "age_years": age,
+        "summary": summary,
+    }
+
+
+def recommendation_audit_trail(
+    evidence_rows: list[dict],
+    top_n: int = 5,
+    reference_year: int | None = None,
+) -> list[dict]:
+    """Build a transparent ranking trail for protocol recommendation evidence."""
+    if reference_year is None:
+        reference_year = date.today().year
+
+    ranked = sort_guideline_first(evidence_rows or [], reference_year=reference_year)
+    trail = []
+    for ev in ranked[: max(1, top_n)]:
+        reasons = []
+        grade = str(ev.get("evidence_grade", "")).upper() or "?"
+        study_type = str(ev.get("study_type", "unknown")).replace("_", " ").title()
+        year = ev.get("year")
+        tier = str(ev.get("journal_tier", "")).upper() or "N/A"
+
+        reasons.append(f"Grade {grade}")
+        reasons.append(study_type)
+        if tier != "N/A":
+            reasons.append(f"Journal {tier}")
+        if isinstance(year, int):
+            age = max(0, reference_year - year)
+            if age <= 2:
+                reasons.append("Recent")
+            elif age >= 5:
+                reasons.append("Older evidence")
+        text = _as_text(ev)
+        if any(term in text for term in _GUIDELINE_TERMS) or str(ev.get("study_type", "")).lower() == "guideline":
+            reasons.append("Guideline signal")
+
+        trail.append(
+            {
+                "title": ev.get("title", "Untitled"),
+                "pmid": ev.get("pmid"),
+                "year": year,
+                "score": guideline_priority_score(ev, reference_year=reference_year),
+                "reasons": reasons,
+                "evidence_grade": grade,
+                "study_type": ev.get("study_type"),
+                "journal_tier": ev.get("journal_tier"),
+                "url": ev.get("url"),
+            }
+        )
+    return trail

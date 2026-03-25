@@ -1,8 +1,10 @@
 from services.evidence_quality_service import (
+    evidence_expiry_signal,
     contradiction_watchlist_for_display,
     detect_evidence_contradictions,
     guideline_priority_score,
     protocol_evidence_confidence,
+    recommendation_audit_trail,
     sort_guideline_first,
 )
 
@@ -154,3 +156,44 @@ def test_protocol_evidence_confidence_penalizes_contradictions():
     score_coherent = protocol_evidence_confidence(coherent, reference_year=2026)["score"]
     score_contradictory = protocol_evidence_confidence(contradictory, reference_year=2026)["score"]
     assert score_contradictory < score_coherent
+
+
+def test_evidence_expiry_signal_classifies_fresh_and_stale():
+    fresh_rows = [{"year": 2025}, {"year": 2024}]
+    stale_rows = [{"year": 2018}, {"year": 2016}]
+
+    fresh = evidence_expiry_signal(fresh_rows, reference_year=2026)
+    stale = evidence_expiry_signal(stale_rows, reference_year=2026)
+
+    assert fresh["status"] == "fresh"
+    assert stale["status"] in {"stale", "expired"}
+
+
+def test_recommendation_audit_trail_returns_ranked_reasons():
+    rows = [
+        {
+            "title": "AHA Guideline",
+            "summary": "Clinical practice guideline recommendation.",
+            "key_finding": "Reduced risk.",
+            "study_type": "guideline",
+            "evidence_grade": "A",
+            "journal_tier": "elite",
+            "year": 2025,
+            "pmid": "123",
+            "url": "https://pubmed.ncbi.nlm.nih.gov/123/",
+        },
+        {
+            "title": "Older cohort",
+            "summary": "Associated with lower risk.",
+            "key_finding": "Benefit observed.",
+            "study_type": "cohort",
+            "evidence_grade": "C",
+            "journal_tier": "q2",
+            "year": 2017,
+            "pmid": "456",
+        },
+    ]
+    trail = recommendation_audit_trail(rows, top_n=2, reference_year=2026)
+    assert len(trail) == 2
+    assert trail[0]["title"] == "AHA Guideline"
+    assert any("Guideline signal" in reason for reason in trail[0]["reasons"])
