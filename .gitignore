@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 *.db
 .streamlit/secrets.toml
+reports/quality_loop/
