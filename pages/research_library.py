@@ -41,6 +41,15 @@ from services.protocol_service import (
 A = APPLE
 user_id = st.session_state.user_id
 
+
+def _key_by_display_name(options: dict, display_name: str):
+    return next((key for key, item in options.items() if item.get("display_name") == display_name), None)
+
+
+def _key_by_label(options: dict, label: str):
+    return next((key for key, item in options.items() if item.get("label") == label), None)
+
+
 render_hero_banner(
     "Research Library",
     "Every recommendation backed by peer-reviewed science. Browse studies by pillar, search the evidence, or explore our protocol library."
@@ -82,8 +91,8 @@ with tab_browse:
     if selected_pillar == "All Pillars":
         evidences = get_all_evidence(grade=grade_filter)
     else:
-        pid = next(pid for pid, p in PILLARS.items() if p["display_name"] == selected_pillar)
-        evidences = get_evidence_for_pillar(pid, grade=grade_filter)
+        pid = _key_by_display_name(PILLARS, selected_pillar)
+        evidences = get_evidence_for_pillar(pid, grade=grade_filter) if pid is not None else []
 
     if not evidences:
         st.caption("No studies found for the selected filters.")
@@ -108,8 +117,8 @@ with tab_domain:
     if selected_domain == "All Domains":
         domain_evidences = get_all_evidence(grade=domain_grade_filter)
     else:
-        domain_key = next(k for k, v in RESEARCH_DOMAINS.items() if v["label"] == selected_domain)
-        domain_evidences = get_evidence_for_domain(domain_key, grade=domain_grade_filter)
+        domain_key = _key_by_label(RESEARCH_DOMAINS, selected_domain)
+        domain_evidences = get_evidence_for_domain(domain_key, grade=domain_grade_filter) if domain_key else []
 
     if not domain_evidences:
         st.caption("No studies found for the selected filters.")
@@ -165,7 +174,7 @@ with tab_latest:
 
     _latest_pid = None
     if _selected_latest_pillar != "All Pillars":
-        _latest_pid = next(pid for pid, p in PILLARS.items() if p["display_name"] == _selected_latest_pillar)
+        _latest_pid = _key_by_display_name(PILLARS, _selected_latest_pillar)
 
     if st.button("Refresh from PubMed", use_container_width=True, key="refresh_pubmed_evidence"):
         with st.spinner("Refreshing evidence from PubMed..."):
@@ -321,8 +330,11 @@ with tab_protocols:
     selected_proto_pillar = st.selectbox("Filter by Pillar", pillar_proto_options, key="proto_pillar")
 
     if selected_proto_pillar != "All Pillars":
-        pid = next(pid for pid, p in PILLARS.items() if p["display_name"] == selected_proto_pillar)
-        protocols = [p for p in protocols if p["pillar_id"] == pid]
+        pid = _key_by_display_name(PILLARS, selected_proto_pillar)
+        if pid is not None:
+            protocols = [p for p in protocols if p["pillar_id"] == pid]
+        else:
+            protocols = []
 
     if not protocols:
         st.caption("No protocols available for the selected pillar.")

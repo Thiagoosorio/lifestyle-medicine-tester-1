@@ -17,6 +17,10 @@ if "exercise_lib_muscle" not in st.session_state:
     st.session_state["exercise_lib_muscle"] = "All Muscles"
 
 
+def _key_by_label(options: dict, label: str):
+    return next((k for k, v in options.items() if v.get("label") == label), None)
+
+
 # ── Card Renderer (must be defined before use) ───────────────────────────────
 
 def _render_exercise_library_card(exercise):
@@ -169,16 +173,19 @@ if search_query:
     exercises = search_exercises(search_query)
 
 if muscle_filter != "All Muscles":
-    muscle_key = next(k for k, v in MUSCLE_GROUPS.items() if v["label"] == muscle_filter)
-    exercises = [e for e in exercises if e["muscle_group"] == muscle_key]
+    muscle_key = _key_by_label(MUSCLE_GROUPS, muscle_filter)
+    if muscle_key is not None:
+        exercises = [e for e in exercises if e["muscle_group"] == muscle_key]
 
 if equip_filter != "All Equipment":
-    equip_key = next(k for k, v in EQUIPMENT_TYPES.items() if v["label"] == equip_filter)
-    exercises = [e for e in exercises if e["equipment"] == equip_key]
+    equip_key = _key_by_label(EQUIPMENT_TYPES, equip_filter)
+    if equip_key is not None:
+        exercises = [e for e in exercises if e["equipment"] == equip_key]
 
 if diff_filter != "All Levels":
-    diff_key = next(k for k, v in DIFFICULTY_LEVELS.items() if v["label"] == diff_filter)
-    exercises = [e for e in exercises if e["difficulty"] == diff_key]
+    diff_key = _key_by_label(DIFFICULTY_LEVELS, diff_filter)
+    if diff_key is not None:
+        exercises = [e for e in exercises if e["difficulty"] == diff_key]
 
 # ── Results count + back button ───────────────────────────────────────────
 col_count, col_back = st.columns([4, 1])

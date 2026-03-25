@@ -17,9 +17,13 @@ with st.form("profile_form"):
     display_name = st.text_input("Display Name", value=user["display_name"] or "")
     email = st.text_input("Email", value=user["email"] or "")
     if st.form_submit_button("Update Profile"):
-        update_user(user_id, display_name=display_name, email=email)
-        st.session_state.display_name = display_name
-        st.success("Profile updated!")
+        try:
+            update_user(user_id, display_name=display_name, email=email)
+            refreshed_user = get_user(user_id) or user
+            st.session_state.display_name = refreshed_user.get("display_name") or st.session_state.display_name
+            st.success("Profile updated!")
+        except ValueError as exc:
+            st.error(str(exc))
 
 # ── Change Password ─────────────────────────────────────────────────────────
 st.divider()
@@ -28,18 +32,20 @@ with st.form("password_form"):
     current_pw = st.text_input("Current Password", type="password")
     new_pw = st.text_input("New Password", type="password")
     confirm_pw = st.text_input("Confirm New Password", type="password")
+    st.caption("Password must be at least 8 characters and include letters and numbers.")
     if st.form_submit_button("Change Password"):
         if not current_pw or not new_pw:
             st.error("Please fill in all fields.")
         elif new_pw != confirm_pw:
             st.error("New passwords do not match.")
-        elif len(new_pw) < 6:
-            st.error("Password must be at least 6 characters.")
         elif not verify_user(user["username"], current_pw):
             st.error("Current password is incorrect.")
         else:
-            change_password(user_id, new_pw)
-            st.success("Password changed!")
+            try:
+                change_password(user_id, new_pw)
+                st.success("Password changed!")
+            except ValueError as exc:
+                st.error(str(exc))
 
 # ── Manage Habits ───────────────────────────────────────────────────────────
 st.divider()

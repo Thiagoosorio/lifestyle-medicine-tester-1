@@ -51,3 +51,33 @@ def test_create_user_blocks_case_variant_duplicates(user_db):
     user_model.create_user("Thiago", "Abc12345", "Thiago", "thiago@example.com")
     with pytest.raises(sqlite3.IntegrityError):
         user_model.create_user("thiago", "Abc12345", "Thiago 2", "thiago2@example.com")
+
+
+def test_create_user_rejects_invalid_email(user_db):
+    with pytest.raises(ValueError, match="Invalid email format"):
+        user_model.create_user("elena", "StrongPass1", "Elena", "invalid-email")
+
+
+def test_create_user_rejects_weak_password(user_db):
+    with pytest.raises(ValueError, match="at least 8 characters"):
+        user_model.create_user("sam", "Abc123", "Sam", "sam@example.com")
+    with pytest.raises(ValueError, match="include letters and numbers"):
+        user_model.create_user("sam2", "12345678", "Sam", "sam2@example.com")
+
+
+def test_update_user_blank_display_name_keeps_value_and_blank_email_clears(user_db):
+    user_id = user_model.create_user("lara", "StrongPass1", "Lara", "lara@example.com")
+    user_model.update_user(user_id, display_name="   ", email="   ")
+
+    updated = user_model.get_user(user_id)
+    assert updated is not None
+    assert updated["display_name"] == "Lara"
+    assert updated["email"] is None
+
+
+def test_change_password_enforces_strength(user_db):
+    user_id = user_model.create_user("niko", "StrongPass1", "Niko", "niko@example.com")
+    with pytest.raises(ValueError, match="at least 8 characters"):
+        user_model.change_password(user_id, "short1")
+    with pytest.raises(ValueError, match="include letters and numbers"):
+        user_model.change_password(user_id, "abcdefgh")

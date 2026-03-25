@@ -117,8 +117,8 @@ with tab_log:
         if selected_cat == "All Categories":
             display_defs = all_defs
         else:
-            cat_key = next(k for k, v in BIOMARKER_CATEGORIES.items() if v["label"] == selected_cat)
-            display_defs = [d for d in all_defs if d["category"] == cat_key]
+            cat_key = next((k for k, v in BIOMARKER_CATEGORIES.items() if v["label"] == selected_cat), None)
+            display_defs = [d for d in all_defs if d["category"] == cat_key] if cat_key else []
 
         st.caption("Leave blank for markers you didn't test. Only filled values will be saved.")
 

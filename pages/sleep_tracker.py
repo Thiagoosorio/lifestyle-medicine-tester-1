@@ -200,7 +200,7 @@ with tab_chronotype:
             for q in MEQ_QUESTIONS:
                 option_labels = [opt["label"] for opt in q["options"]]
                 choice = st.radio(q["question"], option_labels, key=f"meq_{q['id']}")
-                score = next(opt["score"] for opt in q["options"] if opt["label"] == choice)
+                score = next((opt["score"] for opt in q["options"] if opt["label"] == choice), 0)
                 answers.append(score)
 
             if st.form_submit_button("Find My Chronotype", use_container_width=True):

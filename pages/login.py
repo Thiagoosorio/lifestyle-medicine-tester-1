@@ -95,25 +95,30 @@ with tab_register:
         new_username = st.text_input("Choose a username", key="reg_username", placeholder="e.g. john.doe")
         new_display_name = st.text_input("Display name", key="reg_display_name", placeholder="e.g. John Doe")
         new_email = st.text_input("Email (optional)", key="reg_email", placeholder="e.g. john@example.com")
-        new_password = st.text_input("Password", type="password", key="reg_password", placeholder="At least 6 characters")
+        new_password = st.text_input(
+            "Password",
+            type="password",
+            key="reg_password",
+            placeholder="At least 8 characters with letters and numbers",
+        )
         confirm_password = st.text_input("Confirm password", type="password", key="reg_confirm", placeholder="Re-enter password")
         reg_submitted = st.form_submit_button("Create Account", use_container_width=True)
         if reg_submitted:
-            if not new_username or not new_password:
+            if not new_username.strip() or not new_password:
                 st.error("Username and password are required.")
-            elif len(new_password) < 6:
-                st.error("Password must be at least 6 characters.")
             elif new_password != confirm_password:
                 st.error("Passwords do not match.")
             else:
                 try:
                     user_id = create_user(new_username, new_password, new_display_name, new_email)
                     st.session_state.user_id = user_id
-                    st.session_state.display_name = new_display_name or new_username
+                    st.session_state.display_name = (new_display_name or new_username).strip()
                     st.success("Account created! Redirecting...")
                     st.rerun()
                 except sqlite3.IntegrityError:
                     st.error("Username already taken.")
+                except ValueError as exc:
+                    st.error(str(exc))
                 except Exception:
                     LOGGER.exception("Failed to create account")
                     st.error("Could not create account right now. Please try again.")
