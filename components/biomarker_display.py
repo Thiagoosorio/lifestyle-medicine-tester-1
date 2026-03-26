@@ -7,7 +7,7 @@ A = APPLE
 
 
 def render_biomarker_range_bar(result, definition=None):
-    """Render a horizontal range bar showing value position against standard/optimal ranges."""
+    """Render a horizontal range bar versus reference and target bands."""
     if definition is None:
         definition = result
 
@@ -23,6 +23,7 @@ def render_biomarker_range_bar(result, definition=None):
     opt_high = definition.get("optimal_high")
     crit_low = definition.get("critical_low")
     crit_high = definition.get("critical_high")
+    target_evidence = definition.get("target_evidence")
 
     from services.biomarker_service import classify_result, get_classification_display
     classification = classify_result(value, definition)
@@ -47,7 +48,7 @@ def render_biomarker_range_bar(result, definition=None):
 
     # Build zone backgrounds
     zones_html = ""
-    # Optimal zone (green)
+    # Target zone (green)
     if opt_low is not None and opt_high is not None:
         left = pct(opt_low)
         width = pct(opt_high) - left
@@ -100,8 +101,14 @@ def render_biomarker_range_bar(result, definition=None):
     elif std_low is not None:
         range_parts.append(f"Ref: &gt;{std_low} {unit}")
     if opt_low is not None and opt_high is not None:
-        range_parts.append(f"Optimal: {opt_low}-{opt_high}")
+        range_parts.append(f"Target: {opt_low}-{opt_high}")
     range_text = " &middot; ".join(range_parts)
+    evidence_html = ""
+    if target_evidence:
+        evidence_html = (
+            f'<div style="font-size:10px;color:{A["label_quaternary"]};margin-bottom:6px">'
+            f'Target evidence: {target_evidence}</div>'
+        )
 
     bar_html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
@@ -119,6 +126,7 @@ def render_biomarker_range_bar(result, definition=None):
         f'</div>'
         f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:8px">'
         f'{range_text}</div>'
+        f'{evidence_html}'
         f'<div style="position:relative;height:14px;background:{A["bg_tertiary"]};'
         f'border-radius:7px;overflow:visible">'
         f'{zones_html}'
@@ -176,7 +184,7 @@ def render_biomarker_score_gauge(score, label="Biomarker Score"):
 def render_biomarker_summary_strip(summary):
     """Render a summary strip of biomarker classification counts."""
     items = [
-        ("Optimal", summary.get("optimal", 0), "#30D158"),
+        ("On Target", summary.get("optimal", 0), "#30D158"),
         ("Normal", summary.get("normal", 0), "#64D2FF"),
         ("Borderline", summary.get("borderline", 0), "#FFD60A"),
         ("Abnormal", summary.get("abnormal", 0), "#FF453A"),

@@ -1,7 +1,7 @@
-"""Biomarker definitions with standard AND optimal ranges.
+"""Biomarker definitions with reference ranges and evidence-based target bands.
 
 Standard ranges = typical lab reference ranges.
-Optimal ranges = evidence-based targets for health optimization.
+Target bands = evidence-based decision thresholds or pragmatic goal bands.
 Sources: AHA/ACC, ADA, AACE, Endocrine Society, clinical literature.
 
 Categories: lipids, metabolic, inflammation, vitamins, thyroid, liver, kidney, blood_count, minerals
@@ -747,3 +747,18 @@ CATEGORY_WEIGHTS = {
     "blood_count": 1.0,
     "minerals": 1.0,
 }
+
+# Evidence confidence label for target bands shown in the UI.
+TARGET_EVIDENCE_BY_CODE = {
+    "hba1c": "Strong guideline target",
+    "fasting_glucose": "Strong guideline threshold",
+    "ldl_cholesterol": "Strong guideline target (risk-based)",
+    "triglycerides": "Strong guideline threshold",
+    "hdl_cholesterol": "Moderate prognostic evidence",
+    "hs_crp": "Moderate risk-enhancer evidence",
+    "uacr": "Strong kidney guideline threshold",
+    "creatinine": "Strong kidney guideline context",
+    "tsh": "Moderate endocrine guideline context",
+    "vitamin_d": "Mixed evidence; context dependent",
+}
+TARGET_EVIDENCE_DEFAULT = "Context-dependent target; interpret clinically"

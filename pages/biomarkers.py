@@ -1,4 +1,4 @@
-"""Biomarkers — Lab result tracking with standard vs optimal range analysis."""
+"""Biomarkers — Lab tracking with reference ranges and evidence-based targets."""
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -35,7 +35,11 @@ user_id = st.session_state.user_id
 
 render_hero_banner(
     "Biomarker Dashboard",
-    "Track lab results over time. See where you stand versus standard AND optimal ranges."
+    "Track lab results over time. Compare your panel with lab reference ranges and evidence-based target bands."
+)
+st.caption(
+    "Interpretation key: `Ref` = lab reference interval, `Target` = evidence-based decision/goal band "
+    "(context-dependent and individualized)."
 )
 
 # ── Tabs ─────────────────────────────────────────────────────────────────
@@ -66,7 +70,7 @@ with tab_dashboard:
                 f'border-radius:{A["radius_md"]};padding:14px;margin-top:8px">'
                 f'<div style="font-size:13px;color:{A["label_secondary"]}">'
                 f'<span style="font-weight:600;color:{A["label_primary"]}">{in_range}/{total}</span>'
-                f' markers in range ({pct}%)'
+                f' markers in reference/target-supportive zones ({pct}%)'
                 f'</div>'
                 f'</div>'
             )
@@ -181,12 +185,12 @@ with tab_trends:
 
             fig = go.Figure()
 
-            # Optimal zone shading
+            # Target zone shading
             if defn.get("optimal_low") is not None and defn.get("optimal_high") is not None:
                 fig.add_hrect(
                     y0=defn["optimal_low"], y1=defn["optimal_high"],
                     fillcolor="#30D158", opacity=0.1,
-                    line_width=0, annotation_text="Optimal",
+                    line_width=0, annotation_text="Target",
                     annotation_position="top left",
                     annotation=dict(font_color="#30D158", font_size=10),
                 )

@@ -9,6 +9,16 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
+def _attach_target_evidence(defn: dict) -> dict:
+    """Attach evidence-confidence metadata for target bands."""
+    from config.biomarkers_data import TARGET_EVIDENCE_BY_CODE, TARGET_EVIDENCE_DEFAULT
+
+    enriched = dict(defn)
+    code = enriched.get("code")
+    enriched["target_evidence"] = TARGET_EVIDENCE_BY_CODE.get(code, TARGET_EVIDENCE_DEFAULT)
+    return enriched
+
+
 def seed_biomarker_definitions():
     """Populate biomarker_definitions from config (idempotent).
 
@@ -44,7 +54,7 @@ def get_all_definitions():
         "SELECT * FROM biomarker_definitions ORDER BY sort_order"
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [_attach_target_evidence(dict(r)) for r in rows]
 
 
 def get_definitions_by_category(category):
@@ -55,7 +65,7 @@ def get_definitions_by_category(category):
         (category,),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [_attach_target_evidence(dict(r)) for r in rows]
 
 
 def get_definition_by_id(biomarker_id):
@@ -65,7 +75,7 @@ def get_definition_by_id(biomarker_id):
         "SELECT * FROM biomarker_definitions WHERE id = ?", (biomarker_id,)
     ).fetchone()
     conn.close()
-    return dict(row) if row else None
+    return _attach_target_evidence(dict(row)) if row else None
 
 
 def log_biomarker_result(user_id, biomarker_id, value, lab_date, lab_name=None, notes=None):
@@ -102,7 +112,7 @@ def get_latest_results(user_id):
         (user_id,),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [_attach_target_evidence(dict(r)) for r in rows]
 
 
 def get_results_for_biomarker(user_id, biomarker_id):
@@ -120,14 +130,14 @@ def get_results_for_biomarker(user_id, biomarker_id):
         (user_id, biomarker_id),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [_attach_target_evidence(dict(r)) for r in rows]
 
 
 def classify_result(value, definition):
     """Classify a result value against its definition ranges.
 
     Uses deviation-based severity for out-of-range values:
-    - Within optimal range → 'optimal' (green)
+    - Within target band → 'optimal' (green)
     - Within standard range → 'normal' (blue)
     - Out of range, deviation ≤ 20% → 'borderline_low'/'borderline_high' (yellow)
     - Out of range, deviation > 20% → 'low'/'high' (red)
@@ -152,7 +162,7 @@ def classify_result(value, definition):
     if crit_high is not None and value > crit_high:
         return "critical_high"
 
-    # Optimal check
+    # Target-band check
     in_optimal = True
     if opt_low is not None and value < opt_low:
         in_optimal = False
@@ -196,13 +206,13 @@ def get_classification_display(classification):
     """Return display properties for a classification.
 
     Color scheme follows clinical lab reporting best practice:
-    - Green: optimal range
+    - Green: evidence-based target band
     - Blue: normal/standard range
     - Yellow: borderline — slightly out of range (≤ 20% deviation)
     - Red: abnormal — significantly out of range (> 20% deviation or critical)
     """
     displays = {
-        "optimal": {"label": "Optimal", "color": "#30D158", "icon": "&#10004;"},
+        "optimal": {"label": "On Target", "color": "#30D158", "icon": "&#10004;"},
         "normal": {"label": "Normal", "color": "#64D2FF", "icon": "&#9679;"},
         "borderline_low": {"label": "Borderline Low", "color": "#FFD60A", "icon": "&#9660;"},
         "borderline_high": {"label": "Borderline High", "color": "#FFD60A", "icon": "&#9650;"},
@@ -292,7 +302,7 @@ def get_results_by_date(user_id, lab_date):
         (user_id, lab_date),
     ).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    return [_attach_target_evidence(dict(r)) for r in rows]
 
 
 def get_lab_dates(user_id):
@@ -323,7 +333,7 @@ _CATEGORY_LABELS = {
 }
 
 _CLASSIFICATION_LABEL = {
-    "optimal":        "OPTIMAL",
+    "optimal":        "ON TARGET",
     "normal":         "NORMAL",
     "borderline_low": "BORDERLINE LOW",
     "borderline_high":"BORDERLINE HIGH",
@@ -336,7 +346,7 @@ _CLASSIFICATION_LABEL = {
 
 
 def _format_range(low, high, unit: str) -> str:
-    """Format a standard or optimal range as a compact string."""
+    """Format a reference or target range as a compact string."""
     if low is not None and high is not None:
         return f"{low}-{high} {unit}"
     if low is not None:
@@ -399,7 +409,7 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
             dev_str = f" ({dev})" if dev else ""
             lines.append(
                 f"  {r['name']}: {r['value']} {r['unit']}"
-                f"  [Std: {std_range}, Optimal: {opt_range}]"
+                f"  [Ref: {std_range}, Target: {opt_range}]"
                 f"  -> {cls_label}{dev_str}"
             )
         lines.append("")
@@ -443,7 +453,7 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
                 (delta < 0 and curr_cls in ("optimal", "normal", "borderline_high") and prev_cls in ("high", "borderline_high", "critical_high"))
             ) else "Worsening"
 
-            # Simple direction: improving if moving toward optimal, worsening if moving away
+            # Simple direction: improving if moving toward target band, worsening if moving away
             if delta < 0 and curr_cls in ("high", "borderline_high", "critical_high"):
                 direction = "Improving"
             elif delta > 0 and curr_cls in ("low", "borderline_low", "critical_low"):
@@ -491,7 +501,7 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
         f"=== COMPOSITE BIOMARKER SCORE: {score}/100 ({score_label}) ==="
     )
     lines.append(
-        f"Optimal: {summary['optimal']} | Normal: {summary['normal']} | "
+        f"On target: {summary['optimal']} | Normal: {summary['normal']} | "
         f"Borderline: {summary['borderline']} | Abnormal: {summary['abnormal']} | "
         f"Critical: {summary['critical']} of {summary['total']} markers"
     )
