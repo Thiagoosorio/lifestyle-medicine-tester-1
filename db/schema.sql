@@ -869,6 +869,24 @@ CREATE TABLE IF NOT EXISTS body_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_body_metrics_user ON body_metrics(user_id, log_date);
 
+-- Wearable measurement event store (multi-device friendly)
+CREATE TABLE IF NOT EXISTS wearable_measurements (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    metric_code     TEXT NOT NULL,
+    metric_name     TEXT,
+    value           REAL NOT NULL,
+    unit            TEXT,
+    measured_at     TEXT NOT NULL,
+    source          TEXT DEFAULT 'manual',
+    external_id     TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, metric_code, measured_at, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wearable_user_metric ON wearable_measurements(user_id, metric_code, measured_at);
+CREATE INDEX IF NOT EXISTS idx_wearable_user_time ON wearable_measurements(user_id, measured_at);
+
 -- User settings (goal weight, preferences)
 CREATE TABLE IF NOT EXISTS user_settings (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -70,6 +70,7 @@ else:
             "Overview": [
                 st.Page("pages/dashboard.py", title="Dashboard", icon=":material/dashboard:", default=True),
                 st.Page("pages/wheel_assessment.py", title="Wheel of Life", icon=":material/donut_large:"),
+                st.Page("pages/wearable_wheel.py", title="Wearable Wheel", icon=":material/watch:"),
                 st.Page("pages/recovery.py", title="Recovery", icon=":material/hotel:"),
             ],
             "Planning": [

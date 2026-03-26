@@ -103,6 +103,39 @@ MARIA_ORGAN_SCORE_BODY_METRICS = {
     "hip_cm": 95.0,
     "body_fat_pct": 22.0,
 }
+MARIA_WEARABLE_METRICS = {
+    "arrhythmia_alert_afib": 0.0,
+    "average_heart_rate_bpm": 67.0,
+    "heart_rate_variability_ms": 58.0,
+    "maximum_heart_rate_bpm": 168.0,
+    "respiratory_rate_bpm": 14.2,
+    "resting_heart_rate_bpm": 54.0,
+    "steps_count": 9800.0,
+    "kilojoule_expended": 2450.0,
+    "body_temperature_deviation_c": 0.1,
+    "overnight_spo2_avg_pct": 96.5,
+    "overnight_spo2_nadir_pct": 93.0,
+    "recovery_score": 82.0,
+    "skin_temperature_c": 33.3,
+    "spo2_pct": 97.0,
+    "baseline_sleep_needed_hours": 7.8,
+    "number_of_naps": 0.0,
+    "sleep_consistency_pct": 86.0,
+    "sleep_cycle_count": 5.0,
+    "sleep_debt_hours": 0.7,
+    "sleep_disturbance_count": 3.0,
+    "sleep_efficiency_pct": 92.0,
+    "sleep_latency_min": 14.0,
+    "sleep_needed_from_recent_nap_min": 0.0,
+    "sleep_needed_from_recent_strain_min": 18.0,
+    "sleep_performance_pct": 89.0,
+    "total_awake_time_min": 35.0,
+    "total_light_sleep_time_min": 250.0,
+    "total_no_sleep_data_received_time_min": 0.0,
+    "total_rem_sleep_time_min": 105.0,
+    "total_slow_wave_sleep_time_min": 85.0,
+    "total_time_spent_in_bed_min": 480.0,
+}
 MARIA_BACKFILL_LAB_DATE = "2026-02-01"
 MARIA_BACKFILL_LAB_NAME = "Quest Diagnostics"
 
@@ -149,6 +182,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
 
     inserted_biomarkers = 0
     inserted_body_metrics = 0
+    inserted_wearable_measurements = 0
     missing_definitions = []
     conn = get_connection()
     try:
@@ -205,6 +239,32 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             )
             inserted_body_metrics = 1
 
+        existing_wearable_codes = {
+            row["metric_code"]
+            for row in conn.execute(
+                "SELECT DISTINCT metric_code FROM wearable_measurements WHERE user_id = ?",
+                (user_id,),
+            ).fetchall()
+        }
+        for metric_code, value in MARIA_WEARABLE_METRICS.items():
+            if metric_code in existing_wearable_codes:
+                continue
+            conn.execute(
+                """INSERT OR IGNORE INTO wearable_measurements
+                   (user_id, metric_code, metric_name, value, unit, measured_at, source)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    user_id,
+                    metric_code,
+                    metric_code,
+                    float(value),
+                    None,
+                    f"{MARIA_BACKFILL_LAB_DATE}T07:00:00",
+                    "demo_seed",
+                ),
+            )
+            inserted_wearable_measurements += 1
+
         conn.commit()
     finally:
         conn.close()
@@ -213,6 +273,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
         "profile_backfilled": profile_backfilled,
         "inserted_biomarkers": inserted_biomarkers,
         "inserted_body_metrics": inserted_body_metrics,
+        "inserted_wearable_measurements": inserted_wearable_measurements,
         "missing_definitions": missing_definitions,
     }
 
