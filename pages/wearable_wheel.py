@@ -138,46 +138,68 @@ with tab_wheel:
             )
             st.markdown(rr_html, unsafe_allow_html=True)
 
-        # ── Radar Chart (domain-colored) ───────────────────────────────
+        # ── Radar Chart (premium multi-layer) ─────────────────────────
         st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
         render_section_header("Health Radar", "5-domain wearable assessment")
 
         labels = [WEARABLE_WHEEL_DOMAINS[code]["name"] for code in DOMAIN_ORDER]
         values = [wheel["domains"][code]["score_10"] for code in DOMAIN_ORDER]
         colors = [WEARABLE_WHEEL_DOMAINS[code]["color"] for code in DOMAIN_ORDER]
-        # Close the polygon
         labels_closed = labels + [labels[0]]
         values_closed = values + [values[0]]
+        colors_closed = colors + [colors[0]]
 
         fig = go.Figure()
 
-        # Individual domain traces with their colors
+        # Layer 1: Zone rings (subtle background zones at 4, 7, 10)
+        for zone_val, zone_opacity in [(10, 0.03), (7, 0.04), (4, 0.05)]:
+            fig.add_trace(go.Scatterpolar(
+                r=[zone_val] * (len(DOMAIN_ORDER) + 1),
+                theta=labels_closed,
+                fill="toself",
+                fillcolor=f"rgba(103,80,164,{zone_opacity})",
+                line=dict(color=f"rgba(103,80,164,{zone_opacity + 0.04})", width=1),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
+        # Layer 2: Individual domain wedge fills (colored sectors)
         for i, code in enumerate(DOMAIN_ORDER):
             domain = wheel["domains"][code]
             color = WEARABLE_WHEEL_DOMAINS[code]["color"]
-            # Single value as bar-like on radar
-            r_vals = [0] * len(DOMAIN_ORDER)
+            # Create a wedge: two adjacent vertices at score, rest at 0
+            r_vals = [0.0] * len(DOMAIN_ORDER)
             r_vals[i] = domain["score_10"]
+            # Also fill the adjacent vertex slightly for a wedge effect
+            next_i = (i + 1) % len(DOMAIN_ORDER)
+            prev_i = (i - 1) % len(DOMAIN_ORDER)
+            r_vals[next_i] = domain["score_10"] * 0.15
+            r_vals[prev_i] = domain["score_10"] * 0.15
             r_vals_closed = r_vals + [r_vals[0]]
             fig.add_trace(go.Scatterpolar(
                 r=r_vals_closed,
                 theta=labels_closed,
                 fill="toself",
-                fillcolor=_hex_to_rgba(color, 0.08),
-                line=dict(color=color, width=0),
+                fillcolor=_hex_to_rgba(color, 0.12),
+                line=dict(color="rgba(0,0,0,0)", width=0),
                 showlegend=False,
                 hoverinfo="skip",
             ))
 
-        # Main polygon overlay
+        # Layer 3: Main polygon — thick colored line with gradient fill
         fig.add_trace(go.Scatterpolar(
             r=values_closed,
             theta=labels_closed,
             fill="toself",
-            fillcolor="rgba(106, 80, 164, 0.12)",
-            line=dict(color=A["indigo"], width=2.5),
-            marker=dict(size=8, color=colors, line=dict(color="white", width=2)),
-            name="Wearable Wheel",
+            fillcolor="rgba(103, 80, 164, 0.15)",
+            line=dict(color=A["indigo"], width=3),
+            marker=dict(
+                size=12,
+                color=colors_closed,
+                line=dict(color="white", width=2.5),
+                symbol="circle",
+            ),
+            name="Score",
             customdata=[
                 f"{WEARABLE_WHEEL_DOMAINS[code]['name']}: {wheel['domains'][code]['score_10']}/10"
                 for code in DOMAIN_ORDER
@@ -185,28 +207,66 @@ with tab_wheel:
             hovertemplate="%{customdata}<extra></extra>",
         ))
 
+        # Layer 4: Score value annotations on each vertex
+        import math as _math
+        n = len(DOMAIN_ORDER)
+        for i, code in enumerate(DOMAIN_ORDER):
+            angle_deg = 90 - (360 / n) * i  # Plotly polar starts at top, goes clockwise
+            angle_rad = _math.radians(angle_deg)
+            score_val = wheel["domains"][code]["score_10"]
+            # Position label slightly outside the data point
+            r_label = min(score_val + 0.8, 10.5)
+            fig.add_trace(go.Scatterpolar(
+                r=[r_label],
+                theta=[labels[i]],
+                mode="text",
+                text=[f"<b>{score_val}</b>"],
+                textfont=dict(
+                    size=13,
+                    color=WEARABLE_WHEEL_DOMAINS[code]["color"],
+                    family=A["font_display"],
+                ),
+                showlegend=False,
+                hoverinfo="skip",
+            ))
+
         fig.update_layout(
             polar=dict(
                 radialaxis=dict(
                     visible=True,
-                    range=[0, 10],
+                    range=[0, 11],
                     tickvals=[2, 4, 6, 8, 10],
-                    tickfont=dict(size=10, color=A["label_tertiary"]),
-                    gridcolor=A["chart_grid"],
+                    ticktext=["2", "4", "6", "8", "10"],
+                    tickfont=dict(size=9, color=A["label_quaternary"]),
+                    gridcolor="rgba(0,0,0,0.05)",
+                    linecolor="rgba(0,0,0,0)",
                 ),
                 angularaxis=dict(
-                    tickfont=dict(size=12, family=A["font_display"], color=A["label_primary"]),
-                    gridcolor=A["chart_grid"],
+                    tickfont=dict(size=13, family=A["font_display"], color=A["label_primary"]),
+                    gridcolor="rgba(0,0,0,0.06)",
+                    linecolor="rgba(0,0,0,0.06)",
+                    direction="clockwise",
                 ),
-                bgcolor=A["chart_bg"],
+                bgcolor="rgba(0,0,0,0)",
             ),
             paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
             showlegend=False,
-            margin=dict(t=30, b=20, l=60, r=60),
-            height=420,
+            margin=dict(t=40, b=40, l=80, r=80),
+            height=480,
             font=dict(family=A["font_text"]),
         )
         st.plotly_chart(fig, use_container_width=True)
+
+        # Zone legend
+        zone_legend = (
+            f'<div style="display:flex;justify-content:center;gap:20px;font-size:11px;'
+            f'color:{A["label_tertiary"]};margin-top:-8px;margin-bottom:16px">'
+            f'<span><span style="color:#FF453A">&#9679;</span> 0-4 Needs attention</span>'
+            f'<span><span style="color:#FFD60A">&#9679;</span> 4-7 Developing</span>'
+            f'<span><span style="color:#30D158">&#9679;</span> 7-10 Optimal</span></div>'
+        )
+        st.markdown(zone_legend, unsafe_allow_html=True)
 
         # ── Domain Cards ───────────────────────────────────────────────
         render_section_header("Domain Breakdown", "Score, readiness, resilience per domain")
