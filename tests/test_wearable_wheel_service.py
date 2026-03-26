@@ -102,3 +102,77 @@ def test_recency_weighting_and_readiness_resilience_split(db_conn, monkeypatch):
     assert metric["raw_value"] < 65
     # With older poor readings, long-horizon resilience should not exceed short-horizon readiness.
     assert wheel["overall_readiness_100"] >= wheel["overall_resilience_100"]
+
+
+def test_optional_bp_and_cgm_do_not_reduce_required_coverage(db_conn, monkeypatch):
+    monkeypatch.setattr(wws, "get_connection", db_conn)
+    user_id = _create_user(db_conn)
+
+    ts = "2026-03-26T07:00:00"
+    # Required HM metrics only; optional BP/CGM/weight are intentionally missing.
+    wws.save_measurements(
+        user_id,
+        [
+            {"metric_code": "arrhythmia_alert_afib", "value": 0, "measured_at": ts},
+            {"metric_code": "average_heart_rate_bpm", "value": 66, "measured_at": ts},
+            {"metric_code": "heart_rate_variability_ms", "value": 58, "measured_at": ts},
+            {"metric_code": "maximum_heart_rate_bpm", "value": 170, "measured_at": ts},
+            {"metric_code": "respiratory_rate_bpm", "value": 14, "measured_at": ts},
+            {"metric_code": "resting_heart_rate_bpm", "value": 53, "measured_at": ts},
+            {"metric_code": "steps_count", "value": 10000, "measured_at": ts},
+            {"metric_code": "kilojoule_expended", "value": 2400, "measured_at": ts},
+        ],
+    )
+
+    wheel = wws.compute_wearable_wheel(user_id)
+    hm = wheel["domains"]["heart_metabolism"]
+    assert hm["available_metrics"] == hm["total_metrics"]
+    assert hm["optional_metrics_used"] == 0
+
+
+def test_weight_and_bp_improvement_contributes_via_trend(db_conn, monkeypatch):
+    monkeypatch.setattr(wws, "get_connection", db_conn)
+    user_id = _create_user(db_conn)
+
+    conn = db_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO user_settings (user_id, goal_weight_kg) VALUES (?, ?)",
+        (user_id, 70.0),
+    )
+    conn.commit()
+    conn.close()
+
+    now_utc = datetime.now(timezone.utc)
+    recent_ts = (now_utc - timedelta(days=1)).replace(tzinfo=None).isoformat(timespec="seconds")
+    older_ts = (now_utc - timedelta(days=25)).replace(tzinfo=None).isoformat(timespec="seconds")
+
+    wws.save_measurements(
+        user_id,
+        [
+            {"metric_code": "systolic_bp_mmhg", "value": 145, "measured_at": older_ts},
+            {"metric_code": "systolic_bp_mmhg", "value": 122, "measured_at": recent_ts},
+            {"metric_code": "body_weight_kg", "value": 79, "measured_at": older_ts},
+            {"metric_code": "body_weight_kg", "value": 74, "measured_at": recent_ts},
+            {"metric_code": "cgm_avg_glucose_mgdl", "value": 135, "measured_at": older_ts},
+            {"metric_code": "cgm_avg_glucose_mgdl", "value": 104, "measured_at": recent_ts},
+            # keep baseline HM required coverage
+            {"metric_code": "arrhythmia_alert_afib", "value": 0, "measured_at": recent_ts},
+            {"metric_code": "average_heart_rate_bpm", "value": 66, "measured_at": recent_ts},
+            {"metric_code": "heart_rate_variability_ms", "value": 56, "measured_at": recent_ts},
+            {"metric_code": "maximum_heart_rate_bpm", "value": 168, "measured_at": recent_ts},
+            {"metric_code": "respiratory_rate_bpm", "value": 14, "measured_at": recent_ts},
+            {"metric_code": "resting_heart_rate_bpm", "value": 54, "measured_at": recent_ts},
+            {"metric_code": "steps_count", "value": 9800, "measured_at": recent_ts},
+            {"metric_code": "kilojoule_expended", "value": 2350, "measured_at": recent_ts},
+        ],
+    )
+
+    wheel = wws.compute_wearable_wheel(user_id)
+    sbp_metric = wheel["metrics"]["systolic_bp_mmhg"]
+    wt_metric = wheel["metrics"]["body_weight_kg"]
+    glu_metric = wheel["metrics"]["cgm_avg_glucose_mgdl"]
+
+    assert sbp_metric["trend_adjust_100"] > 0
+    assert wt_metric["trend_adjust_100"] > 0
+    assert glu_metric["trend_adjust_100"] > 0
+    assert wheel["domains"]["heart_metabolism"]["optional_metrics_used"] >= 3

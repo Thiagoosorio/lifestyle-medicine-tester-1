@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
-import plotly.graph_objects as go
 import streamlit as st
+import plotly.graph_objects as go
 
-from config.wearable_wheel_data import DOMAIN_ORDER, WEARABLE_METRIC_SPECS, WEARABLE_WHEEL_DOMAINS
+from config.wearable_wheel_data import (
+    DOMAIN_ORDER,
+    KNOWN_WEARABLE_SOURCES,
+    WEARABLE_METRIC_SPECS,
+    WEARABLE_WHEEL_DOMAINS,
+)
 from services.wearable_wheel_service import (
     build_wearable_csv_template,
     compute_wearable_wheel,
@@ -20,6 +25,10 @@ st.title(":material/donut_small: Wearable Wheel (5 Domains)")
 st.caption(
     "Data-driven wheel built from wearable measurements. "
     "Scores are normalized to 0-10 and update as new data arrives."
+)
+st.info(
+    "Blood pressure, CGM, and weight metrics are optional. "
+    "They do not reduce required daily coverage when missing, but if you log them and trend improves, they raise score."
 )
 
 
@@ -75,7 +84,8 @@ with tab_wheel:
                 WEARABLE_WHEEL_DOMAINS[domain_code]["name"],
                 f"{domain['score_10']}/10",
                 help=f"Confidence {int(domain['confidence'] * 100)}%. "
-                f"Metrics used: {domain['available_metrics']}/{domain['total_metrics']}",
+                f"Required metrics covered: {domain['available_metrics']}/{domain['total_metrics']}. "
+                f"Optional used: {domain['optional_metrics_used']}.",
             )
             st.caption(f"R {domain['readiness_10']}/10 | S {domain['resilience_10']}/10")
             confidence = int(domain["confidence"] * 100)
@@ -112,11 +122,18 @@ with tab_upload:
         metric_code = st.selectbox(
             "Metric",
             options=sorted(WEARABLE_METRIC_SPECS.keys()),
-            format_func=lambda c: f"{WEARABLE_METRIC_SPECS[c]['label']} ({c})",
+            format_func=lambda c: (
+                f"{WEARABLE_METRIC_SPECS[c]['label']} ({c})"
+                + (" [optional]" if WEARABLE_METRIC_SPECS[c].get("optional") else "")
+            ),
         )
         value = st.number_input("Value", value=0.0, format="%.4f")
         measured_at = st.text_input("Measured At (ISO)", value="", placeholder="2026-03-26T07:00:00")
-        source = st.text_input("Source", value="manual")
+        source = st.selectbox(
+            "Source Device",
+            options=KNOWN_WEARABLE_SOURCES,
+            index=KNOWN_WEARABLE_SOURCES.index("manual"),
+        )
         submit_manual = st.form_submit_button("Save Measurement", use_container_width=True)
 
     if submit_manual:
@@ -127,7 +144,7 @@ with tab_upload:
                     "metric_code": metric_code,
                     "value": value,
                     "measured_at": measured_at.strip() or None,
-                    "source": source.strip() or "manual",
+                    "source": source,
                 }
             ],
         )
@@ -163,12 +180,13 @@ with tab_data:
     catalog = []
     for code, spec in sorted(WEARABLE_METRIC_SPECS.items()):
         catalog.append(
-            {
-                "metric_code": code,
-                "label": spec["label"],
-                "unit": spec.get("unit"),
-                "domain": WEARABLE_WHEEL_DOMAINS[spec["domain"]]["name"],
-                "mode": spec["score_mode"],
-            }
-        )
+                {
+                    "metric_code": code,
+                    "label": spec["label"],
+                    "unit": spec.get("unit"),
+                    "domain": WEARABLE_WHEEL_DOMAINS[spec["domain"]]["name"],
+                    "mode": spec["score_mode"],
+                    "optional": bool(spec.get("optional")),
+                }
+            )
     st.dataframe(catalog, use_container_width=True)

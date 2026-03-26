@@ -27,6 +27,25 @@ def get_domain_specs() -> dict[str, dict]:
     return WEARABLE_WHEEL_DOMAINS
 
 
+def _get_goal_weight_kg(user_id: int) -> float | None:
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            "SELECT goal_weight_kg FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        return None
+    value = row["goal_weight_kg"]
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
 def build_wearable_csv_template() -> str:
     output = io.StringIO()
     writer = csv.writer(output)
@@ -34,6 +53,9 @@ def build_wearable_csv_template() -> str:
     writer.writerow(["resting_heart_rate_bpm", "54", "2026-03-26T07:00:00", "wearable"])
     writer.writerow(["sleep_efficiency_pct", "92", "2026-03-26T07:00:00", "wearable"])
     writer.writerow(["recovery_score", "81", "2026-03-26T07:00:00", "wearable"])
+    writer.writerow(["systolic_bp_mmhg", "118", "2026-03-26T07:00:00", "Withings BPM Connect Pro"])
+    writer.writerow(["cgm_avg_glucose_mgdl", "101", "2026-03-26T07:00:00", "CGM FreeStyle Libre"])
+    writer.writerow(["body_weight_kg", "78.6", "2026-03-26T07:00:00", "InBody H40 Home Scale"])
     return output.getvalue()
 
 
@@ -208,7 +230,7 @@ def _clamp(value: float, min_value: float, max_value: float) -> float:
     return max(min_value, min(max_value, value))
 
 
-def _normalize(value: float, spec: dict) -> float | None:
+def _normalize(value: float, spec: dict, goal_weight_kg: float | None = None) -> float | None:
     mode = spec.get("score_mode")
     if mode is None:
         return None
@@ -248,6 +270,13 @@ def _normalize(value: float, spec: dict) -> float | None:
         healthy_value = int(spec.get("healthy_value", 0))
         return 100.0 if int(round(value)) == healthy_value else 0.0
 
+    if mode == "goal_distance":
+        if goal_weight_kg is None or goal_weight_kg <= 0:
+            return 50.0
+        distance_pct = abs(value - goal_weight_kg) / goal_weight_kg * 100.0
+        # Every 1% away from goal drops score by 6 points.
+        return round(_clamp(100.0 - (distance_pct * 6.0), 0.0, 100.0), 1)
+
     return None
 
 
@@ -271,6 +300,44 @@ def _smoothed_value(rows: list[dict], half_life_days: float, max_age_days: float
     if total_weight <= 0:
         return None
     return weighted_sum / total_weight
+
+
+def _smoothed_value_between(
+    rows: list[dict],
+    half_life_days: float,
+    min_age_days: float,
+    max_age_days: float,
+) -> float | None:
+    valid = [r for r in rows if min_age_days <= r["age_days"] <= max_age_days]
+    if not valid:
+        return None
+    weighted_sum = 0.0
+    total_weight = 0.0
+    for row in valid:
+        # Re-center decay inside this window so nearer points in window weigh more.
+        relative_age = max(0.0, row["age_days"] - min_age_days)
+        w = _exp_decay(relative_age, half_life_days)
+        weighted_sum += float(row["value"]) * w
+        total_weight += w
+    if total_weight <= 0:
+        return None
+    return weighted_sum / total_weight
+
+
+def _trend_delta_abs_score(
+    rows: list[dict],
+    spec: dict,
+    goal_weight_kg: float | None,
+) -> float:
+    recent_value = _smoothed_value(rows, half_life_days=3.0, max_age_days=7.0)
+    prior_value = _smoothed_value_between(rows, half_life_days=7.0, min_age_days=7.0, max_age_days=30.0)
+    if recent_value is None or prior_value is None:
+        return 0.0
+    recent_abs = _normalize(recent_value, spec, goal_weight_kg=goal_weight_kg)
+    prior_abs = _normalize(prior_value, spec, goal_weight_kg=goal_weight_kg)
+    if recent_abs is None or prior_abs is None:
+        return 0.0
+    return float(recent_abs - prior_abs)
 
 
 def _percentile_rank(values: list[float], current: float) -> float:
@@ -312,6 +379,7 @@ def _weighted_average(items: list[tuple[float, float]]) -> float | None:
 def compute_wearable_wheel(user_id: int) -> dict:
     """Compute 5-domain wearable wheel with confidence and metric breakdown."""
     history = _get_measurement_history(user_id, lookback_days=60)
+    goal_weight_kg = _get_goal_weight_kg(user_id)
 
     metric_scores: dict[str, dict] = {}
     for code, spec in WEARABLE_METRIC_SPECS.items():
@@ -335,19 +403,23 @@ def compute_wearable_wheel(user_id: int) -> dict:
 
         historical_abs_scores = []
         for row in rows:
-            score = _normalize(float(row["value"]), spec)
+            score = _normalize(float(row["value"]), spec, goal_weight_kg=goal_weight_kg)
             if score is not None:
                 historical_abs_scores.append(float(score))
 
-        current_abs = _normalize(float(current_value), spec)
-        readiness_abs = _normalize(float(readiness_value), spec)
-        resilience_abs = _normalize(float(resilience_value), spec)
+        current_abs = _normalize(float(current_value), spec, goal_weight_kg=goal_weight_kg)
+        readiness_abs = _normalize(float(readiness_value), spec, goal_weight_kg=goal_weight_kg)
+        resilience_abs = _normalize(float(resilience_value), spec, goal_weight_kg=goal_weight_kg)
         if current_abs is None or readiness_abs is None or resilience_abs is None:
             continue
 
         current_score = _blend_personalized_score(float(current_abs), historical_abs_scores)
         readiness_score = _blend_personalized_score(float(readiness_abs), historical_abs_scores)
         resilience_score = _blend_personalized_score(float(resilience_abs), historical_abs_scores)
+
+        trend_delta = _trend_delta_abs_score(rows, spec, goal_weight_kg=goal_weight_kg)
+        trend_adjust = _clamp(trend_delta * 0.25, -8.0, 8.0)
+        current_score = _clamp(current_score + trend_adjust, 0.0, 100.0)
 
         freshness = _freshness_factor(latest_row["age_days"])
         base_weight = float(spec.get("weight", 1.0))
@@ -367,6 +439,9 @@ def compute_wearable_wheel(user_id: int) -> dict:
             "weight": base_weight,
             "effective_weight": round(effective_weight, 4),
             "freshness_factor": round(freshness, 2),
+            "trend_delta_100": round(trend_delta, 2),
+            "trend_adjust_100": round(trend_adjust, 2),
+            "optional": bool(spec.get("optional")),
         }
 
     domains = {}
@@ -376,27 +451,34 @@ def compute_wearable_wheel(user_id: int) -> dict:
 
         if not is_proxy:
             codes = DIRECT_DOMAIN_METRICS.get(domain_code, [])
-            total = len(codes)
+            required_codes = [c for c in codes if not WEARABLE_METRIC_SPECS.get(c, {}).get("optional")]
+            total = len(required_codes)
             weighted_current = []
             weighted_readiness = []
             weighted_resilience = []
             available_codes = []
             freshness_values = []
+            available_required_codes = []
 
             for code in codes:
                 metric = metric_scores.get(code)
                 if not metric:
                     continue
                 available_codes.append(code)
+                if code in required_codes:
+                    available_required_codes.append(code)
                 w = float(metric["effective_weight"])
                 weighted_current.append((metric["score_100"], w))
                 weighted_readiness.append((metric["readiness_score_100"], w))
                 weighted_resilience.append((metric["resilience_score_100"], w))
                 freshness_values.append(float(metric["freshness_factor"]))
 
-            coverage = (len(available_codes) / total) if total else 0.0
+            coverage = (len(available_required_codes) / total) if total else 1.0
             freshness_quality = (sum(freshness_values) / len(freshness_values)) if freshness_values else 0.0
             confidence = coverage * freshness_quality
+            available_required = len(available_required_codes)
+            optional_used = len([c for c in available_codes if c not in required_codes])
+            total_all_metrics = len(codes)
         else:
             proxy_weights = PROXY_DOMAIN_WEIGHTS.get(domain_code, {})
             total = len(proxy_weights)
@@ -420,6 +502,9 @@ def compute_wearable_wheel(user_id: int) -> dict:
             coverage = (len(available_codes) / total) if total else 0.0
             freshness_quality = (sum(freshness_values) / len(freshness_values)) if freshness_values else 0.0
             confidence = coverage * freshness_quality * 0.7
+            available_required = len(available_codes)
+            optional_used = 0
+            total_all_metrics = total
 
         score_100 = _weighted_average(weighted_current)
         readiness_100 = _weighted_average(weighted_readiness)
@@ -446,8 +531,10 @@ def compute_wearable_wheel(user_id: int) -> dict:
             "resilience_100": round(resilience_100, 1),
             "resilience_10": round(resilience_100 / 10.0, 1),
             "confidence": round(confidence, 2),
-            "available_metrics": len(available_codes),
+            "available_metrics": available_required,
             "total_metrics": total,
+            "total_all_metrics": total_all_metrics,
+            "optional_metrics_used": optional_used,
             "metric_codes_used": available_codes,
         }
 

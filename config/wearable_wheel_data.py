@@ -61,9 +61,11 @@ DOMAIN_ORDER = [
 # - lower_better
 # - target_band
 # - binary
+# - goal_distance
 #
 # Optional:
 # - transform="abs" (applies abs(value) before scoring)
+# - optional=True (if missing, does not reduce required-domain coverage)
 WEARABLE_METRIC_SPECS = {
     # Heart & Metabolism (HM)
     "arrhythmia_alert_afib": {
@@ -142,6 +144,60 @@ WEARABLE_METRIC_SPECS = {
         "max_value": 3200,
         "domain": "heart_metabolism",
         "weight": 0.9,
+    },
+    "systolic_bp_mmhg": {
+        "label": "Systolic Blood Pressure",
+        "unit": "mmHg",
+        "score_mode": "target_band",
+        "hard_min": 85,
+        "optimal_min": 105,
+        "optimal_max": 120,
+        "hard_max": 180,
+        "domain": "heart_metabolism",
+        "weight": 1.2,
+        "optional": True,
+    },
+    "diastolic_bp_mmhg": {
+        "label": "Diastolic Blood Pressure",
+        "unit": "mmHg",
+        "score_mode": "target_band",
+        "hard_min": 50,
+        "optimal_min": 65,
+        "optimal_max": 80,
+        "hard_max": 110,
+        "domain": "heart_metabolism",
+        "weight": 1.0,
+        "optional": True,
+    },
+    "cgm_avg_glucose_mgdl": {
+        "label": "CGM Average Glucose",
+        "unit": "mg/dL",
+        "score_mode": "target_band",
+        "hard_min": 65,
+        "optimal_min": 80,
+        "optimal_max": 110,
+        "hard_max": 220,
+        "domain": "heart_metabolism",
+        "weight": 1.2,
+        "optional": True,
+    },
+    "cgm_time_in_range_pct": {
+        "label": "CGM Time In Range",
+        "unit": "%",
+        "score_mode": "higher_better",
+        "min_value": 50,
+        "max_value": 95,
+        "domain": "heart_metabolism",
+        "weight": 1.1,
+        "optional": True,
+    },
+    "body_weight_kg": {
+        "label": "Body Weight",
+        "unit": "kg",
+        "score_mode": "goal_distance",
+        "domain": "heart_metabolism",
+        "weight": 0.9,
+        "optional": True,
     },
 
     # System Wide (SW)
@@ -384,6 +440,11 @@ DIRECT_DOMAIN_METRICS = {
         "resting_heart_rate_bpm",
         "steps_count",
         "kilojoule_expended",
+        "systolic_bp_mmhg",
+        "diastolic_bp_mmhg",
+        "cgm_avg_glucose_mgdl",
+        "cgm_time_in_range_pct",
+        "body_weight_kg",
     ],
     "system_wide": [
         "body_temperature_deviation_c",
@@ -438,3 +499,18 @@ CSV_TEMPLATE_HEADER = [
     "source",
 ]
 
+
+KNOWN_WEARABLE_SOURCES = [
+    "Whoop Band",
+    "InBody H40 Home Scale",
+    "CGM FreeStyle Libre",
+    "Biobeat BPM",
+    "Withings BPM Connect Pro",
+    "Omron EVOLV",
+    "Hilo Band (Aktiia)",
+    "Oura Ring",
+    "Garmin",
+    "Strava",
+    "manual",
+    "csv_upload",
+]
