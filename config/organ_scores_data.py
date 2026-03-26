@@ -153,7 +153,7 @@ ORGAN_SCORE_DEFINITIONS = [
         "code": "prevent_10yr",
         "name": "AHA PREVENT 10-Year Risk",
         "organ_system": "cardiovascular",
-        "tier": "validated",
+        "tier": "derived",
         "formula_key": "calc_prevent_10yr",
         "required_biomarkers": ["total_cholesterol", "hdl_cholesterol", "creatinine"],
         "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status", "bmi"],
@@ -166,8 +166,8 @@ ORGAN_SCORE_DEFINITIONS = [
             ]
         }),
         "citation_pmid": "37947085",
-        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations. Race-free, adds eGFR + BMI. [Q1, top 10%]",
-        "description": "AHA's newest cardiovascular risk equations (2024). Race-free, includes eGFR and BMI, predicts heart failure in addition to ASCVD. Ages 30-79.",
+        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations. Race-free, adds eGFR + BMI. [Q1, top 10%]. App implementation currently uses a simplified coefficient implementation and should be treated as directional.",
+        "description": "AHA's newest cardiovascular risk equations (2024). Race-free, includes eGFR and BMI, predicts heart failure in addition to ASCVD. Ages 30-79. Current app implementation is a simplified approximation pending full coefficient parity validation.",
         "sort_order": 21,
     },
     # ═══════════════════════════════════════════════════════════════════════════
@@ -318,8 +318,8 @@ ORGAN_SCORE_DEFINITIONS = [
                 {"min": 35, "label": "High remnant cholesterol — increased CVD risk", "severity": "high"},
             ]
         }),
-        "citation_pmid": "23886913",
-        "citation_text": "Varbo A et al. Eur Heart J 2013;34(24):1826-33. Copenhagen General Population Study (n=73,513). Each 39 mg/dL increase → 2.8x causal risk of IHD. [Q1, top 10%]",
+        "citation_pmid": "23265341",
+        "citation_text": "Varbo A et al. J Am Coll Cardiol 2013;61(4):427-436. Copenhagen studies (n>70,000) supporting remnant cholesterol as a causal risk factor for ischemic heart disease. [Q1, top 10%].",
         "description": "Remnant Cholesterol = TC - HDL - LDL (mg/dL). Represents cholesterol in triglyceride-rich lipoproteins (VLDL, IDL, chylomicron remnants). Causal risk factor for CHD via Mendelian randomization.",
         "sort_order": 27,
     },
@@ -667,7 +667,7 @@ ORGAN_SCORE_DEFINITIONS = [
                 {"min": 300, "label": "High PLR — increased inflammatory risk", "severity": "high"},
             ]
         }),
-        "citation_pmid": "24338949",
+        "citation_pmid": "24793958",
         "citation_text": "Templeton AJ et al. Cancer Epidemiol Biomarkers Prev 2014;23(7):1204-12. Meta-analysis: PLR >300 associated with worse OS in solid tumors.",
         "description": "Platelet-to-Lymphocyte Ratio. Marker of systemic inflammation. Elevated PLR (>300) associated with poorer prognosis in cancer, ACS, and other inflammatory conditions.",
         "sort_order": 33,
@@ -873,3 +873,4 @@ ORGAN_SYSTEMS = {
     "biological_age": {"name": "Biological Age", "icon": "&#9200;", "color": "#6750A4", "sort_order": 8},
     "neurological": {"name": "Neurological / Dementia Risk", "icon": "&#129504;", "color": "#5C6BC0", "sort_order": 9},
 }
+
