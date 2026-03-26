@@ -57,7 +57,13 @@ tab_wheel, tab_upload, tab_data = st.tabs(["Wheel", "Upload", "Data"])
 
 with tab_wheel:
     wheel = compute_wearable_wheel(user_id)
-    st.metric("Overall Wearable Score", f"{wheel['overall_score_10']}/10", help="Average across 5 domains.")
+    top_a, top_b, top_c = st.columns(3)
+    with top_a:
+        st.metric("Overall", f"{wheel['overall_score_10']}/10", help="Average across 5 domains.")
+    with top_b:
+        st.metric("Readiness", f"{wheel['overall_readiness_10']}/10", help="Short-horizon state (recency-weighted).")
+    with top_c:
+        st.metric("Resilience", f"{wheel['overall_resilience_10']}/10", help="Longer-horizon stability (30-day weighted).")
     st.plotly_chart(_build_radar(wheel), use_container_width=True)
 
     col_cards = st.columns(5)
@@ -71,6 +77,7 @@ with tab_wheel:
                 help=f"Confidence {int(domain['confidence'] * 100)}%. "
                 f"Metrics used: {domain['available_metrics']}/{domain['total_metrics']}",
             )
+            st.caption(f"R {domain['readiness_10']}/10 | S {domain['resilience_10']}/10")
             confidence = int(domain["confidence"] * 100)
             st.progress(confidence / 100.0, text=f"Confidence {confidence}%")
             if domain["is_proxy"]:
