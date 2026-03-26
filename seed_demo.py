@@ -317,6 +317,7 @@ def main():
                        "sibo_fodmap_phase", "sibo_food_logs",
                        "sibo_reintro_challenges", "sibo_symptom_logs", "sibo_user_state",
                        "garmin_connections", "strava_connections",
+                       "wearable_measurements",
                        "user_clinical_profile", "user_settings"]:
             try:
                 conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
@@ -2001,6 +2002,106 @@ def main():
     print(f"  - User state: low_fodmap diet, reintroduction phase")
 
     conn.commit()
+
+    # ════════════════════════════════════════════════════════════════════════
+    # WEARABLE WHEEL — 30 days of simulated wearable measurements
+    # ════════════════════════════════════════════════════════════════════════
+    print("Phase 6: Wearable Wheel measurements...")
+    from datetime import datetime as _dt
+    from config.wearable_wheel_data import WEARABLE_METRIC_SPECS
+    _wearable_count = 0
+
+    # Maria's wearable data: Whoop Band + Oura Ring + manual BP/weight
+    # 30 days of daily metrics showing healthy ranges (she's in month 11-12)
+    _wearable_base = {
+        # Heart & Metabolism
+        "resting_heart_rate_bpm": (58, 5, "Whoop Band"),
+        "heart_rate_variability_ms": (52, 12, "Whoop Band"),
+        "average_heart_rate_bpm": (68, 6, "Whoop Band"),
+        "respiratory_rate_bpm": (14.5, 1.5, "Oura Ring"),
+        "steps_count": (9500, 2500, "Whoop Band"),
+        "kilojoule_expended": (2200, 400, "Whoop Band"),
+        "arrhythmia_alert_afib": (0, 0, "Whoop Band"),
+        # System Wide
+        "recovery_score": (72, 15, "Whoop Band"),
+        "spo2_pct": (97.5, 1.0, "Oura Ring"),
+        "overnight_spo2_avg_pct": (96.5, 1.0, "Oura Ring"),
+        "skin_temperature_c": (33.2, 0.6, "Oura Ring"),
+        "body_temperature_deviation_c": (0.15, 0.15, "Oura Ring"),
+        # Brain Health
+        "sleep_efficiency_pct": (89, 5, "Oura Ring"),
+        "sleep_consistency_pct": (82, 8, "Oura Ring"),
+        "sleep_performance_pct": (85, 7, "Whoop Band"),
+        "sleep_debt_hours": (1.2, 0.8, "Whoop Band"),
+        "total_rem_sleep_time_min": (95, 20, "Oura Ring"),
+        "total_slow_wave_sleep_time_min": (85, 18, "Oura Ring"),
+        "total_light_sleep_time_min": (210, 30, "Oura Ring"),
+        "total_time_spent_in_bed_min": (465, 25, "Oura Ring"),
+        "sleep_latency_min": (14, 6, "Oura Ring"),
+        "sleep_disturbance_count": (3, 2, "Oura Ring"),
+        "total_awake_time_min": (25, 12, "Oura Ring"),
+        "sleep_cycle_count": (5, 1, "Oura Ring"),
+    }
+    # Optional metrics (every few days)
+    _wearable_optional = {
+        "systolic_bp_mmhg": (118, 6, "Withings BPM Connect Pro"),
+        "diastolic_bp_mmhg": (74, 5, "Withings BPM Connect Pro"),
+        "body_weight_kg": (65.5, 0.5, "InBody H40 Home Scale"),
+    }
+
+    for _day_off in range(30):
+        _meas_date = (date.today() - timedelta(days=29 - _day_off))
+        _meas_ts = f"{_meas_date.isoformat()}T07:00:00"
+
+        for _mc, (_base, _noise, _src) in _wearable_base.items():
+            _val = _base + random.gauss(0, _noise)
+            # Clamp to reasonable ranges
+            if _mc == "arrhythmia_alert_afib":
+                _val = 0
+            elif "pct" in _mc:
+                _val = max(0, min(100, _val))
+            elif _mc == "steps_count":
+                _val = max(1000, round(_val))
+            elif _mc == "sleep_debt_hours":
+                _val = max(0, _val)
+            elif _mc.endswith("_count"):
+                _val = max(0, round(_val))
+            elif _mc.endswith("_min") and "time" in _mc:
+                _val = max(0, round(_val))
+
+            _unit = WEARABLE_METRIC_SPECS.get(_mc, {}).get("unit", "")
+            try:
+                conn.execute(
+                    """INSERT OR REPLACE INTO wearable_measurements
+                       (user_id, metric_code, metric_name, value, unit, measured_at, source)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (user_id, _mc, WEARABLE_METRIC_SPECS.get(_mc, {}).get("label", _mc),
+                     round(_val, 2), _unit, _meas_ts, _src),
+                )
+                _wearable_count += 1
+            except Exception:
+                pass
+
+        # Optional metrics every 3 days
+        if _day_off % 3 == 0:
+            for _mc, (_base, _noise, _src) in _wearable_optional.items():
+                _val = _base + random.gauss(0, _noise)
+                _unit = WEARABLE_METRIC_SPECS.get(_mc, {}).get("unit", "")
+                try:
+                    conn.execute(
+                        """INSERT OR REPLACE INTO wearable_measurements
+                           (user_id, metric_code, metric_name, value, unit, measured_at, source)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (user_id, _mc, WEARABLE_METRIC_SPECS.get(_mc, {}).get("label", _mc),
+                         round(_val, 2), _unit, _meas_ts, _src),
+                    )
+                    _wearable_count += 1
+                except Exception:
+                    pass
+
+    conn.commit()
+    print(f"  - {_wearable_count} wearable measurements (30 days, Whoop + Oura + manual)")
+
     conn.close()
 
     print("")
