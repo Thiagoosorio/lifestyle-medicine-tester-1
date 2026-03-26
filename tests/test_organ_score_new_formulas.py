@@ -26,6 +26,47 @@ def test_tyg_bmi_matches_published_formula():
     assert value == 267.68
 
 
+def test_lap_index_matches_reference_equation():
+    value = oss.calc_lap_index(waist_cm=100, tg_mgdl=150, sex="male")
+    assert value == 59.28
+
+
+def test_vai_matches_reference_equation():
+    value = oss.calc_vai(waist_cm=100, bmi=30, tg_mgdl=150, hdl_mgdl=45, sex="male")
+    assert value == 1.93
+
+
+def test_apob_and_homocysteine_passthrough_scores():
+    assert oss.calc_apob_risk(apob_mgdl=95.4) == 95.4
+    assert oss.calc_homocysteine_neurovascular_risk(homocysteine_umol=11.2) == 11.2
+
+
+def test_framingham_vascular_age_gap_basics():
+    baseline_gap = oss.calc_framingham_vascular_age_gap(
+        age=55,
+        sex="female",
+        total_chol=150,
+        hdl=60,
+        systolic_bp=110,
+        on_bp_med=False,
+        smoking=False,
+        diabetes=False,
+    )
+    assert abs(baseline_gap) <= 0.2
+
+    high_risk_gap = oss.calc_framingham_vascular_age_gap(
+        age=55,
+        sex="female",
+        total_chol=260,
+        hdl=35,
+        systolic_bp=160,
+        on_bp_med=True,
+        smoking=True,
+        diabetes=True,
+    )
+    assert high_risk_gap > 0
+
+
 def test_new_formula_dispatch_entries_exist():
     for key in (
         "calc_albi_score",
@@ -33,6 +74,11 @@ def test_new_formula_dispatch_entries_exist():
         "calc_bard_score",
         "calc_mets_ir",
         "calc_tyg_bmi",
+        "calc_lap_index",
+        "calc_vai",
+        "calc_apob_risk",
+        "calc_homocysteine_neurovascular_risk",
+        "calc_framingham_vascular_age_gap",
     ):
         assert key in oss.FORMULA_DISPATCH
 
@@ -79,4 +125,15 @@ def test_new_scores_compute_for_backfilled_demo_user(db_conn, monkeypatch):
     computed = oss.compute_all_scores(user_id)
     codes = {row["code"] for row in computed}
 
-    assert {"albi_score", "fli", "bard_score", "mets_ir", "tyg_bmi"}.issubset(codes)
+    assert {
+        "albi_score",
+        "fli",
+        "bard_score",
+        "mets_ir",
+        "tyg_bmi",
+        "lap_index",
+        "vai",
+        "apob_risk",
+        "homocysteine_neurovascular",
+        "framingham_vascular_age_gap",
+    }.issubset(codes)

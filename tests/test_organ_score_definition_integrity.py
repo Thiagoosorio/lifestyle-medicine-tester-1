@@ -37,3 +37,8 @@ def test_new_scores_are_present_with_expected_formula_keys():
     assert defs["bard_score"]["formula_key"] == "calc_bard_score"
     assert defs["mets_ir"]["formula_key"] == "calc_mets_ir"
     assert defs["tyg_bmi"]["formula_key"] == "calc_tyg_bmi"
+    assert defs["lap_index"]["formula_key"] == "calc_lap_index"
+    assert defs["vai"]["formula_key"] == "calc_vai"
+    assert defs["apob_risk"]["formula_key"] == "calc_apob_risk"
+    assert defs["homocysteine_neurovascular"]["formula_key"] == "calc_homocysteine_neurovascular_risk"
+    assert defs["framingham_vascular_age_gap"]["formula_key"] == "calc_framingham_vascular_age_gap"

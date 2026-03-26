@@ -425,6 +425,68 @@ def calc_tyg_bmi(glucose_mgdl: float, tg_mgdl: float, bmi: float) -> float | Non
     return round(tyg * bmi, 2)
 
 
+def calc_lap_index(waist_cm: float, tg_mgdl: float, sex: str) -> float | None:
+    """Lipid Accumulation Product (LAP).
+
+    Male:   LAP = (WC[cm] - 65) * TG[mmol/L]
+    Female: LAP = (WC[cm] - 58) * TG[mmol/L]
+
+    PMID: 16150143 - Kahn HS. BMC Cardiovasc Disord 2005.
+    """
+    sex_norm = (sex or "").strip().lower()
+    if sex_norm not in {"male", "female"}:
+        return None
+    if waist_cm <= 0 or tg_mgdl <= 0:
+        return None
+
+    tg_mmol = _mgdl_to_mmol_tg(tg_mgdl)
+    waist_offset = 58.0 if sex_norm == "female" else 65.0
+    return round((waist_cm - waist_offset) * tg_mmol, 2)
+
+
+def calc_vai(waist_cm: float, bmi: float, tg_mgdl: float, hdl_mgdl: float,
+             sex: str) -> float | None:
+    """Visceral Adiposity Index (VAI), sex-specific formula.
+
+    Male:
+      (WC / (39.68 + 1.88*BMI)) * (TG/1.03) * (1.31/HDL)
+    Female:
+      (WC / (36.58 + 1.89*BMI)) * (TG/0.81) * (1.52/HDL)
+
+    TG and HDL are in mmol/L in the original formula (converted internally).
+    PMID: 20067971 - Amato MC et al. Diabetes Care 2010.
+    """
+    sex_norm = (sex or "").strip().lower()
+    if sex_norm not in {"male", "female"}:
+        return None
+    if waist_cm <= 0 or bmi <= 0 or tg_mgdl <= 0 or hdl_mgdl <= 0:
+        return None
+
+    tg_mmol = _mgdl_to_mmol_tg(tg_mgdl)
+    hdl_mmol = _mgdl_to_mmol_chol(hdl_mgdl)
+    if hdl_mmol <= 0:
+        return None
+
+    if sex_norm == "female":
+        wc_denominator = 36.58 + (1.89 * bmi)
+        tg_denominator = 0.81
+        hdl_factor = 1.52
+    else:
+        wc_denominator = 39.68 + (1.88 * bmi)
+        tg_denominator = 1.03
+        hdl_factor = 1.31
+
+    if wc_denominator <= 0:
+        return None
+
+    value = (
+        (waist_cm / wc_denominator)
+        * (tg_mmol / tg_denominator)
+        * (hdl_factor / hdl_mmol)
+    )
+    return round(value, 2)
+
+
 def calc_albi_score(total_bilirubin_mgdl: float, albumin_gdl: float) -> float | None:
     """ALBI score = (log10 bilirubin[umol/L] * 0.66) + (albumin[g/L] * -0.085).
 
@@ -887,6 +949,84 @@ def calc_framingham_cvd(age: float, sex: str, total_chol: float, hdl: float,
     return round(max(0, min(risk * 100, 100)), 1)
 
 
+def _framingham_no_risk_reference(age: float, sex: str) -> float | None:
+    """Framingham risk at age with a no-risk-factor profile.
+
+    No-risk profile values (Framingham publication examples):
+    TC=150 mg/dL, HDL=60 mg/dL, untreated SBP=110 mmHg, non-smoker, non-diabetic.
+    PMID: 19506114 (Framingham 30-year report examples).
+    """
+    return calc_framingham_cvd(
+        age=age,
+        sex=sex,
+        total_chol=150.0,
+        hdl=60.0,
+        systolic_bp=110.0,
+        on_bp_med=False,
+        smoking=False,
+        diabetes=False,
+    )
+
+
+def _solve_framingham_vascular_age(target_risk_pct: float, sex: str) -> float | None:
+    """Solve vascular age for a given Framingham risk under no-risk profile."""
+    lower_age = 30.0
+    upper_age = 74.0
+
+    min_risk = _framingham_no_risk_reference(lower_age, sex)
+    max_risk = _framingham_no_risk_reference(upper_age, sex)
+    if min_risk is None or max_risk is None:
+        return None
+
+    if target_risk_pct <= min_risk:
+        return lower_age
+    if target_risk_pct >= max_risk:
+        return upper_age
+
+    lo = lower_age
+    hi = upper_age
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        mid_risk = _framingham_no_risk_reference(mid, sex)
+        if mid_risk is None:
+            return None
+        if mid_risk < target_risk_pct:
+            lo = mid
+        else:
+            hi = mid
+    return round((lo + hi) / 2.0, 1)
+
+
+def calc_framingham_vascular_age_gap(age: float, sex: str, total_chol: float, hdl: float,
+                                     systolic_bp: float, on_bp_med: bool, smoking: bool,
+                                     diabetes: bool) -> float | None:
+    """Vascular age gap derived from Framingham general CVD risk.
+
+    Step 1: Compute individual's Framingham 10-year general CVD risk.
+    Step 2: Solve age where an ideal/no-risk profile has the same risk.
+    Step 3: Return vascular_age - chronological_age.
+
+    PMID: 18212285 (Framingham general CVD function), 19620502 (vascular age use).
+    """
+    risk_pct = calc_framingham_cvd(
+        age=age,
+        sex=sex,
+        total_chol=total_chol,
+        hdl=hdl,
+        systolic_bp=systolic_bp,
+        on_bp_med=on_bp_med,
+        smoking=smoking,
+        diabetes=diabetes,
+    )
+    if risk_pct is None:
+        return None
+
+    vascular_age = _solve_framingham_vascular_age(risk_pct, sex)
+    if vascular_age is None:
+        return None
+    return round(vascular_age - age, 1)
+
+
 def calc_non_hdl_c(total_chol: float, hdl: float) -> float | None:
     """Non-HDL Cholesterol = Total Cholesterol - HDL (mg/dL).
 
@@ -975,6 +1115,28 @@ def calc_lpa_risk(lpa: float) -> float | None:
     if lpa is None or lpa < 0:
         return None
     return round(lpa, 1)
+
+
+def calc_apob_risk(apob_mgdl: float) -> float | None:
+    """ApoB concentration passthrough for risk-band interpretation.
+
+    ApoB is a validated measure of total atherogenic particle burden.
+    PMID: 30586774 (ACC/AHA), PMID: 39256087 (NLA consensus).
+    """
+    if apob_mgdl is None or apob_mgdl < 0:
+        return None
+    return round(apob_mgdl, 1)
+
+
+def calc_homocysteine_neurovascular_risk(homocysteine_umol: float) -> float | None:
+    """Homocysteine concentration passthrough for neurovascular risk-bands.
+
+    Elevated homocysteine is associated with higher stroke and cognitive-decline risk.
+    PMID: 29480200 (dementia consensus), PMID: 36227950 (stroke meta-analysis).
+    """
+    if homocysteine_umol is None or homocysteine_umol < 0:
+        return None
+    return round(homocysteine_umol, 1)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1607,6 +1769,22 @@ def _build_tyg_bmi_args(bio, clin):
         "bmi": clin.get("bmi"),
     }
 
+def _build_lap_args(bio, clin):
+    return {
+        "waist_cm": clin.get("waist_cm"),
+        "tg_mgdl": bio.get("triglycerides"),
+        "sex": clin.get("sex"),
+    }
+
+def _build_vai_args(bio, clin):
+    return {
+        "waist_cm": clin.get("waist_cm"),
+        "bmi": clin.get("bmi"),
+        "tg_mgdl": bio.get("triglycerides"),
+        "hdl_mgdl": bio.get("hdl_cholesterol"),
+        "sex": clin.get("sex"),
+    }
+
 def _build_mcauley_args(bio, clin):
     return {"fasting_insulin": bio.get("fasting_insulin"), "tg_mgdl": bio.get("triglycerides")}
 
@@ -1718,6 +1896,9 @@ def _build_framingham_cvd_args(bio, clin):
         "diabetes": bool(clin.get("diabetes_status")),
     }
 
+def _build_framingham_vascular_age_gap_args(bio, clin):
+    return _build_framingham_cvd_args(bio, clin)
+
 def _build_non_hdl_c_args(bio, clin):
     return {"total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol")}
 
@@ -1735,6 +1916,12 @@ def _build_remnant_cholesterol_args(bio, clin):
 
 def _build_lpa_risk_args(bio, clin):
     return {"lpa": bio.get("lpa")}
+
+def _build_apob_risk_args(bio, clin):
+    return {"apob_mgdl": bio.get("apob")}
+
+def _build_homocysteine_neurovascular_args(bio, clin):
+    return {"homocysteine_umol": bio.get("homocysteine")}
 
 def _build_albi_args(bio, clin):
     return {"total_bilirubin_mgdl": bio.get("total_bilirubin"), "albumin_gdl": bio.get("albumin")}
@@ -1838,6 +2025,8 @@ FORMULA_DISPATCH = {
     "calc_tyg_index": (calc_tyg_index, _build_tyg_args),
     "calc_mets_ir": (calc_mets_ir, _build_mets_ir_args),
     "calc_tyg_bmi": (calc_tyg_bmi, _build_tyg_bmi_args),
+    "calc_lap_index": (calc_lap_index, _build_lap_args),
+    "calc_vai": (calc_vai, _build_vai_args),
     "calc_mcauley_index": (calc_mcauley_index, _build_mcauley_args),
     "calc_glasgow_prognostic": (calc_glasgow_prognostic, _build_glasgow_args),
     "calc_sii": (calc_sii, _build_sii_args),
@@ -1849,12 +2038,15 @@ FORMULA_DISPATCH = {
     "calc_cbc_composite": (calc_cbc_composite, _build_cbc_composite_args),
     "calc_qrisk3": (calc_qrisk3, _build_qrisk3_args),
     "calc_framingham_cvd": (calc_framingham_cvd, _build_framingham_cvd_args),
+    "calc_framingham_vascular_age_gap": (calc_framingham_vascular_age_gap, _build_framingham_vascular_age_gap_args),
     "calc_non_hdl_c": (calc_non_hdl_c, _build_non_hdl_c_args),
     "calc_castelli_ratio": (calc_castelli_ratio, _build_castelli_ratio_args),
     "calc_aip": (calc_aip, _build_aip_args),
     "calc_tg_hdl_ratio": (calc_tg_hdl_ratio, _build_tg_hdl_ratio_args),
     "calc_remnant_cholesterol": (calc_remnant_cholesterol, _build_remnant_cholesterol_args),
     "calc_lpa_risk": (calc_lpa_risk, _build_lpa_risk_args),
+    "calc_apob_risk": (calc_apob_risk, _build_apob_risk_args),
+    "calc_homocysteine_neurovascular_risk": (calc_homocysteine_neurovascular_risk, _build_homocysteine_neurovascular_args),
     "calc_hsi": (calc_hsi, _build_hsi_args),
     "calc_quicki": (calc_quicki, _build_quicki_args),
     "calc_plr": (calc_plr, _build_plr_args),

@@ -345,6 +345,27 @@ ORGAN_SCORE_DEFINITIONS = [
         "description": "Lp(a) risk categorization per EAS 2022 and AHA/ACC 2019. Genetically determined, not modifiable by statins. Values in mg/dL. Each 50 nmol/L (~20 mg/dL) increase raises ASCVD risk ~20%.",
         "sort_order": 28,
     },
+    {
+        "code": "apob_risk",
+        "name": "ApoB Risk Category",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_apob_risk",
+        "required_biomarkers": ["apob"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 89, "label": "Lower atherogenic particle burden", "severity": "optimal"},
+                {"min": 90, "max": 109, "label": "Borderline ApoB burden", "severity": "normal"},
+                {"min": 110, "max": 129, "label": "Elevated ApoB burden", "severity": "elevated"},
+                {"min": 130, "label": "High ApoB burden - risk-enhancing range", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "30586774",
+        "citation_text": "Grundy SM et al. Circulation 2019;139(25):e1082-e1143. ACC/AHA lists ApoB >=130 mg/dL as a risk-enhancing factor. NLA consensus update: Soffer DE et al. J Clin Lipidol 2024 (PMID: 39256087).",
+        "description": "ApoB reflects total atherogenic lipoprotein particle concentration (one ApoB molecule per atherogenic particle). Useful when LDL-C and particle burden are discordant.",
+        "sort_order": 29,
+    },
     # ═══════════════════════════════════════════════════════════════════════════
     # METABOLIC — Tier 1
     # ═══════════════════════════════════════════════════════════════════════════
@@ -748,6 +769,48 @@ ORGAN_SCORE_DEFINITIONS = [
         "description": "Composite index combining TyG and BMI to capture adiposity-amplified insulin resistance. Thresholds are population-dependent.",
         "sort_order": 35,
     },
+    {
+        "code": "lap_index",
+        "name": "Lipid Accumulation Product (LAP)",
+        "organ_system": "metabolic",
+        "tier": "validated",
+        "formula_key": "calc_lap_index",
+        "required_biomarkers": ["triglycerides"],
+        "required_clinical": ["waist_cm", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 20, "label": "Lower visceral lipid accumulation signal", "severity": "optimal"},
+                {"min": 20, "max": 40, "label": "Mildly elevated visceral lipid accumulation signal", "severity": "normal"},
+                {"min": 40, "max": 80, "label": "Elevated visceral lipid accumulation signal", "severity": "elevated"},
+                {"min": 80, "label": "High visceral lipid accumulation signal", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "16150143",
+        "citation_text": "Kahn HS. BMC Cardiovasc Disord 2005;5:26. LAP uses sex-specific waist offsets with triglycerides. Large NHANES mortality association update: Chen S et al. Nutr Metab Cardiovasc Dis 2024 (PMID: 38555243).",
+        "description": "Sex-specific visceral lipid accumulation index: (WC-65)*TG for men and (WC-58)*TG for women (TG in mmol/L). No single universal cutoff exists across all populations, so track longitudinally and with other metabolic markers.",
+        "sort_order": 36,
+    },
+    {
+        "code": "vai",
+        "name": "Visceral Adiposity Index (VAI)",
+        "organ_system": "metabolic",
+        "tier": "validated",
+        "formula_key": "calc_vai",
+        "required_biomarkers": ["triglycerides", "hdl_cholesterol"],
+        "required_clinical": ["waist_cm", "bmi", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 1.0, "label": "Lower visceral adipose dysfunction signal", "severity": "optimal"},
+                {"min": 1.0, "max": 2.0, "label": "Mild visceral adipose dysfunction signal", "severity": "normal"},
+                {"min": 2.0, "max": 3.0, "label": "Elevated visceral adipose dysfunction signal", "severity": "elevated"},
+                {"min": 3.0, "label": "High visceral adipose dysfunction signal", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "20067971",
+        "citation_text": "Amato MC et al. Diabetes Care 2010;33(4):920-922. Original sex-specific VAI formula. Prospective external CVD validation: ATTICA cohort (PMID: 28851556).",
+        "description": "Sex-specific cardiometabolic index combining waist circumference, BMI, triglycerides, and HDL-C to estimate visceral adipose tissue dysfunction.",
+        "sort_order": 37,
+    },
     # ═══════════════════════════════════════════════════════════════════════════
     # INFLAMMATORY — Additional (from research review)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -837,6 +900,27 @@ ORGAN_SCORE_DEFINITIONS = [
         "citation_text": "Levine ME et al. Aging 2018;10(4):573-591. Trained on NHANES III (n=9,926), validated on NHANES IV (n=11,432). Each 1-year acceleration = 9% increased mortality.",
         "description": "Biological age estimate from 9 blood biomarkers + chronological age. Output is PhenoAge minus chronological age (acceleration). Positive = older than expected. Based on 10-year mortality Gompertz model.",
         "sort_order": 70,
+    },
+    {
+        "code": "framingham_vascular_age_gap",
+        "name": "Framingham Vascular Age Gap",
+        "organ_system": "biological_age",
+        "tier": "derived",
+        "formula_key": "calc_framingham_vascular_age_gap",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol"],
+        "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": -5, "label": "Vascular age substantially younger than chronological age", "severity": "optimal"},
+                {"min": -5, "max": 5, "label": "Vascular and chronological age are broadly concordant", "severity": "normal"},
+                {"min": 5, "max": 10, "label": "Moderately accelerated vascular aging signal", "severity": "elevated"},
+                {"min": 10, "label": "Marked vascular age acceleration", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "18212285",
+        "citation_text": "D'Agostino RB Sr et al. Circulation 2008;117(6):743-53 established Framingham general CVD risk and vascular-age communication. Systematic review: Marma AK et al. Circulation 2009 (PMID: 19620502).",
+        "description": "Derived risk-age communication metric: vascular age (from Framingham risk under an idealized no-risk profile) minus chronological age. Intended for communication and trend tracking, not diagnosis.",
+        "sort_order": 71,
     },
     # ═══════════════════════════════════════════════════════════════════════════
     # KIDNEY — KFRE (Kidney Failure Risk Equation)
@@ -936,6 +1020,27 @@ ORGAN_SCORE_DEFINITIONS = [
     # ═══════════════════════════════════════════════════════════════════════════
     # NEUROLOGICAL — CAIDE Dementia Risk Score
     # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "homocysteine_neurovascular",
+        "name": "Homocysteine Neurovascular Risk",
+        "organ_system": "neurological",
+        "tier": "validated",
+        "formula_key": "calc_homocysteine_neurovascular_risk",
+        "required_biomarkers": ["homocysteine"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 10, "label": "Lower neurovascular risk signal", "severity": "optimal"},
+                {"min": 10, "max": 15, "label": "Above prevention-focused target range", "severity": "normal"},
+                {"min": 15, "max": 30, "label": "Moderate hyperhomocysteinemia range", "severity": "elevated"},
+                {"min": 30, "label": "Marked hyperhomocysteinemia range", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "29480200",
+        "citation_text": "Smith AD et al. J Alzheimers Dis 2018;62(2):561-570 consensus statement supports elevated homocysteine as a modifiable dementia risk factor. Stroke association meta-analysis: Fang X et al. Front Neurol 2022 (PMID: 36227950).",
+        "description": "Neurovascular risk marker based on fasting homocysteine concentration. Best interpreted with B12/folate status and longitudinal trend.",
+        "sort_order": 79,
+    },
     {
         "code": "caide_dementia",
         "name": "CAIDE Dementia Risk Score",

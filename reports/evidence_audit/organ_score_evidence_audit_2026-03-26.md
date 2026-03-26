@@ -77,6 +77,11 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
   Journal/Date: Eur Heart J (2022 Oct 14)
   Link: https://pubmed.ncbi.nlm.nih.gov/36036785/
 
+- `apob_risk` (validated) | PMID: `30586774` | verified
+  Title: 2018 AHA/ACC/AACVPR/AAPA/ABC/ACPM/ADA/AGS/APhA/ASPC/NLA/PCNA Guideline on the Management of Blood Cholesterol: A Report of the American College of Cardiology/American Heart Association Task Force on Clinical Practice Guidelines.
+  Journal/Date: Circulation (2019 Jun 18)
+  Link: https://pubmed.ncbi.nlm.nih.gov/30586774/
+
 - `homa_ir` (validated) | PMID: `3899825` | verified
   Title: Homeostasis model assessment: insulin resistance and beta-cell function from fasting plasma glucose and insulin concentrations in man.
   Journal/Date: Diabetologia (1985 Jul)
@@ -172,6 +177,16 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
   Journal/Date: PLoS One (2016)
   Link: https://pubmed.ncbi.nlm.nih.gov/26930652/
 
+- `lap_index` (validated) | PMID: `16150143` | verified
+  Title: The "lipid accumulation product" performs better than the body mass index for recognizing cardiovascular risk: a population-based comparison.
+  Journal/Date: BMC Cardiovasc Disord (2005 Sep 8)
+  Link: https://pubmed.ncbi.nlm.nih.gov/16150143/
+
+- `vai` (validated) | PMID: `20067971` | verified
+  Title: Visceral Adiposity Index: a reliable indicator of visceral fat function associated with cardiometabolic risk.
+  Journal/Date: Diabetes Care (2010 Apr)
+  Link: https://pubmed.ncbi.nlm.nih.gov/20067971/
+
 - `plr` (validated) | PMID: `24793958` | verified
   Title: Prognostic role of platelet to lymphocyte ratio in solid tumors: a systematic review and meta-analysis.
   Journal/Date: Cancer Epidemiol Biomarkers Prev (2014 Jul)
@@ -191,6 +206,11 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
   Title: An epigenetic biomarker of aging for lifespan and healthspan.
   Journal/Date: Aging (Albany NY) (2018 Apr 18)
   Link: https://pubmed.ncbi.nlm.nih.gov/29676998/
+
+- `framingham_vascular_age_gap` (derived) | PMID: `18212285` | verified
+  Title: General cardiovascular risk profile for use in primary care: the Framingham Heart Study.
+  Journal/Date: Circulation (2008 Feb 12)
+  Link: https://pubmed.ncbi.nlm.nih.gov/18212285/
 
 - `kfre_5yr` (validated) | PMID: `26757465` | verified
   Title: Multinational Assessment of Accuracy of Equations for Predicting Risk of Kidney Failure: A Meta-analysis.
@@ -212,6 +232,11 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
   Journal/Date: J Hepatol (2020 Dec)
   Link: https://pubmed.ncbi.nlm.nih.gov/32707225/
 
+- `homocysteine_neurovascular` (validated) | PMID: `29480200` | verified
+  Title: Homocysteine and Dementia: An International Consensus Statement.
+  Journal/Date: J Alzheimers Dis (2018)
+  Link: https://pubmed.ncbi.nlm.nih.gov/29480200/
+
 - `caide_dementia` (validated) | PMID: `16914401` | verified
   Title: Risk score for the prediction of dementia risk in 20 years among middle aged people: a longitudinal, population-based study.
   Journal/Date: Lancet Neurol (2006 Sep)
@@ -219,6 +244,6 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
 
 ## Summary
 - uncertain - no direct evidence: 1
-- verified: 42
+- verified: 47
 
 Retraction status: unverified (manual step required per-paper).
