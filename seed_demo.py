@@ -69,6 +69,7 @@ MARIA_ORGAN_SCORE_BIOMARKERS = {
     "ldl_cholesterol": 88.0,
     "hdl_cholesterol": 68.0,
     "triglycerides": 72.0,
+    "ggt": 18.0,
     "total_cholesterol": 172.0,
     "lpa": 19.0,
     "vitamin_d": 52.0,
@@ -92,6 +93,13 @@ MARIA_ORGAN_SCORE_BIOMARKERS = {
     "iron": 98.0,
     "tibc": 330.0,
     "transferrin_sat": 30.0,
+}
+MARIA_ORGAN_SCORE_BODY_METRICS = {
+    "weight_kg": 65.0,
+    "height_cm": 167.0,
+    "waist_cm": 72.0,
+    "hip_cm": 95.0,
+    "body_fat_pct": 22.0,
 }
 MARIA_BACKFILL_LAB_DATE = "2026-02-01"
 MARIA_BACKFILL_LAB_NAME = "Quest Diagnostics"
@@ -138,6 +146,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
     save_profile(user_id, merged_profile)
 
     inserted_biomarkers = 0
+    inserted_body_metrics = 0
     missing_definitions = []
     conn = get_connection()
     try:
@@ -171,6 +180,29 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             )
             inserted_biomarkers += 1
 
+        existing_metrics = conn.execute(
+            "SELECT 1 FROM body_metrics WHERE user_id = ? LIMIT 1",
+            (user_id,),
+        ).fetchone()
+        if not existing_metrics:
+            conn.execute(
+                """INSERT OR IGNORE INTO body_metrics
+                   (user_id, log_date, weight_kg, height_cm, waist_cm, hip_cm, body_fat_pct, notes, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    user_id,
+                    MARIA_BACKFILL_LAB_DATE,
+                    MARIA_ORGAN_SCORE_BODY_METRICS["weight_kg"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["height_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["waist_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["hip_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["body_fat_pct"],
+                    "Backfilled for organ score prerequisites",
+                    MARIA_BACKFILL_LAB_DATE,
+                ),
+            )
+            inserted_body_metrics = 1
+
         conn.commit()
     finally:
         conn.close()
@@ -178,6 +210,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
     return {
         "profile_backfilled": profile_backfilled,
         "inserted_biomarkers": inserted_biomarkers,
+        "inserted_body_metrics": inserted_body_metrics,
         "missing_definitions": missing_definitions,
     }
 

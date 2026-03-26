@@ -28,3 +28,12 @@ def test_known_citation_regressions_are_fixed():
 def test_prevent_is_marked_directional_until_full_parity_validation():
     defs = _defs_by_code()
     assert defs["prevent_10yr"]["tier"] == "derived"
+
+
+def test_new_scores_are_present_with_expected_formula_keys():
+    defs = _defs_by_code()
+    assert defs["albi_score"]["formula_key"] == "calc_albi_score"
+    assert defs["fli"]["formula_key"] == "calc_fli"
+    assert defs["bard_score"]["formula_key"] == "calc_bard_score"
+    assert defs["mets_ir"]["formula_key"] == "calc_mets_ir"
+    assert defs["tyg_bmi"]["formula_key"] == "calc_tyg_bmi"

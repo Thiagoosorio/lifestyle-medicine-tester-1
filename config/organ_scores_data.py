@@ -626,6 +626,65 @@ ORGAN_SCORE_DEFINITIONS = [
         "description": "Screens for hepatic steatosis (fatty liver) using ALT/AST ratio, BMI, sex, and diabetes status. EASL-endorsed. Score >36 rules in NAFLD, <30 rules out.",
         "sort_order": 4,
     },
+    {
+        "code": "albi_score",
+        "name": "ALBI Score (Albumin-Bilirubin)",
+        "organ_system": "liver",
+        "tier": "validated",
+        "formula_key": "calc_albi_score",
+        "required_biomarkers": ["total_bilirubin", "albumin"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": -2.60, "label": "ALBI Grade 1 - preserved liver reserve", "severity": "optimal"},
+                {"min": -2.60, "max": -1.39, "label": "ALBI Grade 2 - intermediate liver reserve", "severity": "elevated"},
+                {"min": -1.39, "label": "ALBI Grade 3 - reduced liver reserve", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "25512453",
+        "citation_text": "Johnson PJ et al. J Clin Oncol 2015;33(6):550-8. ALBI is an objective liver function model using albumin and bilirubin.",
+        "description": "Objective liver reserve score derived from albumin and bilirubin only, avoiding subjective Child-Pugh components.",
+        "sort_order": 6,
+    },
+    {
+        "code": "fli",
+        "name": "Fatty Liver Index (FLI)",
+        "organ_system": "liver",
+        "tier": "validated",
+        "formula_key": "calc_fli",
+        "required_biomarkers": ["triglycerides", "ggt"],
+        "required_clinical": ["bmi", "waist_cm"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 30, "label": "Fatty liver unlikely (rule-out zone)", "severity": "optimal"},
+                {"min": 30, "max": 60, "label": "Indeterminate fatty liver probability", "severity": "elevated"},
+                {"min": 60, "label": "Fatty liver likely (rule-in zone)", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "17081293",
+        "citation_text": "Bedogni G et al. BMC Gastroenterol 2006;6:33. FLI (BMI, waist, TG, GGT) showed AUROC 0.84 for ultrasound-defined steatosis.",
+        "description": "Validated screening index for hepatic steatosis using anthropometrics and standard labs.",
+        "sort_order": 7,
+    },
+    {
+        "code": "bard_score",
+        "name": "BARD Score",
+        "organ_system": "liver",
+        "tier": "validated",
+        "formula_key": "calc_bard_score",
+        "required_biomarkers": ["ast", "alt"],
+        "required_clinical": ["bmi", "diabetes_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 1, "label": "Low risk of advanced fibrosis", "severity": "optimal"},
+                {"min": 2, "max": 4, "label": "Higher risk of advanced fibrosis", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "18390575",
+        "citation_text": "Harrison SA et al. Gut 2008;57(10):1441-7. BARD combines BMI >=28, AST/ALT ratio >=0.8, and diabetes status.",
+        "description": "Simple NAFLD fibrosis risk score (0-4) used as a practical triage tool for advanced fibrosis risk.",
+        "sort_order": 8,
+    },
     # ═══════════════════════════════════════════════════════════════════════════
     # METABOLIC — Additional (from research review)
     # ═══════════════════════════════════════════════════════════════════════════
@@ -648,6 +707,46 @@ ORGAN_SCORE_DEFINITIONS = [
         "citation_text": "Katz A et al. J Clin Endocrinol Metab 2000;85(7):2402-10. Better linear correlation with clamp than HOMA-IR in obese/diabetic subjects.",
         "description": "Quantitative Insulin Sensitivity Check Index. Uses log transform of insulin and glucose. Higher values = better sensitivity. Better correlation with clamp than HOMA-IR in obese/diabetic patients.",
         "sort_order": 24,
+    },
+    {
+        "code": "mets_ir",
+        "name": "METS-IR",
+        "organ_system": "metabolic",
+        "tier": "validated",
+        "formula_key": "calc_mets_ir",
+        "required_biomarkers": ["fasting_glucose", "triglycerides", "hdl_cholesterol"],
+        "required_clinical": ["bmi"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 40, "label": "Lower insulin resistance burden", "severity": "optimal"},
+                {"min": 40, "max": 50.39, "label": "Intermediate insulin resistance burden", "severity": "elevated"},
+                {"min": 50.39, "label": "High insulin resistance burden", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "29535168",
+        "citation_text": "Bello-Chavolla OY et al. Eur J Endocrinol 2018;178(5):533-544. METS-IR was validated against euglycemic clamp and predicted incident T2D.",
+        "description": "Non-insulin index of insulin resistance using fasting glucose, triglycerides, HDL-C, and BMI.",
+        "sort_order": 34,
+    },
+    {
+        "code": "tyg_bmi",
+        "name": "TyG-BMI",
+        "organ_system": "metabolic",
+        "tier": "derived",
+        "formula_key": "calc_tyg_bmi",
+        "required_biomarkers": ["fasting_glucose", "triglycerides"],
+        "required_clinical": ["bmi"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 200, "label": "Lower adiposity-amplified IR signal", "severity": "optimal"},
+                {"min": 200, "max": 230, "label": "Intermediate adiposity-amplified IR signal", "severity": "elevated"},
+                {"min": 230, "label": "High adiposity-amplified IR signal", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "26930652",
+        "citation_text": "Er LK et al. PLoS One 2016;11(3):e0149731. TyG-BMI (TyG x BMI) was proposed as a surrogate marker for insulin resistance.",
+        "description": "Composite index combining TyG and BMI to capture adiposity-amplified insulin resistance. Thresholds are population-dependent.",
+        "sort_order": 35,
     },
     # ═══════════════════════════════════════════════════════════════════════════
     # INFLAMMATORY — Additional (from research review)

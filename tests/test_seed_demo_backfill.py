@@ -46,6 +46,7 @@ def test_ensure_demo_organ_score_prereqs_backfills_missing_profile_and_labs(db_c
     assert summary["profile_backfilled"] is True
     assert summary["missing_definitions"] == []
     assert summary["inserted_biomarkers"] == len(seed_demo.MARIA_ORGAN_SCORE_BIOMARKERS) - 1
+    assert summary["inserted_body_metrics"] == 1
 
     profile = clinical_profile.get_profile(user_id)
     assert profile["date_of_birth"] == "1982-10-12"
@@ -82,5 +83,7 @@ def test_ensure_demo_organ_score_prereqs_is_idempotent(db_conn, monkeypatch):
     second = seed_demo.ensure_demo_organ_score_prereqs(user_id)
 
     assert first["inserted_biomarkers"] == len(seed_demo.MARIA_ORGAN_SCORE_BIOMARKERS)
+    assert first["inserted_body_metrics"] == 1
     assert second["inserted_biomarkers"] == 0
+    assert second["inserted_body_metrics"] == 0
     assert second["profile_backfilled"] is False

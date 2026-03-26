@@ -142,10 +142,35 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
   Journal/Date: Dig Liver Dis (2010 Jul)
   Link: https://pubmed.ncbi.nlm.nih.gov/19766548/
 
+- `albi_score` (validated) | PMID: `25512453` | verified
+  Title: Assessment of liver function in patients with hepatocellular carcinoma: a new evidence-based approach-the ALBI grade.
+  Journal/Date: J Clin Oncol (2015 Feb 20)
+  Link: https://pubmed.ncbi.nlm.nih.gov/25512453/
+
+- `fli` (validated) | PMID: `17081293` | verified
+  Title: The Fatty Liver Index: a simple and accurate predictor of hepatic steatosis in the general population.
+  Journal/Date: BMC Gastroenterol (2006 Nov 2)
+  Link: https://pubmed.ncbi.nlm.nih.gov/17081293/
+
+- `bard_score` (validated) | PMID: `18390575` | verified
+  Title: Development and validation of a simple NAFLD clinical scoring system for identifying patients without advanced disease.
+  Journal/Date: Gut (2008 Oct)
+  Link: https://pubmed.ncbi.nlm.nih.gov/18390575/
+
 - `quicki` (validated) | PMID: `10902785` | verified
   Title: Quantitative insulin sensitivity check index: a simple, accurate method for assessing insulin sensitivity in humans.
   Journal/Date: J Clin Endocrinol Metab (2000 Jul)
   Link: https://pubmed.ncbi.nlm.nih.gov/10902785/
+
+- `mets_ir` (validated) | PMID: `29535168` | verified
+  Title: METS-IR, a novel score to evaluate insulin sensitivity, is predictive of visceral adiposity and incident type 2 diabetes.
+  Journal/Date: Eur J Endocrinol (2018 May)
+  Link: https://pubmed.ncbi.nlm.nih.gov/29535168/
+
+- `tyg_bmi` (derived) | PMID: `26930652` | verified
+  Title: Triglyceride Glucose-Body Mass Index Is a Simple and Clinically Useful Surrogate Marker for Insulin Resistance in Nondiabetic Individuals.
+  Journal/Date: PLoS One (2016)
+  Link: https://pubmed.ncbi.nlm.nih.gov/26930652/
 
 - `plr` (validated) | PMID: `24793958` | verified
   Title: Prognostic role of platelet to lymphocyte ratio in solid tumors: a systematic review and meta-analysis.
@@ -194,6 +219,6 @@ Legend: `verified`, `uncertain - single source`, `uncertain - no direct evidence
 
 ## Summary
 - uncertain - no direct evidence: 1
-- verified: 37
+- verified: 42
 
 Retraction status: unverified (manual step required per-paper).

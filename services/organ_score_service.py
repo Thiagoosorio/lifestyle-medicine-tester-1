@@ -48,11 +48,23 @@ def seed_organ_score_definitions():
     try:
         for defn in ORGAN_SCORE_DEFINITIONS:
             conn.execute(
-                """INSERT OR IGNORE INTO organ_score_definitions
+                """INSERT INTO organ_score_definitions
                    (code, name, organ_system, tier, formula_key,
                     required_biomarkers, required_clinical, interpretation,
                     citation_pmid, citation_text, description, sort_order)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(code) DO UPDATE SET
+                       name = excluded.name,
+                       organ_system = excluded.organ_system,
+                       tier = excluded.tier,
+                       formula_key = excluded.formula_key,
+                       required_biomarkers = excluded.required_biomarkers,
+                       required_clinical = excluded.required_clinical,
+                       interpretation = excluded.interpretation,
+                       citation_pmid = excluded.citation_pmid,
+                       citation_text = excluded.citation_text,
+                       description = excluded.description,
+                       sort_order = excluded.sort_order""",
                 (
                     defn["code"], defn["name"], defn["organ_system"], defn["tier"],
                     defn["formula_key"],
@@ -383,6 +395,92 @@ def calc_tyg_index(tg_mgdl: float, glucose_mgdl: float) -> float | None:
     if tg_mgdl <= 0 or glucose_mgdl <= 0:
         return None
     return round(math.log(tg_mgdl * glucose_mgdl) / 2.0, 2)
+
+
+def calc_mets_ir(glucose_mgdl: float, tg_mgdl: float, hdl_mgdl: float,
+                 bmi: float) -> float | None:
+    """METS-IR = ln((2*Glucose) + TG) * BMI / ln(HDL)
+
+    Glucose, TG, HDL in mg/dL; BMI in kg/m^2.
+    PMID: 29535168 - Bello-Chavolla OY et al. Eur J Endocrinol 2018.
+    """
+    if glucose_mgdl <= 0 or tg_mgdl <= 0 or hdl_mgdl <= 0 or bmi <= 0:
+        return None
+    denominator = math.log(hdl_mgdl)
+    if denominator <= 0:
+        return None
+    value = math.log((2 * glucose_mgdl) + tg_mgdl) * bmi / denominator
+    return round(value, 2)
+
+
+def calc_tyg_bmi(glucose_mgdl: float, tg_mgdl: float, bmi: float) -> float | None:
+    """TyG-BMI = TyG * BMI, where TyG = ln(TG*Glucose/2).
+
+    TG and glucose in mg/dL; BMI in kg/m^2.
+    PMID: 39113004 - Wang W et al. Cardiovasc Diabetol 2024.
+    """
+    if glucose_mgdl <= 0 or tg_mgdl <= 0 or bmi <= 0:
+        return None
+    tyg = math.log((tg_mgdl * glucose_mgdl) / 2.0)
+    return round(tyg * bmi, 2)
+
+
+def calc_albi_score(total_bilirubin_mgdl: float, albumin_gdl: float) -> float | None:
+    """ALBI score = (log10 bilirubin[umol/L] * 0.66) + (albumin[g/L] * -0.085).
+
+    Inputs in mg/dL and g/dL are converted internally.
+    PMID: 25512453 - Johnson PJ et al. J Clin Oncol 2015.
+    """
+    if total_bilirubin_mgdl <= 0 or albumin_gdl <= 0:
+        return None
+
+    bilirubin_umol = _mgdl_to_umol_bilirubin(total_bilirubin_mgdl)
+    albumin_gl = albumin_gdl * 10.0
+    score = (math.log10(bilirubin_umol) * 0.66) + (albumin_gl * -0.085)
+    return round(score, 3)
+
+
+def calc_fli(tg_mgdl: float, bmi: float, ggt_ul: float, waist_cm: float) -> float | None:
+    """Fatty Liver Index (FLI), 0-100 logistic score.
+
+    Formula uses TG (mg/dL), BMI (kg/m^2), GGT (U/L), and waist circumference (cm).
+    PMID: 17081293 - Bedogni G et al. BMC Gastroenterol 2006.
+    """
+    if tg_mgdl <= 0 or bmi <= 0 or ggt_ul <= 0 or waist_cm <= 0:
+        return None
+
+    logit = (
+        0.953 * math.log(tg_mgdl)
+        + 0.139 * bmi
+        + 0.718 * math.log(ggt_ul)
+        + 0.053 * waist_cm
+        - 15.745
+    )
+    odds = math.exp(logit)
+    return round((odds / (1 + odds)) * 100.0, 1)
+
+
+def calc_bard_score(bmi: float, ast: float, alt: float, diabetes: int) -> int | None:
+    """BARD score for advanced fibrosis risk in NAFLD.
+
+    Components:
+      BMI >= 28 kg/m^2 -> 1 point
+      AST/ALT ratio >= 0.8 -> 2 points
+      Diabetes mellitus -> 1 point
+    Total range: 0-4.
+    PMID: 18390575 - Harrison SA et al. Gut 2008.
+    """
+    if bmi is None or ast is None or alt is None or alt <= 0:
+        return None
+
+    score = 0
+    if bmi >= 28:
+        score += 1
+    if (ast / alt) >= 0.8:
+        score += 2
+    if diabetes:
+        score += 1
+    return score
 
 
 def calc_mcauley_index(fasting_insulin: float, tg_mgdl: float) -> float | None:
@@ -1494,6 +1592,21 @@ def _build_homa_b_args(bio, clin):
 def _build_tyg_args(bio, clin):
     return {"tg_mgdl": bio.get("triglycerides"), "glucose_mgdl": bio.get("fasting_glucose")}
 
+def _build_mets_ir_args(bio, clin):
+    return {
+        "glucose_mgdl": bio.get("fasting_glucose"),
+        "tg_mgdl": bio.get("triglycerides"),
+        "hdl_mgdl": bio.get("hdl_cholesterol"),
+        "bmi": clin.get("bmi"),
+    }
+
+def _build_tyg_bmi_args(bio, clin):
+    return {
+        "glucose_mgdl": bio.get("fasting_glucose"),
+        "tg_mgdl": bio.get("triglycerides"),
+        "bmi": clin.get("bmi"),
+    }
+
 def _build_mcauley_args(bio, clin):
     return {"fasting_insulin": bio.get("fasting_insulin"), "tg_mgdl": bio.get("triglycerides")}
 
@@ -1623,6 +1736,25 @@ def _build_remnant_cholesterol_args(bio, clin):
 def _build_lpa_risk_args(bio, clin):
     return {"lpa": bio.get("lpa")}
 
+def _build_albi_args(bio, clin):
+    return {"total_bilirubin_mgdl": bio.get("total_bilirubin"), "albumin_gdl": bio.get("albumin")}
+
+def _build_fli_args(bio, clin):
+    return {
+        "tg_mgdl": bio.get("triglycerides"),
+        "bmi": clin.get("bmi"),
+        "ggt_ul": bio.get("ggt"),
+        "waist_cm": clin.get("waist_cm"),
+    }
+
+def _build_bard_args(bio, clin):
+    return {
+        "bmi": clin.get("bmi"),
+        "ast": bio.get("ast"),
+        "alt": bio.get("alt"),
+        "diabetes": clin.get("diabetes_status", 0),
+    }
+
 def _build_hsi_args(bio, clin):
     return {"alt": bio.get("alt"), "ast": bio.get("ast"), "bmi": clin.get("bmi"), "sex": clin.get("sex"), "diabetes": clin.get("diabetes_status", 0)}
 
@@ -1694,6 +1826,9 @@ FORMULA_DISPATCH = {
     "calc_fib4": (calc_fib4, _build_fib4_args),
     "calc_apri": (calc_apri, _build_apri_args),
     "calc_nafld_fibrosis": (calc_nafld_fibrosis, _build_nafld_args),
+    "calc_albi_score": (calc_albi_score, _build_albi_args),
+    "calc_fli": (calc_fli, _build_fli_args),
+    "calc_bard_score": (calc_bard_score, _build_bard_args),
     "calc_ckd_epi_2021": (calc_ckd_epi_2021, _build_ckd_epi_args),
     "calc_kdigo_risk": (calc_kdigo_risk, _build_kdigo_args),
     "calc_ascvd_pce": (calc_ascvd_pce, _build_ascvd_args),
@@ -1701,6 +1836,8 @@ FORMULA_DISPATCH = {
     "calc_homa_ir": (calc_homa_ir, _build_homa_ir_args),
     "calc_homa_b": (calc_homa_b, _build_homa_b_args),
     "calc_tyg_index": (calc_tyg_index, _build_tyg_args),
+    "calc_mets_ir": (calc_mets_ir, _build_mets_ir_args),
+    "calc_tyg_bmi": (calc_tyg_bmi, _build_tyg_bmi_args),
     "calc_mcauley_index": (calc_mcauley_index, _build_mcauley_args),
     "calc_glasgow_prognostic": (calc_glasgow_prognostic, _build_glasgow_args),
     "calc_sii": (calc_sii, _build_sii_args),
@@ -1775,6 +1912,13 @@ def _get_clinical_data(user_id: int) -> dict:
     result = dict(profile)
     result["age"] = age
     result["bmi"] = bmi
+    # Waist circumference is stored in body_metrics (not clinical profile).
+    try:
+        from services.body_metrics_service import get_latest_metrics
+        latest_metrics = get_latest_metrics(user_id) or {}
+        result["waist_cm"] = latest_metrics.get("waist_cm")
+    except Exception:
+        result["waist_cm"] = None
     return result
 
 
