@@ -65,9 +65,16 @@ with tab_wheel:
         import math as _math
 
         _n = len(DOMAIN_ORDER)
-        _cx, _cy = 220, 220  # center
-        _max_r = 180  # max radius
+        _cx, _cy = 280, 260  # center (shifted for label room)
+        _max_r = 160  # radar radius (smaller to leave label space)
         _font = A["font_display"]
+
+        # Compute trend per domain: avg of metric trend_delta_100 values
+        _domain_trends = {}
+        for code in DOMAIN_ORDER:
+            used = wheel["domains"][code].get("metric_codes_used", [])
+            deltas = [wheel["metrics"][mc].get("trend_delta_100", 0) for mc in used if mc in wheel["metrics"]]
+            _domain_trends[code] = sum(deltas) / len(deltas) if deltas else 0.0
 
         def _polar_xy(angle_idx, radius_frac):
             """Convert domain index + 0-1 fraction to SVG x,y."""
@@ -75,8 +82,8 @@ with tab_wheel:
             r = _max_r * radius_frac
             return _cx + r * _math.cos(angle), _cy + r * _math.sin(angle)
 
-        # Build SVG
-        svg = f'<svg viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;margin:0 auto;display:block">'
+        # Build SVG — wider viewBox for labels
+        svg = f'<svg viewBox="0 0 560 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:580px;margin:0 auto;display:block">'
 
         # Defs: gradient for main polygon
         svg += '<defs>'
@@ -145,43 +152,49 @@ with tab_wheel:
             x, y = _polar_xy(i, score_frac)
             svg += f'<circle cx="{x}" cy="{y}" r="8" fill="{color}" stroke="white" stroke-width="3"/>'
 
-        # Score labels next to each dot
+        # Domain labels with score + trend arrow (positioned outside the radar)
         for i, code in enumerate(DOMAIN_ORDER):
             domain = wheel["domains"][code]
-            color = WEARABLE_WHEEL_DOMAINS[code]["color"]
-            score_frac = domain["score_10"] / 10.0
-            # Position label outside the dot
-            lx, ly = _polar_xy(i, min(score_frac + 0.09, 1.05))
-            anchor = "middle"
-            # Adjust horizontal anchor based on position
-            angle = -_math.pi / 2 + (2 * _math.pi / _n) * i
-            if _math.cos(angle) > 0.3:
-                anchor = "start"
-                lx += 10
-            elif _math.cos(angle) < -0.3:
-                anchor = "end"
-                lx -= 10
-            svg += (
-                f'<text x="{lx}" y="{ly + 4}" text-anchor="{anchor}" '
-                f'font-family="{_font}" font-size="14" font-weight="700" fill="{color}">'
-                f'{domain["score_10"]}</text>'
-            )
-
-        # Domain name labels at the outer edge
-        for i, code in enumerate(DOMAIN_ORDER):
             d_spec = WEARABLE_WHEEL_DOMAINS[code]
-            lx, ly = _polar_xy(i, 1.18)
+            color = d_spec["color"]
+            score_val = domain["score_10"]
+            trend = _domain_trends[code]
+
+            # Trend arrow
+            if trend > 2:
+                arrow = "&#9650;"  # ▲
+                arrow_color = "#30D158"
+            elif trend < -2:
+                arrow = "&#9660;"  # ▼
+                arrow_color = "#FF453A"
+            else:
+                arrow = "&#9654;"  # ▶ (sideways = stable)
+                arrow_color = A["label_tertiary"]
+
+            # Label position: well outside the radar
+            lx, ly = _polar_xy(i, 1.35)
             anchor = "middle"
             angle = -_math.pi / 2 + (2 * _math.pi / _n) * i
-            if _math.cos(angle) > 0.3:
+            cos_a = _math.cos(angle)
+            if cos_a > 0.3:
                 anchor = "start"
-            elif _math.cos(angle) < -0.3:
+            elif cos_a < -0.3:
                 anchor = "end"
-            # Domain short name
+
+            # Domain name (line 1)
             svg += (
-                f'<text x="{lx}" y="{ly - 2}" text-anchor="{anchor}" '
-                f'font-family="{_font}" font-size="12" font-weight="600" fill="{d_spec["color"]}">'
+                f'<text x="{lx}" y="{ly - 10}" text-anchor="{anchor}" '
+                f'font-family="{_font}" font-size="12" font-weight="600" fill="{color}">'
                 f'{d_spec["name"]}</text>'
+            )
+            # Score + trend arrow (line 2)
+            svg += (
+                f'<text x="{lx}" y="{ly + 6}" text-anchor="{anchor}" '
+                f'font-family="{_font}" font-size="15" font-weight="700" fill="{color}">'
+                f'{score_val}'
+                f'<tspan font-size="10" fill="{A["label_tertiary"]}">/10 </tspan>'
+                f'<tspan font-size="11" fill="{arrow_color}">{arrow}</tspan>'
+                f'</text>'
             )
 
         # Center: overall score
