@@ -16,6 +16,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from db.database import init_db, get_connection
 from models.user import create_user
+from models.clinical_profile import save_profile
 
 # ── Configuration ───────────────────────────────────────────────────────────
 USERNAME = "maria.silva"
@@ -95,6 +96,39 @@ def main():
     # Create Maria's account
     user_id = create_user(USERNAME, PASSWORD, DISPLAY_NAME, EMAIL)
     print(f"Created user: {DISPLAY_NAME} (id={user_id})")
+
+    print("Seeding Maria's clinical profile for organ score computation...")
+    save_profile(user_id, {
+        "date_of_birth": "1982-10-12",  # 43y during demo timeline
+        "sex": "female",
+        "height_cm": 167.0,
+        "weight_kg": 65.0,
+        "smoking_status": "former",
+        "diabetes_status": 0,
+        "systolic_bp": 112.0,
+        "diastolic_bp": 72.0,
+        "on_bp_medication": 0,
+        "on_statin": 0,
+        "ethnicity": "other",
+        "diabetes_type": "none",
+        "family_history_chd": 1,
+        "atrial_fibrillation": 0,
+        "rheumatoid_arthritis": 0,
+        "chronic_kidney_disease": 0,
+        "migraine": 0,
+        "sle": 0,
+        "severe_mental_illness": 0,
+        "erectile_dysfunction": 0,
+        "atypical_antipsychotic": 0,
+        "corticosteroid_use": 0,
+        "sbp_variability": 8.0,
+        "cigarettes_per_day": 0,
+        "congestive_heart_failure": 0,
+        "prior_stroke_tia": 0,
+        "vascular_disease": 0,
+        "education_years": 16,
+        "physical_activity_level": "active",
+    })
 
     conn = get_connection()
 
@@ -1044,16 +1078,34 @@ def main():
     _biomarker_panels = [
         ("hba1c", 6.1, 5.6, 5.2, 4.9),
         ("fasting_glucose", 108, 95, 84, 79),
+        ("fasting_insulin", 18.5, 12.0, 7.2, 4.8),
         ("hs_crp", 4.2, 2.8, 1.1, 0.4),
         ("ldl_cholesterol", 158, 132, 105, 88),
         ("hdl_cholesterol", 38, 45, 55, 68),
         ("triglycerides", 210, 165, 110, 72),
-        ("vitamin_d", 18, 28, 42, 52),
-        ("fasting_insulin", 18.5, 12.0, 7.2, 4.8),
         ("total_cholesterol", 248, 218, 192, 172),
+        ("lpa", 24, 22, 20, 19),
+        ("vitamin_d", 18, 28, 42, 52),
         ("tsh", 3.2, 2.8, 2.1, 1.8),
+        ("free_t4", 0.95, 1.05, 1.12, 1.18),
+        ("free_t3", 2.6, 2.9, 3.2, 3.4),
         ("alt", 42, 32, 22, 18),
+        ("ast", 38, 30, 23, 19),
+        ("albumin", 4.0, 4.2, 4.4, 4.5),
+        ("total_bilirubin", 0.5, 0.6, 0.7, 0.8),
+        ("platelets", 260, 255, 250, 245),
+        ("creatinine", 0.95, 0.88, 0.82, 0.78),
+        ("uacr", 55, 35, 18, 9),
         ("hemoglobin", 12.8, 13.2, 14.0, 14.5),
+        ("wbc", 8.7, 7.4, 6.6, 5.9),
+        ("neutrophils_abs", 5.5, 4.6, 3.8, 3.2),
+        ("lymphocytes_abs", 1.5, 1.8, 2.0, 2.2),
+        ("mcv", 90.0, 91.0, 92.0, 92.0),
+        ("rdw", 14.8, 14.0, 13.3, 12.8),
+        ("ferritin", 32, 45, 62, 75),
+        ("iron", 55, 70, 85, 98),
+        ("tibc", 410, 385, 355, 330),
+        ("transferrin_sat", 13, 18, 24, 30),
     ]
 
     _panel_dates = [
@@ -1774,7 +1826,7 @@ def main():
     print("  - 5 adopted protocols with completion logs")
     print(f"  - ~{_exercise_count} exercise logs (running, walking, strength, yoga)")
     print("  - Weekly exercise summaries with scores")
-    print("  - ~48 biomarker results (12 markers x 4 panels)")
+    print("  - ~120 biomarker results (30 markers x 4 panels, organ-score ready)")
     print("  - ~250 sleep logs with scores")
     print("  - 1 chronotype assessment (Bear)")
     print("  - ~80 fasting sessions (12:12 -> 16:8)")
