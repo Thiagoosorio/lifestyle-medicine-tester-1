@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import sqlite3
 
 import services.wearable_wheel_service as wws
 
@@ -176,3 +177,81 @@ def test_weight_and_bp_improvement_contributes_via_trend(db_conn, monkeypatch):
     assert wt_metric["trend_adjust_100"] > 0
     assert glu_metric["trend_adjust_100"] > 0
     assert wheel["domains"]["heart_metabolism"]["optional_metrics_used"] >= 3
+
+
+def test_legacy_wearable_table_without_source_is_self_healed(tmp_path, monkeypatch):
+    db_path = tmp_path / "legacy_wearable.db"
+
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, password_hash TEXT NOT NULL)"
+    )
+    conn.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", ("legacy.user", "hash"))
+    conn.execute(
+        """
+        CREATE TABLE user_settings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            goal_weight_kg REAL,
+            updated_at TEXT
+        )
+        """
+    )
+    # Legacy table intentionally omits source/external_id.
+    conn.execute(
+        """
+        CREATE TABLE wearable_measurements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            metric_code TEXT NOT NULL,
+            metric_name TEXT,
+            value REAL NOT NULL,
+            unit TEXT,
+            measured_at TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO wearable_measurements (user_id, metric_code, metric_name, value, unit, measured_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (1, "resting_heart_rate_bpm", "Resting Heart Rate", 55.0, "bpm", "2026-03-26T07:00:00"),
+    )
+    conn.commit()
+    conn.close()
+
+    def _legacy_conn():
+        db = sqlite3.connect(str(db_path))
+        db.row_factory = sqlite3.Row
+        return db
+
+    monkeypatch.setattr(wws, "get_connection", _legacy_conn)
+
+    wheel = wws.compute_wearable_wheel(1)
+    assert wheel["data_points_used"] >= 1
+
+    summary = wws.save_measurements(
+        1,
+        [
+            {
+                "metric_code": "steps_count",
+                "value": 8000,
+                "measured_at": "2026-03-27T07:00:00",
+                "source": "Whoop Band",
+            }
+        ],
+    )
+    assert summary["inserted"] == 1
+
+    verify_conn = _legacy_conn()
+    try:
+        columns = {
+            row["name"]
+            for row in verify_conn.execute("PRAGMA table_info(wearable_measurements)").fetchall()
+        }
+    finally:
+        verify_conn.close()
+
+    assert "source" in columns

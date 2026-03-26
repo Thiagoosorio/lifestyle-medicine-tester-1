@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import sqlite3
 from datetime import datetime, timezone
 from typing import Any
 
@@ -25,6 +26,90 @@ def get_metric_specs() -> dict[str, dict]:
 
 def get_domain_specs() -> dict[str, dict]:
     return WEARABLE_WHEEL_DOMAINS
+
+
+def _table_columns(conn: sqlite3.Connection, table_name: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    columns: set[str] = set()
+    for row in rows:
+        if isinstance(row, sqlite3.Row):
+            columns.add(str(row["name"]).lower())
+        else:
+            columns.add(str(row[1]).lower())
+    return columns
+
+
+def _ensure_wearable_measurements_schema(conn: sqlite3.Connection) -> None:
+    """Self-heal legacy wearable tables that predate source/external columns."""
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS wearable_measurements (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            metric_code TEXT NOT NULL,
+            metric_name TEXT,
+            value REAL NOT NULL,
+            unit TEXT,
+            measured_at TEXT NOT NULL,
+            source TEXT DEFAULT 'manual',
+            external_id TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, metric_code, measured_at, source)
+        )"""
+    )
+
+    columns = _table_columns(conn, "wearable_measurements")
+    missing_columns = {
+        "metric_name": "TEXT",
+        "unit": "TEXT",
+        "measured_at": "TEXT",
+        "source": "TEXT DEFAULT 'manual'",
+        "external_id": "TEXT",
+    }
+
+    for column_name, column_sql in missing_columns.items():
+        if column_name in columns:
+            continue
+        try:
+            conn.execute(
+                f"ALTER TABLE wearable_measurements ADD COLUMN {column_name} {column_sql}"
+            )
+        except sqlite3.OperationalError as exc:
+            if "duplicate column name" in str(exc).lower():
+                continue
+            raise
+
+    columns = _table_columns(conn, "wearable_measurements")
+    if "measured_at" in columns:
+        if "created_at" in columns:
+            conn.execute(
+                """
+                UPDATE wearable_measurements
+                SET measured_at = COALESCE(NULLIF(measured_at, ''), created_at, datetime('now'))
+                """
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE wearable_measurements
+                SET measured_at = COALESCE(NULLIF(measured_at, ''), datetime('now'))
+                """
+            )
+    if "source" in columns:
+        conn.execute(
+            """
+            UPDATE wearable_measurements
+            SET source = 'manual'
+            WHERE source IS NULL OR TRIM(source) = ''
+            """
+        )
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_wearable_user_metric ON wearable_measurements(user_id, metric_code, measured_at)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_wearable_user_time ON wearable_measurements(user_id, measured_at)"
+    )
+    conn.commit()
 
 
 def _get_goal_weight_kg(user_id: int) -> float | None:
@@ -67,6 +152,8 @@ def save_measurements(user_id: int, rows: list[dict[str, Any]], default_source: 
 
     conn = get_connection()
     try:
+        _ensure_wearable_measurements_schema(conn)
+
         for row in rows:
             metric_code = (row.get("metric_code") or "").strip()
             if metric_code not in WEARABLE_METRIC_SPECS:
@@ -159,6 +246,7 @@ def get_latest_measurements(user_id: int) -> dict[str, dict]:
     """Return latest measurement per metric code."""
     conn = get_connection()
     try:
+        _ensure_wearable_measurements_schema(conn)
         rows = conn.execute(
             """
             SELECT wm.metric_code, wm.value, wm.unit, wm.measured_at, wm.source
@@ -190,6 +278,7 @@ def _get_measurement_history(user_id: int, lookback_days: int = 60) -> dict[str,
 
     conn = get_connection()
     try:
+        _ensure_wearable_measurements_schema(conn)
         rows = conn.execute(
             """
             SELECT metric_code, value, unit, measured_at, source

@@ -26,6 +26,17 @@ def init_db():
     _seed_science_data()
 
 
+def _table_columns(conn, table_name: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table_name})").fetchall()
+    columns = set()
+    for row in rows:
+        if isinstance(row, sqlite3.Row):
+            columns.add(str(row["name"]).lower())
+        else:
+            columns.add(str(row[1]).lower())
+    return columns
+
+
 def _migrate(conn):
     """Add columns/tables that may be missing in older databases."""
     migrations = [
@@ -56,6 +67,12 @@ def _migrate(conn):
         # CAIDE Dementia Risk fields
         "ALTER TABLE user_clinical_profile ADD COLUMN education_years INTEGER",
         "ALTER TABLE user_clinical_profile ADD COLUMN physical_activity_level TEXT DEFAULT 'active'",
+        # Wearables table compatibility for legacy deployments
+        "ALTER TABLE wearable_measurements ADD COLUMN metric_name TEXT",
+        "ALTER TABLE wearable_measurements ADD COLUMN unit TEXT",
+        "ALTER TABLE wearable_measurements ADD COLUMN measured_at TEXT",
+        "ALTER TABLE wearable_measurements ADD COLUMN source TEXT DEFAULT 'manual'",
+        "ALTER TABLE wearable_measurements ADD COLUMN external_id TEXT",
     ]
     # Phase 6: ensure new tables exist for older DBs
     table_migrations = [
@@ -272,6 +289,32 @@ def _migrate(conn):
                 continue
             LOGGER.exception("Column migration failed: %s", sql)
             raise
+
+    # Legacy wearable rows may have NULL/blank source or missing measured_at values.
+    wearable_columns = _table_columns(conn, "wearable_measurements")
+    if "measured_at" in wearable_columns:
+        if "created_at" in wearable_columns:
+            conn.execute(
+                """
+                UPDATE wearable_measurements
+                SET measured_at = COALESCE(NULLIF(measured_at, ''), created_at, datetime('now'))
+                """
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE wearable_measurements
+                SET measured_at = COALESCE(NULLIF(measured_at, ''), datetime('now'))
+                """
+            )
+    if "source" in wearable_columns:
+        conn.execute(
+            """
+            UPDATE wearable_measurements
+            SET source = 'manual'
+            WHERE source IS NULL OR TRIM(source) = ''
+            """
+        )
     conn.commit()
 
 
