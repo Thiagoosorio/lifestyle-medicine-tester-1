@@ -34,11 +34,24 @@ def _bootstrap_app_data() -> bool:
     finally:
         conn.close()
 
-    if not demo_exists:
-        from seed_demo import main as seed_demo_main
+    from seed_demo import ensure_demo_organ_score_prereqs, main as seed_demo_main
 
+    if not demo_exists:
         seed_demo_main()
         LOGGER.info("Seeded demo account for DEMO_MODE session")
+    else:
+        try:
+            backfill_summary = ensure_demo_organ_score_prereqs(demo_exists["id"])
+            if backfill_summary["profile_backfilled"] or backfill_summary["inserted_biomarkers"]:
+                LOGGER.info(
+                    "Backfilled demo prerequisites for user_id=%s profile_backfilled=%s inserted_biomarkers=%s missing_definitions=%s",
+                    demo_exists["id"],
+                    backfill_summary["profile_backfilled"],
+                    backfill_summary["inserted_biomarkers"],
+                    ",".join(backfill_summary["missing_definitions"]) if backfill_summary["missing_definitions"] else "none",
+                )
+        except Exception:
+            LOGGER.exception("Failed to backfill demo prerequisites for existing Maria account")
     return True
 
 

@@ -16,7 +16,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from db.database import init_db, get_connection
 from models.user import create_user
-from models.clinical_profile import save_profile
+from models.clinical_profile import get_profile, save_profile
 
 # ── Configuration ───────────────────────────────────────────────────────────
 USERNAME = "maria.silva"
@@ -27,6 +27,74 @@ START_DATE = date(2025, 2, 1)   # Journey starts Feb 2025
 END_DATE = date(2026, 2, 1)     # One full year
 
 random.seed(42)  # Reproducible data
+
+MARIA_CLINICAL_PROFILE = {
+    "date_of_birth": "1982-10-12",  # 43y during demo timeline
+    "sex": "female",
+    "height_cm": 167.0,
+    "weight_kg": 65.0,
+    "smoking_status": "former",
+    "diabetes_status": 0,
+    "systolic_bp": 112.0,
+    "diastolic_bp": 72.0,
+    "on_bp_medication": 0,
+    "on_statin": 0,
+    "ethnicity": "other",
+    "diabetes_type": "none",
+    "family_history_chd": 1,
+    "atrial_fibrillation": 0,
+    "rheumatoid_arthritis": 0,
+    "chronic_kidney_disease": 0,
+    "migraine": 0,
+    "sle": 0,
+    "severe_mental_illness": 0,
+    "erectile_dysfunction": 0,
+    "atypical_antipsychotic": 0,
+    "corticosteroid_use": 0,
+    "sbp_variability": 8.0,
+    "cigarettes_per_day": 0,
+    "congestive_heart_failure": 0,
+    "prior_stroke_tia": 0,
+    "vascular_disease": 0,
+    "education_years": 16,
+    "physical_activity_level": "active",
+}
+
+# Latest follow-up panel values used to backfill legacy demo databases.
+MARIA_ORGAN_SCORE_BIOMARKERS = {
+    "hba1c": 4.9,
+    "fasting_glucose": 79.0,
+    "fasting_insulin": 4.8,
+    "hs_crp": 0.4,
+    "ldl_cholesterol": 88.0,
+    "hdl_cholesterol": 68.0,
+    "triglycerides": 72.0,
+    "total_cholesterol": 172.0,
+    "lpa": 19.0,
+    "vitamin_d": 52.0,
+    "tsh": 1.8,
+    "free_t4": 1.18,
+    "free_t3": 3.4,
+    "alt": 18.0,
+    "ast": 19.0,
+    "albumin": 4.5,
+    "total_bilirubin": 0.8,
+    "platelets": 245.0,
+    "creatinine": 0.78,
+    "uacr": 9.0,
+    "hemoglobin": 14.5,
+    "wbc": 5.9,
+    "neutrophils_abs": 3.2,
+    "lymphocytes_abs": 2.2,
+    "mcv": 92.0,
+    "rdw": 12.8,
+    "ferritin": 75.0,
+    "iron": 98.0,
+    "tibc": 330.0,
+    "transferrin_sat": 30.0,
+}
+MARIA_BACKFILL_LAB_DATE = "2026-02-01"
+MARIA_BACKFILL_LAB_NAME = "Quest Diagnostics"
 
 
 def lerp(start: float, end: float, t: float) -> float:
@@ -44,6 +112,74 @@ def lerp_smooth(start: float, end: float, t: float) -> float:
     base = start + (end - start) * s
     noise = random.gauss(0, 0.25)
     return max(1, min(10, round(base + noise)))
+
+
+def _seed_maria_clinical_profile(user_id: int):
+    """Seed the canonical demo clinical profile for Maria."""
+    save_profile(user_id, dict(MARIA_CLINICAL_PROFILE))
+
+
+def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
+    """Backfill Maria's clinical profile + core labs for organ score computation.
+
+    Safe to run repeatedly on existing demo databases.
+    """
+    existing_profile = get_profile(user_id) or {}
+    profile_backfilled = not existing_profile or any(
+        existing_profile.get(key) in (None, "")
+        for key in MARIA_CLINICAL_PROFILE
+    )
+
+    merged_profile = dict(MARIA_CLINICAL_PROFILE)
+    for key in MARIA_CLINICAL_PROFILE:
+        current_value = existing_profile.get(key)
+        if current_value is not None and current_value != "":
+            merged_profile[key] = current_value
+    save_profile(user_id, merged_profile)
+
+    inserted_biomarkers = 0
+    missing_definitions = []
+    conn = get_connection()
+    try:
+        biomarker_ids = {
+            row["code"]: row["id"]
+            for row in conn.execute("SELECT id, code FROM biomarker_definitions").fetchall()
+        }
+        existing_codes = {
+            row["code"]
+            for row in conn.execute(
+                """SELECT DISTINCT bd.code
+                   FROM biomarker_results br
+                   JOIN biomarker_definitions bd ON bd.id = br.biomarker_id
+                   WHERE br.user_id = ?""",
+                (user_id,),
+            ).fetchall()
+        }
+
+        for code, value in MARIA_ORGAN_SCORE_BIOMARKERS.items():
+            biomarker_id = biomarker_ids.get(code)
+            if biomarker_id is None:
+                missing_definitions.append(code)
+                continue
+            if code in existing_codes:
+                continue
+            conn.execute(
+                """INSERT OR IGNORE INTO biomarker_results
+                   (user_id, biomarker_id, value, lab_date, lab_name)
+                   VALUES (?, ?, ?, ?, ?)""",
+                (user_id, biomarker_id, float(value), MARIA_BACKFILL_LAB_DATE, MARIA_BACKFILL_LAB_NAME),
+            )
+            inserted_biomarkers += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {
+        "profile_backfilled": profile_backfilled,
+        "inserted_biomarkers": inserted_biomarkers,
+        "missing_definitions": missing_definitions,
+    }
 
 
 def main():
@@ -98,37 +234,7 @@ def main():
     print(f"Created user: {DISPLAY_NAME} (id={user_id})")
 
     print("Seeding Maria's clinical profile for organ score computation...")
-    save_profile(user_id, {
-        "date_of_birth": "1982-10-12",  # 43y during demo timeline
-        "sex": "female",
-        "height_cm": 167.0,
-        "weight_kg": 65.0,
-        "smoking_status": "former",
-        "diabetes_status": 0,
-        "systolic_bp": 112.0,
-        "diastolic_bp": 72.0,
-        "on_bp_medication": 0,
-        "on_statin": 0,
-        "ethnicity": "other",
-        "diabetes_type": "none",
-        "family_history_chd": 1,
-        "atrial_fibrillation": 0,
-        "rheumatoid_arthritis": 0,
-        "chronic_kidney_disease": 0,
-        "migraine": 0,
-        "sle": 0,
-        "severe_mental_illness": 0,
-        "erectile_dysfunction": 0,
-        "atypical_antipsychotic": 0,
-        "corticosteroid_use": 0,
-        "sbp_variability": 8.0,
-        "cigarettes_per_day": 0,
-        "congestive_heart_failure": 0,
-        "prior_stroke_tia": 0,
-        "vascular_disease": 0,
-        "education_years": 16,
-        "physical_activity_level": "active",
-    })
+    _seed_maria_clinical_profile(user_id)
 
     conn = get_connection()
 
