@@ -23,6 +23,13 @@ from services.wearable_wheel_service import (
 A = APPLE
 user_id = st.session_state.user_id
 
+
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    """Convert #RRGGBB to rgba(r,g,b,a) for Plotly compatibility."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
+
 render_hero_banner(
     "Wearable Wheel",
     "Data-driven health radar built from your wearable measurements. "
@@ -156,7 +163,7 @@ with tab_wheel:
                 r=r_vals_closed,
                 theta=labels_closed,
                 fill="toself",
-                fillcolor=f"{color}15",
+                fillcolor=_hex_to_rgba(color, 0.08),
                 line=dict(color=color, width=0),
                 showlegend=False,
                 hoverinfo="skip",
