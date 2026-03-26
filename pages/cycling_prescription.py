@@ -37,9 +37,79 @@ except Exception as exc:
     _CYCLING_IMPORT_ERROR = exc
 
 
-def _resolve_cycling_fn(name):
+def _fallback_get_wkg(ftp_watts: int, weight_kg: float) -> float:
+    if not weight_kg or weight_kg <= 0 or not ftp_watts or ftp_watts <= 0:
+        return 0.0
+    return round(float(ftp_watts) / float(weight_kg), 2)
+
+
+def _fallback_get_wkg_category(ftp_watts: int, weight_kg: float) -> str:
+    if not weight_kg or weight_kg <= 0 or not ftp_watts or ftp_watts <= 0:
+        return "Unknown"
+    wkg = float(ftp_watts) / float(weight_kg)
+    for cat in WATT_KG_CATEGORIES:
+        if cat["min_wkg"] <= wkg < cat["max_wkg"]:
+            return cat["label"]
+    return WATT_KG_CATEGORIES[-1]["label"] if WATT_KG_CATEGORIES else "Unknown"
+
+
+def _fallback_get_power_bests(user_id: int, days: int = 90) -> dict:
+    _ = (user_id, days)
+    return {}
+
+
+def _fallback_get_power_curve_data(user_id: int) -> list[dict]:
+    _ = user_id
+    return []
+
+
+def _fallback_calculate_ftp_from_test(
+    test_type: str,
+    power_20min: float | None = None,
+    power_8min: float | None = None,
+    ramp_max: float | None = None,
+) -> dict:
+    if test_type == "20min" and power_20min and power_20min > 0:
+        ftp = round(power_20min * 0.95)
+        return {
+            "ftp": ftp,
+            "test_type": "20-Minute Test",
+            "confidence": "high",
+            "notes": f"FTP estimated as {power_20min:.0f}W x 0.95 = {ftp}W.",
+        }
+    if test_type == "8min" and power_8min and power_8min > 0:
+        ftp = round(power_8min * 0.90)
+        return {
+            "ftp": ftp,
+            "test_type": "8-Minute Test",
+            "confidence": "moderate",
+            "notes": f"FTP estimated as {power_8min:.0f}W x 0.90 = {ftp}W.",
+        }
+    if test_type == "ramp" and ramp_max and ramp_max > 0:
+        ftp = round(ramp_max * 0.75)
+        return {
+            "ftp": ftp,
+            "test_type": "Ramp Test",
+            "confidence": "moderate",
+            "notes": f"FTP estimated as {ramp_max:.0f}W x 0.75 = {ftp}W.",
+        }
+    return {
+        "ftp": 0,
+        "test_type": test_type,
+        "confidence": "none",
+        "notes": "Invalid input - provide a positive power value.",
+    }
+
+
+_missing_cycling_functions: list[str] = []
+
+
+def _resolve_cycling_fn(name, fallback=None):
     if _cycling_service is not None and hasattr(_cycling_service, name):
         return getattr(_cycling_service, name)
+    if fallback is not None:
+        _missing_cycling_functions.append(name)
+        return fallback
 
     def _missing(*args, **kwargs):
         raise RuntimeError(
@@ -70,11 +140,11 @@ reschedule_workout = _resolve_cycling_fn("reschedule_workout")
 suggest_todays_workout = _resolve_cycling_fn("suggest_todays_workout")
 calculate_weekly_tss = _resolve_cycling_fn("calculate_weekly_tss")
 get_adaptive_suggestions = _resolve_cycling_fn("get_adaptive_suggestions")
-get_wkg = _resolve_cycling_fn("get_wkg")
-get_wkg_category = _resolve_cycling_fn("get_wkg_category")
-get_power_bests = _resolve_cycling_fn("get_power_bests")
-get_power_curve_data = _resolve_cycling_fn("get_power_curve_data")
-calculate_ftp_from_test = _resolve_cycling_fn("calculate_ftp_from_test")
+get_wkg = _resolve_cycling_fn("get_wkg", fallback=_fallback_get_wkg)
+get_wkg_category = _resolve_cycling_fn("get_wkg_category", fallback=_fallback_get_wkg_category)
+get_power_bests = _resolve_cycling_fn("get_power_bests", fallback=_fallback_get_power_bests)
+get_power_curve_data = _resolve_cycling_fn("get_power_curve_data", fallback=_fallback_get_power_curve_data)
+calculate_ftp_from_test = _resolve_cycling_fn("calculate_ftp_from_test", fallback=_fallback_calculate_ftp_from_test)
 
 if _CYCLING_IMPORT_ERROR is not None:
     st.error(
@@ -82,6 +152,11 @@ if _CYCLING_IMPORT_ERROR is not None:
     )
     st.code(str(_CYCLING_IMPORT_ERROR))
     st.stop()
+if _missing_cycling_functions:
+    missing_list = ", ".join(sorted(set(_missing_cycling_functions)))
+    st.caption(
+        f"Compatibility mode active for cycling analytics: using fallback implementations for {missing_list}."
+    )
 
 render_hero_banner(
     "Cycling Training",
