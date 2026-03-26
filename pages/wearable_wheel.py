@@ -33,7 +33,7 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
 render_hero_banner(
     "Wearable Wheel",
     "Data-driven health radar built from your wearable measurements. "
-    "5 domains scored 0-10 with readiness and resilience tracking."
+    "5 domains scored 0-10 with daily and baseline tracking."
 )
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -61,212 +61,198 @@ with tab_wheel:
         )
         st.markdown(empty_html, unsafe_allow_html=True)
     else:
-        # ── Overall Score Ring + Readiness/Resilience ──────────────────
-        col_ring, col_rr = st.columns([1, 2])
+        # ── Custom SVG Radar Chart ─────────────────────────────────────
+        import math as _math
 
-        with col_ring:
-            score = wheel["overall_score_10"]
-            score_100 = wheel["overall_score_100"]
-            if score_100 >= 80:
-                ring_color = "#30D158"
-            elif score_100 >= 60:
-                ring_color = A["blue"]
-            elif score_100 >= 40:
-                ring_color = "#FFD60A"
-            else:
-                ring_color = "#FF453A"
+        _n = len(DOMAIN_ORDER)
+        _cx, _cy = 220, 220  # center
+        _max_r = 180  # max radius
+        _font = A["font_display"]
 
-            radius = 58
-            circumference = 2 * 3.14159 * radius
-            offset = circumference * (1 - score_100 / 100)
+        def _polar_xy(angle_idx, radius_frac):
+            """Convert domain index + 0-1 fraction to SVG x,y."""
+            angle = -_math.pi / 2 + (2 * _math.pi / _n) * angle_idx
+            r = _max_r * radius_frac
+            return _cx + r * _math.cos(angle), _cy + r * _math.sin(angle)
 
-            ring_html = (
-                f'<div style="text-align:center;padding:16px">'
-                f'<svg width="150" height="150" viewBox="0 0 150 150">'
-                f'<circle cx="75" cy="75" r="{radius}" fill="none" stroke="{A["bg_tertiary"]}" stroke-width="10"/>'
-                f'<circle cx="75" cy="75" r="{radius}" fill="none" stroke="{ring_color}" stroke-width="10" '
-                f'stroke-linecap="round" stroke-dasharray="{circumference}" '
-                f'stroke-dashoffset="{offset}" transform="rotate(-90 75 75)"/>'
-                f'<text x="75" y="68" text-anchor="middle" fill="{A["label_primary"]}" '
-                f'font-family="{A["font_display"]}" font-size="32" font-weight="700">{score}</text>'
-                f'<text x="75" y="88" text-anchor="middle" fill="{A["label_tertiary"]}" '
-                f'font-family="{A["font_text"]}" font-size="11">/10</text>'
-                f'</svg>'
-                f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
-                f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-top:4px">Overall Score</div>'
-                f'</div>'
-            )
-            st.markdown(ring_html, unsafe_allow_html=True)
+        # Build SVG
+        svg = f'<svg viewBox="0 0 440 440" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:520px;margin:0 auto;display:block">'
 
-        with col_rr:
-            # Readiness and Resilience cards
-            rr_html = (
-                f'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px 0">'
-            )
-            # Readiness
-            r_score = wheel["overall_readiness_10"]
-            r_color = "#30D158" if r_score >= 7 else "#FFD60A" if r_score >= 5 else "#FF453A"
-            rr_html += (
-                f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
-                f'border-radius:{A["radius_lg"]};padding:20px;text-align:center">'
-                f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;'
-                f'color:{A["label_tertiary"]};margin-bottom:6px">Readiness</div>'
-                f'<div style="font-family:{A["font_display"]};font-size:32px;font-weight:700;'
-                f'color:{r_color}">{r_score}</div>'
-                f'<div style="font-size:11px;color:{A["label_secondary"]};margin-top:4px">'
-                f'Short-horizon state</div></div>'
-            )
-            # Resilience
-            s_score = wheel["overall_resilience_10"]
-            s_color = "#30D158" if s_score >= 7 else "#FFD60A" if s_score >= 5 else "#FF453A"
-            rr_html += (
-                f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
-                f'border-radius:{A["radius_lg"]};padding:20px;text-align:center">'
-                f'<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;'
-                f'color:{A["label_tertiary"]};margin-bottom:6px">Resilience</div>'
-                f'<div style="font-family:{A["font_display"]};font-size:32px;font-weight:700;'
-                f'color:{s_color}">{s_score}</div>'
-                f'<div style="font-size:11px;color:{A["label_secondary"]};margin-top:4px">'
-                f'30-day stability</div></div>'
-            )
-            rr_html += '</div>'
+        # Defs: gradient for main polygon
+        svg += '<defs>'
+        svg += '<radialGradient id="radarGrad" cx="50%" cy="50%" r="50%">'
+        svg += '<stop offset="0%" stop-color="#6750A4" stop-opacity="0.25"/>'
+        svg += '<stop offset="100%" stop-color="#6750A4" stop-opacity="0.05"/>'
+        svg += '</radialGradient>'
+        # Glow filter
+        svg += '<filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/>'
+        svg += '<feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+        svg += '</defs>'
 
-            # Data points info
-            rr_html += (
-                f'<div style="font-size:11px;color:{A["label_tertiary"]};text-align:center;padding:4px 0">'
-                f'{wheel["data_points_used"]} metrics tracked across 5 domains</div>'
-            )
-            st.markdown(rr_html, unsafe_allow_html=True)
+        # Background circle
+        svg += f'<circle cx="{_cx}" cy="{_cy}" r="{_max_r}" fill="none" stroke="{A["separator"]}" stroke-width="0.5"/>'
 
-        # ── Radar Chart (premium multi-layer) ─────────────────────────
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-        render_section_header("Health Radar", "5-domain wearable assessment")
+        # Grid rings at 2, 4, 6, 8, 10 with zone coloring
+        zone_colors = [
+            (0.2, "#FF453A", 0.03), (0.4, "#FF453A", 0.02),  # 2, 4 — red zone
+            (0.6, "#FFD60A", 0.03), (0.8, "#FFD60A", 0.02),  # 6, 8 — yellow zone
+            (1.0, "#30D158", 0.03),  # 10 — green zone
+        ]
+        for frac, zc, zo in zone_colors:
+            r = _max_r * frac
+            svg += f'<circle cx="{_cx}" cy="{_cy}" r="{r}" fill="none" stroke="{zc}" stroke-opacity="{zo + 0.06}" stroke-width="1" stroke-dasharray="4 4"/>'
 
-        labels = [WEARABLE_WHEEL_DOMAINS[code]["name"] for code in DOMAIN_ORDER]
-        values = [wheel["domains"][code]["score_10"] for code in DOMAIN_ORDER]
-        colors = [WEARABLE_WHEEL_DOMAINS[code]["color"] for code in DOMAIN_ORDER]
-        labels_closed = labels + [labels[0]]
-        values_closed = values + [values[0]]
-        colors_closed = colors + [colors[0]]
+        # Zone fill bands (subtle colored rings)
+        # 0-4: faint red, 4-7: faint yellow, 7-10: faint green
+        svg += f'<circle cx="{_cx}" cy="{_cy}" r="{_max_r * 0.4}" fill="#FF453A" fill-opacity="0.02"/>'
+        svg += f'<circle cx="{_cx}" cy="{_cy}" r="{_max_r * 0.7}" fill="#FFD60A" fill-opacity="0.015"/>'
+        svg += f'<circle cx="{_cx}" cy="{_cy}" r="{_max_r}" fill="#30D158" fill-opacity="0.01"/>'
 
-        fig = go.Figure()
+        # Spoke lines
+        for i in range(_n):
+            x2, y2 = _polar_xy(i, 1.0)
+            svg += f'<line x1="{_cx}" y1="{_cy}" x2="{x2}" y2="{y2}" stroke="{A["separator"]}" stroke-width="0.5"/>'
 
-        # Layer 1: Zone rings (subtle background zones at 4, 7, 10)
-        for zone_val, zone_opacity in [(10, 0.03), (7, 0.04), (4, 0.05)]:
-            fig.add_trace(go.Scatterpolar(
-                r=[zone_val] * (len(DOMAIN_ORDER) + 1),
-                theta=labels_closed,
-                fill="toself",
-                fillcolor=f"rgba(103,80,164,{zone_opacity})",
-                line=dict(color=f"rgba(103,80,164,{zone_opacity + 0.04})", width=1),
-                showlegend=False,
-                hoverinfo="skip",
-            ))
+        # Grid tick labels (2, 4, 6, 8, 10) along first spoke
+        for val in [2, 4, 6, 8, 10]:
+            lx, ly = _polar_xy(0, val / 10.0)
+            svg += f'<text x="{lx + 6}" y="{ly + 3}" font-size="8" fill="{A["label_quaternary"]}" font-family="{_font}">{val}</text>'
 
-        # Layer 2: Individual domain wedge fills (colored sectors)
+        # Domain-colored sector fills (wedge between spokes)
         for i, code in enumerate(DOMAIN_ORDER):
             domain = wheel["domains"][code]
             color = WEARABLE_WHEEL_DOMAINS[code]["color"]
-            # Create a wedge: two adjacent vertices at score, rest at 0
-            r_vals = [0.0] * len(DOMAIN_ORDER)
-            r_vals[i] = domain["score_10"]
-            # Also fill the adjacent vertex slightly for a wedge effect
-            next_i = (i + 1) % len(DOMAIN_ORDER)
-            prev_i = (i - 1) % len(DOMAIN_ORDER)
-            r_vals[next_i] = domain["score_10"] * 0.15
-            r_vals[prev_i] = domain["score_10"] * 0.15
-            r_vals_closed = r_vals + [r_vals[0]]
-            fig.add_trace(go.Scatterpolar(
-                r=r_vals_closed,
-                theta=labels_closed,
-                fill="toself",
-                fillcolor=_hex_to_rgba(color, 0.12),
-                line=dict(color="rgba(0,0,0,0)", width=0),
-                showlegend=False,
-                hoverinfo="skip",
-            ))
+            score_frac = domain["score_10"] / 10.0
+            # Wedge: center → point on spoke i → arc → point on spoke i+1 → center
+            x1, y1 = _polar_xy(i, score_frac)
+            x2, y2 = _polar_xy((i + 1) % _n, wheel["domains"][DOMAIN_ORDER[(i + 1) % _n]]["score_10"] / 10.0)
+            svg += f'<polygon points="{_cx},{_cy} {x1},{y1} {x2},{y2}" fill="{color}" fill-opacity="0.08"/>'
 
-        # Layer 3: Main polygon — thick colored line with gradient fill
-        fig.add_trace(go.Scatterpolar(
-            r=values_closed,
-            theta=labels_closed,
-            fill="toself",
-            fillcolor="rgba(103, 80, 164, 0.15)",
-            line=dict(color=A["indigo"], width=3),
-            marker=dict(
-                size=12,
-                color=colors_closed,
-                line=dict(color="white", width=2.5),
-                symbol="circle",
-            ),
-            name="Score",
-            customdata=[
-                f"{WEARABLE_WHEEL_DOMAINS[code]['name']}: {wheel['domains'][code]['score_10']}/10"
-                for code in DOMAIN_ORDER
-            ] + [f"{WEARABLE_WHEEL_DOMAINS[DOMAIN_ORDER[0]]['name']}: {wheel['domains'][DOMAIN_ORDER[0]]['score_10']}/10"],
-            hovertemplate="%{customdata}<extra></extra>",
-        ))
+        # Main data polygon (gradient fill + glow)
+        points = []
+        for i in range(_n):
+            score_frac = wheel["domains"][DOMAIN_ORDER[i]]["score_10"] / 10.0
+            x, y = _polar_xy(i, score_frac)
+            points.append(f"{x},{y}")
+        points_str = " ".join(points)
+        svg += f'<polygon points="{points_str}" fill="url(#radarGrad)" stroke="#6750A4" stroke-width="2.5" stroke-linejoin="round" filter="url(#glow)"/>'
 
-        # Layer 4: Score value annotations on each vertex
-        import math as _math
-        n = len(DOMAIN_ORDER)
+        # Data points (large colored dots with white ring)
         for i, code in enumerate(DOMAIN_ORDER):
-            angle_deg = 90 - (360 / n) * i  # Plotly polar starts at top, goes clockwise
-            angle_rad = _math.radians(angle_deg)
-            score_val = wheel["domains"][code]["score_10"]
-            # Position label slightly outside the data point
-            r_label = min(score_val + 0.8, 10.5)
-            fig.add_trace(go.Scatterpolar(
-                r=[r_label],
-                theta=[labels[i]],
-                mode="text",
-                text=[f"<b>{score_val}</b>"],
-                textfont=dict(
-                    size=13,
-                    color=WEARABLE_WHEEL_DOMAINS[code]["color"],
-                    family=A["font_display"],
-                ),
-                showlegend=False,
-                hoverinfo="skip",
-            ))
+            domain = wheel["domains"][code]
+            color = WEARABLE_WHEEL_DOMAINS[code]["color"]
+            score_frac = domain["score_10"] / 10.0
+            x, y = _polar_xy(i, score_frac)
+            svg += f'<circle cx="{x}" cy="{y}" r="8" fill="{color}" stroke="white" stroke-width="3"/>'
 
-        fig.update_layout(
-            polar=dict(
-                radialaxis=dict(
-                    visible=True,
-                    range=[0, 11],
-                    tickvals=[2, 4, 6, 8, 10],
-                    ticktext=["2", "4", "6", "8", "10"],
-                    tickfont=dict(size=9, color=A["label_quaternary"]),
-                    gridcolor="rgba(0,0,0,0.05)",
-                    linecolor="rgba(0,0,0,0)",
-                ),
-                angularaxis=dict(
-                    tickfont=dict(size=13, family=A["font_display"], color=A["label_primary"]),
-                    gridcolor="rgba(0,0,0,0.06)",
-                    linecolor="rgba(0,0,0,0.06)",
-                    direction="clockwise",
-                ),
-                bgcolor="rgba(0,0,0,0)",
-            ),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            showlegend=False,
-            margin=dict(t=40, b=40, l=80, r=80),
-            height=480,
-            font=dict(family=A["font_text"]),
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        # Score labels next to each dot
+        for i, code in enumerate(DOMAIN_ORDER):
+            domain = wheel["domains"][code]
+            color = WEARABLE_WHEEL_DOMAINS[code]["color"]
+            score_frac = domain["score_10"] / 10.0
+            # Position label outside the dot
+            lx, ly = _polar_xy(i, min(score_frac + 0.09, 1.05))
+            anchor = "middle"
+            # Adjust horizontal anchor based on position
+            angle = -_math.pi / 2 + (2 * _math.pi / _n) * i
+            if _math.cos(angle) > 0.3:
+                anchor = "start"
+                lx += 10
+            elif _math.cos(angle) < -0.3:
+                anchor = "end"
+                lx -= 10
+            svg += (
+                f'<text x="{lx}" y="{ly + 4}" text-anchor="{anchor}" '
+                f'font-family="{_font}" font-size="14" font-weight="700" fill="{color}">'
+                f'{domain["score_10"]}</text>'
+            )
 
-        # Zone legend
-        zone_legend = (
+        # Domain name labels at the outer edge
+        for i, code in enumerate(DOMAIN_ORDER):
+            d_spec = WEARABLE_WHEEL_DOMAINS[code]
+            lx, ly = _polar_xy(i, 1.18)
+            anchor = "middle"
+            angle = -_math.pi / 2 + (2 * _math.pi / _n) * i
+            if _math.cos(angle) > 0.3:
+                anchor = "start"
+            elif _math.cos(angle) < -0.3:
+                anchor = "end"
+            # Domain short name
+            svg += (
+                f'<text x="{lx}" y="{ly - 2}" text-anchor="{anchor}" '
+                f'font-family="{_font}" font-size="12" font-weight="600" fill="{d_spec["color"]}">'
+                f'{d_spec["name"]}</text>'
+            )
+
+        # Center: overall score
+        overall = wheel["overall_score_10"]
+        oc = "#30D158" if overall >= 7 else "#FFD60A" if overall >= 5 else "#FF453A"
+        svg += f'<circle cx="{_cx}" cy="{_cy}" r="28" fill="white" stroke="{A["separator"]}" stroke-width="1"/>'
+        svg += f'<text x="{_cx}" y="{_cy - 2}" text-anchor="middle" font-family="{_font}" font-size="22" font-weight="700" fill="{oc}">{overall}</text>'
+        svg += f'<text x="{_cx}" y="{_cy + 12}" text-anchor="middle" font-family="{_font}" font-size="8" fill="{A["label_tertiary"]}">/10</text>'
+
+        svg += '</svg>'
+
+        # Wrap in styled container
+        radar_html = (
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_xl"]};padding:24px 16px;margin:8px 0">'
+            f'{svg}'
+            # Zone legend below
             f'<div style="display:flex;justify-content:center;gap:20px;font-size:11px;'
-            f'color:{A["label_tertiary"]};margin-top:-8px;margin-bottom:16px">'
+            f'color:{A["label_tertiary"]};margin-top:12px">'
             f'<span><span style="color:#FF453A">&#9679;</span> 0-4 Needs attention</span>'
             f'<span><span style="color:#FFD60A">&#9679;</span> 4-7 Developing</span>'
             f'<span><span style="color:#30D158">&#9679;</span> 7-10 Optimal</span></div>'
+            f'</div>'
         )
-        st.markdown(zone_legend, unsafe_allow_html=True)
+        st.markdown(radar_html, unsafe_allow_html=True)
+
+        # ── Today / Baseline Cards ─────────────────────────────────────
+        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+        tb_html = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">'
+
+        # Overall
+        tb_html += (
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_lg"]};padding:16px;text-align:center">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;'
+            f'color:{A["label_tertiary"]};margin-bottom:4px">Overall</div>'
+            f'<div style="font-family:{A["font_display"]};font-size:28px;font-weight:700;'
+            f'color:{oc}">{overall}<span style="font-size:13px;color:{A["label_tertiary"]}">/10</span></div>'
+            f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-top:2px">'
+            f'{wheel["data_points_used"]} metrics</div></div>'
+        )
+
+        # Today (readiness)
+        t_score = wheel["overall_readiness_10"]
+        t_color = "#30D158" if t_score >= 7 else "#FFD60A" if t_score >= 5 else "#FF453A"
+        tb_html += (
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_lg"]};padding:16px;text-align:center">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;'
+            f'color:{A["label_tertiary"]};margin-bottom:4px">Today</div>'
+            f'<div style="font-family:{A["font_display"]};font-size:28px;font-weight:700;'
+            f'color:{t_color}">{t_score}<span style="font-size:13px;color:{A["label_tertiary"]}">/10</span></div>'
+            f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-top:2px">'
+            f'Last 1-3 days</div></div>'
+        )
+
+        # Baseline (resilience)
+        b_score = wheel["overall_resilience_10"]
+        b_color = "#30D158" if b_score >= 7 else "#FFD60A" if b_score >= 5 else "#FF453A"
+        tb_html += (
+            f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+            f'border-radius:{A["radius_lg"]};padding:16px;text-align:center">'
+            f'<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;'
+            f'color:{A["label_tertiary"]};margin-bottom:4px">Baseline</div>'
+            f'<div style="font-family:{A["font_display"]};font-size:28px;font-weight:700;'
+            f'color:{b_color}">{b_score}<span style="font-size:13px;color:{A["label_tertiary"]}">/10</span></div>'
+            f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-top:2px">'
+            f'30-day average</div></div>'
+        )
+        tb_html += '</div>'
+        st.markdown(tb_html, unsafe_allow_html=True)
 
         # ── Domain Cards ───────────────────────────────────────────────
         render_section_header("Domain Breakdown", "Score, readiness, resilience per domain")
@@ -316,12 +302,12 @@ with tab_wheel:
                 # Readiness / Resilience
                 f'<div style="display:flex;justify-content:center;gap:12px;margin-bottom:8px">'
                 f'<div style="text-align:center">'
-                f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Ready</div>'
+                f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Today</div>'
                 f'<div style="font-family:{A["font_display"]};font-size:14px;font-weight:600;'
                 f'color:{A["label_primary"]}">{domain["readiness_10"]}</div></div>'
                 f'<div style="width:1px;background:{A["separator"]}"></div>'
                 f'<div style="text-align:center">'
-                f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Stable</div>'
+                f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Baseline</div>'
                 f'<div style="font-family:{A["font_display"]};font-size:14px;font-weight:600;'
                 f'color:{A["label_primary"]}">{domain["resilience_10"]}</div></div></div>'
                 # Confidence bar
