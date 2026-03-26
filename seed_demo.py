@@ -244,31 +244,92 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             )
             inserted_body_metrics = 1
 
-        existing_wearable_codes = {
-            row["metric_code"]
-            for row in conn.execute(
-                "SELECT DISTINCT metric_code FROM wearable_measurements WHERE user_id = ?",
-                (user_id,),
-            ).fetchall()
-        }
-        for metric_code, value in MARIA_WEARABLE_METRICS.items():
-            if metric_code in existing_wearable_codes:
-                continue
-            conn.execute(
-                """INSERT OR IGNORE INTO wearable_measurements
-                   (user_id, metric_code, metric_name, value, unit, measured_at, source)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    user_id,
-                    metric_code,
-                    metric_code,
-                    float(value),
-                    None,
-                    f"{MARIA_BACKFILL_LAB_DATE}T07:00:00",
-                    "demo_seed",
-                ),
-            )
-            inserted_wearable_measurements += 1
+        # Check if wearable data exists with recent dates (last 7 days)
+        from config.wearable_wheel_data import WEARABLE_METRIC_SPECS as _WMS
+        recent_cutoff = (date.today() - timedelta(days=7)).isoformat()
+        recent_wearable = conn.execute(
+            "SELECT COUNT(*) as cnt FROM wearable_measurements WHERE user_id = ? AND measured_at >= ?",
+            (user_id, recent_cutoff),
+        ).fetchone()
+        has_recent_wearable = recent_wearable and recent_wearable["cnt"] > 50
+
+        if not has_recent_wearable:
+            # Seed 30 days of wearable data with realistic variance
+            _wb = {
+                "resting_heart_rate_bpm": (58, 5, "Whoop Band"),
+                "heart_rate_variability_ms": (52, 12, "Whoop Band"),
+                "average_heart_rate_bpm": (68, 6, "Whoop Band"),
+                "respiratory_rate_bpm": (14.5, 1.5, "Oura Ring"),
+                "steps_count": (9500, 2500, "Whoop Band"),
+                "kilojoule_expended": (2200, 400, "Whoop Band"),
+                "arrhythmia_alert_afib": (0, 0, "Whoop Band"),
+                "recovery_score": (72, 15, "Whoop Band"),
+                "spo2_pct": (97.5, 1.0, "Oura Ring"),
+                "overnight_spo2_avg_pct": (96.5, 1.0, "Oura Ring"),
+                "skin_temperature_c": (33.2, 0.6, "Oura Ring"),
+                "body_temperature_deviation_c": (0.15, 0.15, "Oura Ring"),
+                "sleep_efficiency_pct": (89, 5, "Oura Ring"),
+                "sleep_consistency_pct": (82, 8, "Oura Ring"),
+                "sleep_performance_pct": (85, 7, "Whoop Band"),
+                "sleep_debt_hours": (1.2, 0.8, "Whoop Band"),
+                "total_rem_sleep_time_min": (95, 20, "Oura Ring"),
+                "total_slow_wave_sleep_time_min": (85, 18, "Oura Ring"),
+                "total_light_sleep_time_min": (210, 30, "Oura Ring"),
+                "total_time_spent_in_bed_min": (465, 25, "Oura Ring"),
+                "sleep_latency_min": (14, 6, "Oura Ring"),
+                "sleep_disturbance_count": (3, 2, "Oura Ring"),
+                "total_awake_time_min": (25, 12, "Oura Ring"),
+                "sleep_cycle_count": (5, 1, "Oura Ring"),
+            }
+            _wo = {
+                "systolic_bp_mmhg": (118, 6, "Withings BPM Connect Pro"),
+                "diastolic_bp_mmhg": (74, 5, "Withings BPM Connect Pro"),
+                "body_weight_kg": (65.5, 0.5, "InBody H40 Home Scale"),
+            }
+            for _doff in range(30):
+                _md = (date.today() - timedelta(days=29 - _doff))
+                _mts = f"{_md.isoformat()}T07:00:00"
+                for _mc, (_base, _noise, _src) in _wb.items():
+                    _val = _base + random.gauss(0, _noise)
+                    if _mc == "arrhythmia_alert_afib":
+                        _val = 0
+                    elif "pct" in _mc:
+                        _val = max(0, min(100, _val))
+                    elif _mc == "steps_count":
+                        _val = max(1000, round(_val))
+                    elif _mc == "sleep_debt_hours":
+                        _val = max(0, _val)
+                    elif _mc.endswith("_count"):
+                        _val = max(0, round(_val))
+                    elif _mc.endswith("_min") and "time" in _mc:
+                        _val = max(0, round(_val))
+                    _unit = _WMS.get(_mc, {}).get("unit", "")
+                    try:
+                        conn.execute(
+                            """INSERT OR REPLACE INTO wearable_measurements
+                               (user_id, metric_code, metric_name, value, unit, measured_at, source)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                            (user_id, _mc, _WMS.get(_mc, {}).get("label", _mc),
+                             round(_val, 2), _unit, _mts, _src),
+                        )
+                        inserted_wearable_measurements += 1
+                    except Exception:
+                        pass
+                if _doff % 3 == 0:
+                    for _mc, (_base, _noise, _src) in _wo.items():
+                        _val = _base + random.gauss(0, _noise)
+                        _unit = _WMS.get(_mc, {}).get("unit", "")
+                        try:
+                            conn.execute(
+                                """INSERT OR REPLACE INTO wearable_measurements
+                                   (user_id, metric_code, metric_name, value, unit, measured_at, source)
+                                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                                (user_id, _mc, _WMS.get(_mc, {}).get("label", _mc),
+                                 round(_val, 2), _unit, _mts, _src),
+                            )
+                            inserted_wearable_measurements += 1
+                        except Exception:
+                            pass
 
         conn.commit()
     finally:

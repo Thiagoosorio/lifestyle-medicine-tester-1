@@ -41,13 +41,21 @@ def _bootstrap_app_data() -> bool:
         LOGGER.info("Seeded demo account for DEMO_MODE session")
     else:
         try:
+            # Ensure wearable table exists before backfill
+            from services.wearable_wheel_service import _ensure_wearable_measurements_schema
+            _bconn = get_connection()
+            try:
+                _ensure_wearable_measurements_schema(_bconn)
+            finally:
+                _bconn.close()
+
             backfill_summary = ensure_demo_organ_score_prereqs(demo_exists["id"])
-            if backfill_summary["profile_backfilled"] or backfill_summary["inserted_biomarkers"]:
+            if backfill_summary["profile_backfilled"] or backfill_summary["inserted_biomarkers"] or backfill_summary.get("inserted_wearable_measurements"):
                 LOGGER.info(
-                    "Backfilled demo prerequisites for user_id=%s profile_backfilled=%s inserted_biomarkers=%s missing_definitions=%s",
-                    demo_exists["id"],
+                    "Backfilled demo: profile=%s biomarkers=%s wearable=%s missing=%s",
                     backfill_summary["profile_backfilled"],
                     backfill_summary["inserted_biomarkers"],
+                    backfill_summary.get("inserted_wearable_measurements", 0),
                     ",".join(backfill_summary["missing_definitions"]) if backfill_summary["missing_definitions"] else "none",
                 )
         except Exception:
