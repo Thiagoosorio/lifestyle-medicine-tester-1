@@ -445,9 +445,60 @@ PROXY_DOMAIN_WEIGHTS = {
 CSV_TEMPLATE_HEADER = [
     "metric_code",
     "value",
+    "unit",
     "measured_at",
     "source",
+    "external_id",
 ]
+
+
+# Optional metrics can improve domain scores, but should not dominate core signals.
+MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE = 0.35
+
+
+# Alias map for CSV/device exports -> canonical metric codes.
+# A special value "blood_pressure_pair" allows importing values like "120/80".
+WEARABLE_METRIC_ALIASES = {
+    "rhr": "resting_heart_rate_bpm",
+    "resting_hr": "resting_heart_rate_bpm",
+    "resting_heart_rate": "resting_heart_rate_bpm",
+    "resting_heart_rate_bpm": "resting_heart_rate_bpm",
+    "hrv": "heart_rate_variability_ms",
+    "hrv_rmssd": "heart_rate_variability_ms",
+    "rmssd": "heart_rate_variability_ms",
+    "respiratory_rate": "respiratory_rate_bpm",
+    "respiratory_rate_rr": "respiratory_rate_bpm",
+    "steps": "steps_count",
+    "step_count": "steps_count",
+    "active_energy_kj": "kilojoule_expended",
+    "active_energy_kcal": "kilojoule_expended",
+    "calories_active": "kilojoule_expended",
+    "afib_alert": "arrhythmia_alert_afib",
+    "arrhythmia_alert": "arrhythmia_alert_afib",
+    "systolic_bp": "systolic_bp_mmhg",
+    "diastolic_bp": "diastolic_bp_mmhg",
+    "blood_pressure": "blood_pressure_pair",
+    "bp": "blood_pressure_pair",
+    "glucose_avg": "cgm_avg_glucose_mgdl",
+    "avg_glucose": "cgm_avg_glucose_mgdl",
+    "average_glucose": "cgm_avg_glucose_mgdl",
+    "cgm_avg_glucose": "cgm_avg_glucose_mgdl",
+    "time_in_range": "cgm_time_in_range_pct",
+    "tir": "cgm_time_in_range_pct",
+    "weight": "body_weight_kg",
+    "weight_kg": "body_weight_kg",
+    "body_weight": "body_weight_kg",
+    "body_temperature_deviation": "body_temperature_deviation_c",
+    "temperature_deviation": "body_temperature_deviation_c",
+    "spo2": "spo2_pct",
+    "overnight_spo2_avg": "overnight_spo2_avg_pct",
+    "overnight_spo2_nadir": "overnight_spo2_nadir_pct",
+    "sleep_efficiency": "sleep_efficiency_pct",
+    "sleep_consistency": "sleep_consistency_pct",
+    "sleep_debt": "sleep_debt_hours",
+    "sleep_disturbances": "sleep_disturbance_count",
+    "sleep_latency": "sleep_latency_min",
+}
 
 
 KNOWN_WEARABLE_SOURCES = [

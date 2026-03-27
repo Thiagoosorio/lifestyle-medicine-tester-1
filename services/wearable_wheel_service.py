@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import math
+import re
 import sqlite3
 from datetime import datetime, timezone
 from typing import Any
@@ -14,7 +15,9 @@ from config.wearable_wheel_data import (
     CSV_TEMPLATE_HEADER,
     DIRECT_DOMAIN_METRICS,
     DOMAIN_ORDER,
+    MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE,
     PROXY_DOMAIN_WEIGHTS,
+    WEARABLE_METRIC_ALIASES,
     WEARABLE_METRIC_SPECS,
     WEARABLE_WHEEL_DOMAINS,
 )
@@ -135,13 +138,115 @@ def build_wearable_csv_template() -> str:
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(CSV_TEMPLATE_HEADER)
-    writer.writerow(["resting_heart_rate_bpm", "54", "2026-03-26T07:00:00", "wearable"])
-    writer.writerow(["sleep_efficiency_pct", "92", "2026-03-26T07:00:00", "wearable"])
-    writer.writerow(["recovery_score", "81", "2026-03-26T07:00:00", "wearable"])
-    writer.writerow(["systolic_bp_mmhg", "118", "2026-03-26T07:00:00", "Withings BPM Connect Pro"])
-    writer.writerow(["cgm_avg_glucose_mgdl", "101", "2026-03-26T07:00:00", "CGM FreeStyle Libre"])
-    writer.writerow(["body_weight_kg", "78.6", "2026-03-26T07:00:00", "InBody H40 Home Scale"])
+    writer.writerow(["resting_heart_rate_bpm", "54", "bpm", "2026-03-26T07:00:00", "wearable", ""])
+    writer.writerow(["sleep_efficiency_pct", "92", "%", "2026-03-26T07:00:00", "wearable", ""])
+    writer.writerow(["recovery_score", "81", "score", "2026-03-26T07:00:00", "wearable", ""])
+    writer.writerow(["systolic_bp_mmhg", "118", "mmHg", "2026-03-26T07:00:00", "Withings BPM Connect Pro", ""])
+    writer.writerow(["cgm_avg_glucose_mgdl", "101", "mg/dL", "2026-03-26T07:00:00", "CGM FreeStyle Libre", ""])
+    writer.writerow(["body_weight_kg", "78.6", "kg", "2026-03-26T07:00:00", "InBody H40 Home Scale", ""])
     return output.getvalue()
+
+
+def _normalize_key(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = str(value).strip().lower()
+    normalized = re.sub(r"[^\w]+", "_", normalized)
+    normalized = re.sub(r"_+", "_", normalized).strip("_")
+    return normalized
+
+
+def _normalize_metric_code(metric_code: str | None) -> tuple[str | None, bool]:
+    code = _normalize_key(metric_code)
+    if not code:
+        return None, False
+    if code in WEARABLE_METRIC_SPECS:
+        return code, False
+    alias = WEARABLE_METRIC_ALIASES.get(code)
+    if alias:
+        return alias, True
+    return None, False
+
+
+def _normalize_unit(unit: str | None) -> str:
+    if not unit:
+        return ""
+    value = str(unit).strip().lower()
+    value = value.replace("°", "")
+    value = value.replace(" ", "")
+    return value
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    raw = str(value).strip()
+    if not raw:
+        return None
+    # Accept decimal comma exports.
+    raw = raw.replace(",", ".")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _convert_value_to_canonical(metric_code: str, value: float, unit: str | None) -> tuple[float, bool]:
+    normalized_unit = _normalize_unit(unit)
+    converted = False
+    out = float(value)
+
+    if metric_code == "cgm_avg_glucose_mgdl":
+        if normalized_unit in {"mmol/l", "mmoll", "mmol"}:
+            out = out * 18.0182
+            converted = True
+    elif metric_code == "body_weight_kg":
+        if normalized_unit in {"lb", "lbs", "pound", "pounds"}:
+            out = out * 0.45359237
+            converted = True
+        elif normalized_unit in {"g", "gram", "grams"}:
+            out = out / 1000.0
+            converted = True
+    elif metric_code == "kilojoule_expended":
+        if normalized_unit in {"kcal", "calorie", "calories"}:
+            out = out * 4.184
+            converted = True
+    elif metric_code in {"systolic_bp_mmhg", "diastolic_bp_mmhg"}:
+        if normalized_unit in {"kpa"}:
+            out = out * 7.50062
+            converted = True
+    elif metric_code == "body_temperature_deviation_c":
+        if normalized_unit in {"f", "degf", "fahrenheit"}:
+            # Delta/offset conversion (not absolute temperature).
+            out = out * (5.0 / 9.0)
+            converted = True
+    elif metric_code in {"cgm_time_in_range_pct", "sleep_efficiency_pct", "sleep_consistency_pct", "sleep_performance_pct"}:
+        if normalized_unit in {"fraction", "ratio"} and 0.0 <= out <= 1.2:
+            out = out * 100.0
+            converted = True
+    elif metric_code in {"spo2_pct", "overnight_spo2_avg_pct", "overnight_spo2_nadir_pct"}:
+        if normalized_unit in {"fraction", "ratio"} and 0.0 <= out <= 1.2:
+            out = out * 100.0
+            converted = True
+
+    return out, converted
+
+
+def _expand_bp_pair_row(row: dict[str, Any], metric_code: str | None) -> list[dict[str, Any]]:
+    if metric_code != "blood_pressure_pair":
+        return [row]
+    raw_value = str(row.get("value") or "").strip()
+    match = re.match(r"^\s*([0-9]+(?:\.[0-9]+)?)\s*[/|]\s*([0-9]+(?:\.[0-9]+)?)\s*$", raw_value)
+    if not match:
+        return []
+    systolic, diastolic = match.group(1), match.group(2)
+    base = dict(row)
+    return [
+        {**base, "metric_code": "systolic_bp_mmhg", "value": systolic, "unit": base.get("unit") or "mmHg"},
+        {**base, "metric_code": "diastolic_bp_mmhg", "value": diastolic, "unit": base.get("unit") or "mmHg"},
+    ]
 
 
 def save_measurements(user_id: int, rows: list[dict[str, Any]], default_source: str = "manual") -> dict:
@@ -149,47 +254,77 @@ def save_measurements(user_id: int, rows: list[dict[str, Any]], default_source: 
     inserted = 0
     skipped_unknown = 0
     skipped_invalid = 0
+    normalized_aliases = 0
+    unit_converted = 0
+    bp_split = 0
 
     conn = get_connection()
     try:
         _ensure_wearable_measurements_schema(conn)
 
-        for row in rows:
-            metric_code = (row.get("metric_code") or "").strip()
-            if metric_code not in WEARABLE_METRIC_SPECS:
-                skipped_unknown += 1
-                continue
+        for raw_row in rows:
+            raw_metric_code = raw_row.get("metric_code")
+            normalized_code, alias_used = _normalize_metric_code(str(raw_metric_code or ""))
+            if alias_used:
+                normalized_aliases += 1
 
-            try:
-                value = float(row.get("value"))
-            except (TypeError, ValueError):
+            expanded_rows = _expand_bp_pair_row(raw_row, normalized_code)
+            if normalized_code == "blood_pressure_pair":
+                if expanded_rows:
+                    bp_split += 1
+                else:
+                    skipped_invalid += 1
+                    continue
+
+            if not expanded_rows:
                 skipped_invalid += 1
                 continue
 
-            measured_at = (row.get("measured_at") or "").strip()
-            if not measured_at:
-                measured_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+            for row in expanded_rows:
+                metric_code, alias_used_expanded = _normalize_metric_code(str(row.get("metric_code") or ""))
+                if alias_used_expanded:
+                    normalized_aliases += 1
+                if not metric_code or metric_code not in WEARABLE_METRIC_SPECS:
+                    skipped_unknown += 1
+                    continue
 
-            source = (row.get("source") or default_source).strip() or default_source
-            external_id = row.get("external_id")
-            spec = WEARABLE_METRIC_SPECS[metric_code]
+                value = _to_float(row.get("value"))
+                if value is None:
+                    skipped_invalid += 1
+                    continue
 
-            conn.execute(
-                """INSERT OR REPLACE INTO wearable_measurements
-                   (user_id, metric_code, metric_name, value, unit, measured_at, source, external_id)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    user_id,
+                converted_value, did_convert = _convert_value_to_canonical(
                     metric_code,
-                    spec["label"],
                     value,
-                    spec.get("unit"),
-                    measured_at,
-                    source,
-                    external_id,
-                ),
-            )
-            inserted += 1
+                    row.get("unit"),
+                )
+                if did_convert:
+                    unit_converted += 1
+
+                measured_at = (row.get("measured_at") or "").strip()
+                if not measured_at:
+                    measured_at = datetime.now(timezone.utc).replace(tzinfo=None).isoformat(timespec="seconds")
+
+                source = (row.get("source") or default_source).strip() or default_source
+                external_id = row.get("external_id")
+                spec = WEARABLE_METRIC_SPECS[metric_code]
+
+                conn.execute(
+                    """INSERT OR REPLACE INTO wearable_measurements
+                       (user_id, metric_code, metric_name, value, unit, measured_at, source, external_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        user_id,
+                        metric_code,
+                        spec["label"],
+                        float(converted_value),
+                        spec.get("unit"),
+                        measured_at,
+                        source,
+                        external_id,
+                    ),
+                )
+                inserted += 1
 
         conn.commit()
     finally:
@@ -199,22 +334,49 @@ def save_measurements(user_id: int, rows: list[dict[str, Any]], default_source: 
         "inserted": inserted,
         "skipped_unknown": skipped_unknown,
         "skipped_invalid": skipped_invalid,
+        "normalized_aliases": normalized_aliases,
+        "unit_converted": unit_converted,
+        "bp_split": bp_split,
     }
 
 
 def import_measurements_csv_text(user_id: int, csv_text: str, default_source: str = "csv_upload") -> dict:
     if not csv_text or not csv_text.strip():
-        return {"inserted": 0, "skipped_unknown": 0, "skipped_invalid": 0}
+        return {
+            "inserted": 0,
+            "skipped_unknown": 0,
+            "skipped_invalid": 0,
+            "normalized_aliases": 0,
+            "unit_converted": 0,
+            "bp_split": 0,
+        }
 
     reader = csv.DictReader(io.StringIO(csv_text))
     rows = []
     for row in reader:
+        metric_code = (
+            row.get("metric_code")
+            or row.get("metric")
+            or row.get("parameter")
+            or row.get("name")
+        )
+        value = row.get("value") or row.get("reading") or row.get("measurement")
+        measured_at = (
+            row.get("measured_at")
+            or row.get("timestamp")
+            or row.get("datetime")
+            or row.get("date")
+        )
+        source = row.get("source") or row.get("device") or default_source
+
         rows.append(
             {
-                "metric_code": row.get("metric_code"),
-                "value": row.get("value"),
-                "measured_at": row.get("measured_at"),
-                "source": row.get("source") or default_source,
+                "metric_code": metric_code,
+                "value": value,
+                "unit": row.get("unit") or row.get("units"),
+                "measured_at": measured_at,
+                "source": source,
+                "external_id": row.get("external_id") or row.get("id"),
             }
         )
     return save_measurements(user_id, rows, default_source=default_source)
@@ -542,9 +704,12 @@ def compute_wearable_wheel(user_id: int) -> dict:
             codes = DIRECT_DOMAIN_METRICS.get(domain_code, [])
             required_codes = [c for c in codes if not WEARABLE_METRIC_SPECS.get(c, {}).get("optional")]
             total = len(required_codes)
-            weighted_current = []
-            weighted_readiness = []
-            weighted_resilience = []
+            weighted_current_required = []
+            weighted_readiness_required = []
+            weighted_resilience_required = []
+            weighted_current_optional = []
+            weighted_readiness_optional = []
+            weighted_resilience_optional = []
             available_codes = []
             freshness_values = []
             available_required_codes = []
@@ -557,10 +722,36 @@ def compute_wearable_wheel(user_id: int) -> dict:
                 if code in required_codes:
                     available_required_codes.append(code)
                 w = float(metric["effective_weight"])
-                weighted_current.append((metric["score_100"], w))
-                weighted_readiness.append((metric["readiness_score_100"], w))
-                weighted_resilience.append((metric["resilience_score_100"], w))
+                if code in required_codes:
+                    weighted_current_required.append((metric["score_100"], w))
+                    weighted_readiness_required.append((metric["readiness_score_100"], w))
+                    weighted_resilience_required.append((metric["resilience_score_100"], w))
+                else:
+                    weighted_current_optional.append((metric["score_100"], w))
+                    weighted_readiness_optional.append((metric["readiness_score_100"], w))
+                    weighted_resilience_optional.append((metric["resilience_score_100"], w))
                 freshness_values.append(float(metric["freshness_factor"]))
+
+            optional_weight_scale = 1.0
+            required_weight_total = sum(weight for _, weight in weighted_current_required)
+            optional_weight_total = sum(weight for _, weight in weighted_current_optional)
+            if required_weight_total > 0 and optional_weight_total > 0:
+                max_optional_total = required_weight_total * (
+                    MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE / (1.0 - MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE)
+                )
+                if optional_weight_total > max_optional_total > 0:
+                    optional_weight_scale = max_optional_total / optional_weight_total
+
+            weighted_current = list(weighted_current_required)
+            weighted_readiness = list(weighted_readiness_required)
+            weighted_resilience = list(weighted_resilience_required)
+
+            for score, weight in weighted_current_optional:
+                weighted_current.append((score, weight * optional_weight_scale))
+            for score, weight in weighted_readiness_optional:
+                weighted_readiness.append((score, weight * optional_weight_scale))
+            for score, weight in weighted_resilience_optional:
+                weighted_resilience.append((score, weight * optional_weight_scale))
 
             coverage = (len(available_required_codes) / total) if total else 1.0
             freshness_quality = (sum(freshness_values) / len(freshness_values)) if freshness_values else 0.0
@@ -568,6 +759,7 @@ def compute_wearable_wheel(user_id: int) -> dict:
             available_required = len(available_required_codes)
             optional_used = len([c for c in available_codes if c not in required_codes])
             total_all_metrics = len(codes)
+            missing_required_codes = [c for c in required_codes if c not in available_required_codes]
         else:
             proxy_weights = PROXY_DOMAIN_WEIGHTS.get(domain_code, {})
             total = len(proxy_weights)
@@ -594,6 +786,8 @@ def compute_wearable_wheel(user_id: int) -> dict:
             available_required = len(available_codes)
             optional_used = 0
             total_all_metrics = total
+            optional_weight_scale = 1.0
+            missing_required_codes = []
 
         score_100 = _weighted_average(weighted_current)
         readiness_100 = _weighted_average(weighted_readiness)
@@ -624,6 +818,8 @@ def compute_wearable_wheel(user_id: int) -> dict:
             "total_metrics": total,
             "total_all_metrics": total_all_metrics,
             "optional_metrics_used": optional_used,
+            "optional_weight_scale": round(optional_weight_scale, 2),
+            "missing_required_codes": missing_required_codes,
             "metric_codes_used": available_codes,
         }
 

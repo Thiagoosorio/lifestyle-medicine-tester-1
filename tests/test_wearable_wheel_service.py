@@ -179,6 +179,90 @@ def test_weight_and_bp_improvement_contributes_via_trend(db_conn, monkeypatch):
     assert wheel["domains"]["heart_metabolism"]["optional_metrics_used"] >= 3
 
 
+def test_csv_alias_conversion_and_bp_split(db_conn, monkeypatch):
+    monkeypatch.setattr(wws, "get_connection", db_conn)
+    user_id = _create_user(db_conn)
+
+    csv_text = """metric_code,value,unit,measured_at,source
+rhr,52,bpm,2026-03-26T07:00:00,Whoop Band
+glucose_avg,5.6,mmol/L,2026-03-26T07:00:00,CGM FreeStyle Libre
+weight,176.4,lb,2026-03-26T07:00:00,InBody H40 Home Scale
+bp,122/78,mmHg,2026-03-26T07:00:00,Withings BPM Connect Pro
+active_energy_kcal,500,kcal,2026-03-26T07:00:00,Whoop Band
+"""
+    summary = wws.import_measurements_csv_text(user_id, csv_text)
+    latest = wws.get_latest_measurements(user_id)
+
+    assert summary["inserted"] == 6
+    assert summary["normalized_aliases"] >= 5
+    assert summary["unit_converted"] >= 3
+    assert summary["bp_split"] == 1
+    assert abs(float(latest["cgm_avg_glucose_mgdl"]["value"]) - 100.9) < 0.6
+    assert abs(float(latest["body_weight_kg"]["value"]) - 80.0) < 0.2
+    assert abs(float(latest["kilojoule_expended"]["value"]) - 2092.0) < 1.0
+    assert "systolic_bp_mmhg" in latest
+    assert "diastolic_bp_mmhg" in latest
+
+
+def test_optional_weight_capped_vs_required_metrics(db_conn, monkeypatch):
+    monkeypatch.setattr(wws, "get_connection", db_conn)
+    user_id = _create_user(db_conn)
+
+    conn = db_conn()
+    conn.execute(
+        "INSERT OR REPLACE INTO user_settings (user_id, goal_weight_kg) VALUES (?, ?)",
+        (user_id, 70.0),
+    )
+    conn.commit()
+    conn.close()
+
+    ts = "2026-03-26T07:00:00"
+    # Weak required HM metrics.
+    wws.save_measurements(
+        user_id,
+        [
+            {"metric_code": "arrhythmia_alert_afib", "value": 1, "measured_at": ts},
+            {"metric_code": "heart_rate_variability_ms", "value": 20, "measured_at": ts},
+            {"metric_code": "respiratory_rate_bpm", "value": 23, "measured_at": ts},
+            {"metric_code": "resting_heart_rate_bpm", "value": 85, "measured_at": ts},
+            {"metric_code": "steps_count", "value": 2500, "measured_at": ts},
+            {"metric_code": "kilojoule_expended", "value": 800, "measured_at": ts},
+            # Strong optional HM metrics.
+            {"metric_code": "systolic_bp_mmhg", "value": 110, "measured_at": ts},
+            {"metric_code": "diastolic_bp_mmhg", "value": 70, "measured_at": ts},
+            {"metric_code": "cgm_avg_glucose_mgdl", "value": 90, "measured_at": ts},
+            {"metric_code": "cgm_time_in_range_pct", "value": 95, "measured_at": ts},
+            {"metric_code": "body_weight_kg", "value": 70, "measured_at": ts},
+        ],
+    )
+
+    wheel = wws.compute_wearable_wheel(user_id)
+    hm = wheel["domains"]["heart_metabolism"]
+    assert hm["optional_weight_scale"] < 1.0
+    assert hm["missing_required_codes"] == []
+    assert hm["score_10"] < 5.6
+
+
+def test_missing_required_codes_are_exposed_for_ui_coaching(db_conn, monkeypatch):
+    monkeypatch.setattr(wws, "get_connection", db_conn)
+    user_id = _create_user(db_conn)
+    ts = "2026-03-26T07:00:00"
+
+    # Only one required HM metric + optional BP.
+    wws.save_measurements(
+        user_id,
+        [
+            {"metric_code": "resting_heart_rate_bpm", "value": 55, "measured_at": ts},
+            {"metric_code": "systolic_bp_mmhg", "value": 118, "measured_at": ts},
+        ],
+    )
+
+    wheel = wws.compute_wearable_wheel(user_id)
+    hm_missing = set(wheel["domains"]["heart_metabolism"]["missing_required_codes"])
+    assert "heart_rate_variability_ms" in hm_missing
+    assert "steps_count" in hm_missing
+
+
 def test_legacy_wearable_table_without_source_is_self_healed(tmp_path, monkeypatch):
     db_path = tmp_path / "legacy_wearable.db"
 

@@ -9,6 +9,7 @@ from components.custom_theme import APPLE, render_hero_banner, render_section_he
 from config.wearable_wheel_data import (
     DOMAIN_ORDER,
     KNOWN_WEARABLE_SOURCES,
+    WEARABLE_METRIC_ALIASES,
     WEARABLE_METRIC_SPECS,
     WEARABLE_WHEEL_DOMAINS,
 )
@@ -334,6 +335,24 @@ with tab_wheel:
             )
         cards_html += '</div>'
         st.markdown(cards_html, unsafe_allow_html=True)
+        missing_lines = []
+        for code in DOMAIN_ORDER:
+            domain = wheel["domains"][code]
+            missing_codes = domain.get("missing_required_codes", [])
+            if not missing_codes:
+                continue
+            metric_labels = [WEARABLE_METRIC_SPECS.get(m, {}).get("label", m) for m in missing_codes]
+            missing_lines.append(
+                f"- **{WEARABLE_WHEEL_DOMAINS[code]['name']}** missing required: "
+                + ", ".join(metric_labels[:4])
+                + ("..." if len(metric_labels) > 4 else "")
+            )
+        if missing_lines:
+            st.info(
+                "Data Quality Coach\n"
+                + "\n".join(missing_lines)
+                + "\n\nOptional metrics (BP, CGM, weight) can improve score, but required metrics drive confidence."
+            )
 
         # ── Metric Detail (expandable per domain) ─────────────────────
         st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
@@ -452,12 +471,21 @@ with tab_upload:
         mime="text/csv",
         use_container_width=True,
     )
+    st.caption(
+        "CSV import supports aliases (rhr, hrv, steps, bp, weight) and unit conversion "
+        "(mmol/L -> mg/dL glucose, lb -> kg weight, kcal -> kJ energy)."
+    )
 
     uploaded = st.file_uploader("Upload wearable measurements CSV", type=["csv"], key="wearable_csv_upload")
     if uploaded is not None and st.button("Import CSV", type="primary", use_container_width=True):
         payload = uploaded.getvalue().decode("utf-8", errors="ignore")
         summary = import_measurements_csv_text(user_id, payload)
-        st.toast(f"Imported {summary['inserted']} rows ({summary['skipped_unknown']} unknown, {summary['skipped_invalid']} invalid)")
+        st.toast(
+            f"Imported {summary['inserted']} rows "
+            f"({summary['skipped_unknown']} unknown, {summary['skipped_invalid']} invalid, "
+            f"{summary.get('normalized_aliases', 0)} aliases, {summary.get('unit_converted', 0)} converted, "
+            f"{summary.get('bp_split', 0)} BP splits)"
+        )
         st.rerun()
 
     # Manual Entry
@@ -569,3 +597,9 @@ with tab_data:
                     f'<div style="color:{A["label_tertiary"]};min-width:50px">{mc}</div></div>'
                 )
         st.markdown(catalog_html, unsafe_allow_html=True)
+
+    with st.expander("Import Aliases (device export names)"):
+        alias_lines = []
+        for alias, canonical in sorted(WEARABLE_METRIC_ALIASES.items()):
+            alias_lines.append(f"- `{alias}` -> `{canonical}`")
+        st.markdown("\n".join(alias_lines))
