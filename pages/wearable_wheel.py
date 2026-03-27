@@ -6,13 +6,7 @@ import streamlit as st
 import plotly.graph_objects as go
 
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
-from config.wearable_wheel_data import (
-    DOMAIN_ORDER,
-    KNOWN_WEARABLE_SOURCES,
-    WEARABLE_METRIC_ALIASES,
-    WEARABLE_METRIC_SPECS,
-    WEARABLE_WHEEL_DOMAINS,
-)
+from config import wearable_wheel_data as _wheel_cfg
 from services.wearable_wheel_service import (
     build_wearable_csv_template,
     compute_wearable_wheel,
@@ -20,6 +14,12 @@ from services.wearable_wheel_service import (
     import_measurements_csv_text,
     save_measurements,
 )
+
+DOMAIN_ORDER = _wheel_cfg.DOMAIN_ORDER
+KNOWN_WEARABLE_SOURCES = _wheel_cfg.KNOWN_WEARABLE_SOURCES
+WEARABLE_METRIC_SPECS = _wheel_cfg.WEARABLE_METRIC_SPECS
+WEARABLE_WHEEL_DOMAINS = _wheel_cfg.WEARABLE_WHEEL_DOMAINS
+WEARABLE_METRIC_ALIASES = getattr(_wheel_cfg, "WEARABLE_METRIC_ALIASES", {})
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -694,7 +694,10 @@ with tab_data:
         st.markdown(catalog_html, unsafe_allow_html=True)
 
     with st.expander("Import Aliases (device export names)"):
-        alias_lines = []
-        for alias, canonical in sorted(WEARABLE_METRIC_ALIASES.items()):
-            alias_lines.append(f"- `{alias}` -> `{canonical}`")
-        st.markdown("\n".join(alias_lines))
+        if not WEARABLE_METRIC_ALIASES:
+            st.caption("No import aliases configured in this deployment.")
+        else:
+            alias_lines = []
+            for alias, canonical in sorted(WEARABLE_METRIC_ALIASES.items()):
+                alias_lines.append(f"- `{alias}` -> `{canonical}`")
+            st.markdown("\n".join(alias_lines))

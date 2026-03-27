@@ -11,16 +11,16 @@ from datetime import datetime, timezone
 from typing import Any
 
 from db.database import get_connection
-from config.wearable_wheel_data import (
-    CSV_TEMPLATE_HEADER,
-    DIRECT_DOMAIN_METRICS,
-    DOMAIN_ORDER,
-    MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE,
-    PROXY_DOMAIN_WEIGHTS,
-    WEARABLE_METRIC_ALIASES,
-    WEARABLE_METRIC_SPECS,
-    WEARABLE_WHEEL_DOMAINS,
-)
+from config import wearable_wheel_data as _wheel_cfg
+
+CSV_TEMPLATE_HEADER = _wheel_cfg.CSV_TEMPLATE_HEADER
+DIRECT_DOMAIN_METRICS = _wheel_cfg.DIRECT_DOMAIN_METRICS
+DOMAIN_ORDER = _wheel_cfg.DOMAIN_ORDER
+PROXY_DOMAIN_WEIGHTS = _wheel_cfg.PROXY_DOMAIN_WEIGHTS
+WEARABLE_METRIC_SPECS = _wheel_cfg.WEARABLE_METRIC_SPECS
+WEARABLE_WHEEL_DOMAINS = _wheel_cfg.WEARABLE_WHEEL_DOMAINS
+MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE = getattr(_wheel_cfg, "MAX_OPTIONAL_DOMAIN_WEIGHT_SHARE", 0.35)
+WEARABLE_METRIC_ALIASES = getattr(_wheel_cfg, "WEARABLE_METRIC_ALIASES", {})
 
 
 def get_metric_specs() -> dict[str, dict]:
