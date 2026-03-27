@@ -31,6 +31,72 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{alpha})"
 
+
+def _score_status(score_10: float) -> tuple[str, str]:
+    if score_10 >= 8:
+        return "Strong", "#30D158"
+    if score_10 >= 6:
+        return "Developing", "#0A84FF"
+    if score_10 >= 4:
+        return "Needs Focus", "#FFD60A"
+    return "At Risk", "#FF453A"
+
+
+def _domain_behavior_tip(domain_code: str) -> str:
+    tips = {
+        "heart_metabolism": "Prioritize 30-45 min zone-2 movement and keep daily step target consistent.",
+        "muscle_bones": "Add a short resistance session (20-30 min) or bodyweight strength circuit today.",
+        "gut_digestion": "Keep meal timing regular and favor fiber-rich whole foods for the next 24 hours.",
+        "brain_health": "Protect sleep window tonight and reduce late caffeine/screen stimulation.",
+        "system_wide": "Use a lighter training day, hydration, and recovery routine to lower systemic strain.",
+    }
+    return tips.get(domain_code, "Focus on one small habit and track it today.")
+
+
+def _build_patient_actions(wheel_payload: dict) -> list[dict]:
+    actions: list[dict] = []
+    sorted_codes = sorted(
+        DOMAIN_ORDER,
+        key=lambda code: wheel_payload["domains"][code]["score_10"],
+    )
+
+    for code in sorted_codes:
+        domain = wheel_payload["domains"][code]
+        domain_name = WEARABLE_WHEEL_DOMAINS[code]["name"]
+        missing = domain.get("missing_required_codes", [])
+        if missing:
+            missing_labels = [
+                WEARABLE_METRIC_SPECS.get(m, {}).get("label", m).lower()
+                for m in missing[:3]
+            ]
+            actions.append(
+                {
+                    "title": f"Improve {domain_name} confidence",
+                    "detail": f"Log missing required metrics: {', '.join(missing_labels)}.",
+                    "kind": "data",
+                }
+            )
+        if domain["score_10"] < 7:
+            actions.append(
+                {
+                    "title": f"Lift {domain_name} today",
+                    "detail": _domain_behavior_tip(code),
+                    "kind": "behavior",
+                }
+            )
+        if len(actions) >= 3:
+            break
+
+    if not actions:
+        actions.append(
+            {
+                "title": "Maintain Momentum",
+                "detail": "Your domains are stable. Keep the same routine and refresh key metrics tomorrow.",
+                "kind": "maintain",
+            }
+        )
+    return actions[:3]
+
 render_hero_banner(
     "Wearable Wheel",
     "Data-driven health radar built from your wearable measurements. "
@@ -62,6 +128,17 @@ with tab_wheel:
         )
         st.markdown(empty_html, unsafe_allow_html=True)
     else:
+        overall_status, _ = _score_status(float(wheel["overall_score_10"]))
+        overall_msg = (
+            f"Overall status: {overall_status} ({wheel['overall_score_10']}/10). "
+            f"Today {wheel['overall_readiness_10']}/10 vs baseline {wheel['overall_resilience_10']}/10."
+        )
+        if wheel["overall_score_10"] >= 7:
+            st.success(overall_msg)
+        elif wheel["overall_score_10"] >= 5:
+            st.info(overall_msg)
+        else:
+            st.warning(overall_msg)
         # ── Custom SVG Radar Chart ─────────────────────────────────────
         import math as _math
 
@@ -267,16 +344,32 @@ with tab_wheel:
         )
         tb_html += '</div>'
         st.markdown(tb_html, unsafe_allow_html=True)
+        render_section_header("Today's Action Plan", "Highest-impact next steps from your current data")
+        action_items = _build_patient_actions(wheel)
+        action_html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px">'
+        for item in action_items:
+            tone = "#0A84FF" if item["kind"] == "data" else "#30D158" if item["kind"] == "maintain" else "#FF9F0A"
+            action_html += (
+                f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
+                f'border-left:4px solid {tone};border-radius:{A["radius_md"]};padding:12px">'
+                f'<div style="font-size:12px;font-weight:600;color:{A["label_primary"]};margin-bottom:4px">'
+                f'{item["title"]}</div>'
+                f'<div style="font-size:11px;color:{A["label_secondary"]}">{item["detail"]}</div>'
+                f'</div>'
+            )
+        action_html += '</div>'
+        st.markdown(action_html, unsafe_allow_html=True)
 
         # ── Domain Cards ───────────────────────────────────────────────
         render_section_header("Domain Breakdown", "Score, readiness, resilience per domain")
 
-        cards_html = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px">'
+        cards_html = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">'
         for code in DOMAIN_ORDER:
             domain = wheel["domains"][code]
             d_spec = WEARABLE_WHEEL_DOMAINS[code]
             color = d_spec["color"]
             score_10 = domain["score_10"]
+            status_label, status_color = _score_status(score_10)
             conf = int(domain["confidence"] * 100)
             avail = domain["available_metrics"]
             total = domain["total_metrics"]
@@ -313,6 +406,8 @@ with tab_wheel:
                 f'<div style="font-family:{A["font_display"]};font-size:28px;font-weight:700;'
                 f'color:{sc}">{score_10}</div>'
                 f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-bottom:10px">/10</div>'
+                f'<div style="font-size:10px;font-weight:600;color:{status_color};margin-bottom:8px">'
+                f'{status_label}</div>'
                 # Readiness / Resilience
                 f'<div style="display:flex;justify-content:center;gap:12px;margin-bottom:8px">'
                 f'<div style="text-align:center">'
