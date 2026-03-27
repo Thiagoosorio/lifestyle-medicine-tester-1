@@ -2,6 +2,7 @@
 
 import streamlit as st
 from config.organ_scores_data import ORGAN_SYSTEMS
+from components.custom_theme import render_hero_banner, render_section_header
 from services.organ_score_service import (
     compute_all_scores, get_computable_scores, get_latest_computed_scores,
 )
@@ -12,7 +13,36 @@ from components.organ_health_display import (
     render_clinical_profile_form, render_clinical_profile_summary,
 )
 
-st.title(":material/monitor_heart: Organ Health Scores")
+def _build_organ_action_plan(existing_scores: list[dict], comp_data: dict) -> list[str]:
+    actions: list[str] = []
+    high_risk = [s for s in existing_scores if s.get("severity") in {"high", "critical"}]
+    elevated = [s for s in existing_scores if s.get("severity") == "elevated"]
+
+    if high_risk:
+        score_names = [s.get("name") or s.get("code", "score") for s in high_risk[:3]]
+        actions.append(
+            "Priority review: discuss high-risk scores with your clinician (" + ", ".join(score_names) + ")."
+        )
+    elif elevated:
+        score_names = [s.get("name") or s.get("code", "score") for s in elevated[:3]]
+        actions.append(
+            "Track elevated scores closely over time (" + ", ".join(score_names) + ")."
+        )
+
+    missing_items = comp_data.get("missing", [])
+    missing_biomarkers = sum(len(m.get("missing_biomarkers", [])) for m in missing_items)
+    missing_clinical = sum(len(m.get("missing_clinical", [])) for m in missing_items)
+    if missing_biomarkers:
+        actions.append("Log missing lab biomarkers to unlock additional validated scores.")
+    if missing_clinical:
+        actions.append("Complete your Clinical Profile to improve score completeness and confidence.")
+
+    if not actions:
+        actions.append("Maintain current progress and re-check scores with your next lab panel.")
+    return actions[:3]
+
+
+render_hero_banner("Organ Health Scores", "Composite clinical indices from your lab results.")
 st.markdown(
     "Composite clinical indices computed from your lab results. "
     "These are **screening tools**, not diagnoses — always discuss results with your healthcare provider."
@@ -51,6 +81,27 @@ with tab_dashboard:
         existing_scores = get_latest_computed_scores(user_id)
 
     comp_data = get_computable_scores(user_id)
+
+    if existing_scores:
+        high_count = sum(1 for s in existing_scores if s.get("severity") in {"high", "critical"})
+        elevated_count = sum(1 for s in existing_scores if s.get("severity") == "elevated")
+        missing_count = len(comp_data.get("missing", []))
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Computed Scores", len(existing_scores))
+        m2.metric("High Risk", high_count)
+        m3.metric("Elevated", elevated_count)
+        m4.metric("Missing Inputs", missing_count)
+
+    render_section_header("Patient Action Plan", "Your next best steps from current scores and data completeness")
+    for action in _build_organ_action_plan(existing_scores, comp_data):
+        st.markdown(f"- {action}")
+    q1, q2 = st.columns(2)
+    with q1:
+        if st.button("Open Biomarkers", use_container_width=True, key="organ_open_biomarkers"):
+            st.switch_page("pages/biomarkers.py")
+    with q2:
+        st.caption("Need profile fields? Use the **Clinical Profile** tab above to complete them.")
+    st.divider()
 
     if not existing_scores and not comp_data["computable"]:
         st.info(
@@ -153,6 +204,12 @@ with tab_trends:
 # ── Tab 4: Missing Data ──────────────────────────────────────────────────────
 with tab_missing:
     comp_data = get_computable_scores(user_id)
+    total_definitions = len(get_all_score_definitions())
+    missing_count = len(comp_data.get("missing", []))
+    ready_count = max(0, total_definitions - missing_count)
+    if total_definitions > 0:
+        st.progress(ready_count / total_definitions)
+        st.caption(f"Score readiness: {ready_count}/{total_definitions} formulas can be computed.")
 
     if not comp_data["missing"]:
         st.success("All organ health scores can be computed with your current data!")
