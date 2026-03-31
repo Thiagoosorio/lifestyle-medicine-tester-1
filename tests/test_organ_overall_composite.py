@@ -73,3 +73,23 @@ def test_prevention_weight_boosts_early_warning_within_same_tier():
     validated_normal = oss._composite_score_weight("validated", "normal")
     validated_elevated = oss._composite_score_weight("validated", "elevated")
     assert validated_elevated > validated_normal
+
+
+def test_optional_advanced_scores_do_not_reduce_core_coverage(monkeypatch):
+    definitions = [
+        {"code": "hsi", "organ_system": "liver"},
+        {"code": "fli", "organ_system": "liver"},  # optional advanced
+        {"code": "apob_risk", "organ_system": "cardiovascular"},  # optional advanced
+    ]
+    latest_scores = [
+        {"code": "hsi", "name": "HSI", "organ_system": "liver", "tier": "validated", "severity": "normal"},
+    ]
+    monkeypatch.setattr(oss, "get_all_score_definitions", lambda: definitions)
+    monkeypatch.setattr(oss, "get_latest_scores", lambda _uid: latest_scores)
+
+    overall = oss.compute_overall_organ_score(77)
+    assert overall is not None
+    assert overall["computed_scores"] == 1
+    assert overall["total_definitions"] == 1
+    assert overall["score_coverage_pct"] == 100
+    assert overall["optional_scores_used"] == 0

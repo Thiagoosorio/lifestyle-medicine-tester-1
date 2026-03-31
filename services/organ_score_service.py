@@ -9,7 +9,7 @@ Tier 2 (Derived/Experimental): Emerging indices or percentile-rank composites.
 
 import math
 import json
-from config.organ_scores_data import ORGAN_SYSTEMS
+from config.organ_scores_data import ORGAN_SYSTEMS, OPTIONAL_ADVANCED_SCORE_CODES
 from db.database import get_connection
 from models.organ_score import (
     get_all_score_definitions, save_score_result, get_latest_scores,
@@ -2323,12 +2323,15 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         return None
 
     total_defs_by_organ: dict[str, int] = {}
+    total_core_defs_by_organ: dict[str, int] = {}
     for defn in definitions:
         organ = defn.get("organ_system", "other")
         total_defs_by_organ[organ] = total_defs_by_organ.get(organ, 0) + 1
+        if defn.get("code") not in OPTIONAL_ADVANCED_SCORE_CODES:
+            total_core_defs_by_organ[organ] = total_core_defs_by_organ.get(organ, 0) + 1
 
     all_organs = sorted(
-        [organ for organ, count in total_defs_by_organ.items() if count > 0],
+        [organ for organ, count in total_core_defs_by_organ.items() if count > 0],
         key=lambda organ: ORGAN_SYSTEMS.get(organ, {}).get("sort_order", 999),
     )
 
@@ -2344,6 +2347,7 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
             "name": score.get("name"),
             "tier": score.get("tier"),
             "severity": score.get("severity"),
+            "is_optional_advanced": score.get("code") in OPTIONAL_ADVANCED_SCORE_CODES,
             "health_100": round(sev_health, 1),
             "evidence_weight": round(evidence_weight, 2),
             "prevention_weight": round(prevention_weight, 2),
@@ -2358,6 +2362,8 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
     organ_breakdown = []
     total_validated_used = 0
     total_scores_used = 0
+    total_core_validated_used = 0
+    total_core_scores_used = 0
 
     for organ in sorted(
         scores_by_organ.keys(),
@@ -2375,9 +2381,16 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         total_validated_used += validated_used
         total_scores_used += len(rows)
 
-        total_defs = total_defs_by_organ.get(organ, len(rows))
-        score_coverage = (len(rows) / total_defs) if total_defs else 1.0
-        validated_share = validated_used / len(rows)
+        core_rows = [r for r in rows if not r.get("is_optional_advanced")]
+        core_defs = total_core_defs_by_organ.get(organ, len(core_rows))
+        core_validated = sum(1 for r in core_rows if r.get("tier") == "validated")
+        if core_rows:
+            total_core_validated_used += core_validated
+            total_core_scores_used += len(core_rows)
+            validated_share = core_validated / len(core_rows)
+        else:
+            validated_share = validated_used / len(rows)
+        score_coverage = (len(core_rows) / core_defs) if core_defs else 1.0
         confidence = (score_coverage * 0.45) + (validated_share * 0.55)
 
         organ_meta = ORGAN_SYSTEMS.get(organ, {})
@@ -2389,9 +2402,13 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
                 "score_10": round(organ_score_100 / 10.0, 1),
                 "label": _health_band(organ_score_100),
                 "computed_scores": len(rows),
-                "total_definitions": total_defs,
+                "computed_core_scores": len(core_rows),
+                "computed_optional_scores": len(rows) - len(core_rows),
+                "total_definitions": total_defs_by_organ.get(organ, len(rows)),
+                "total_core_definitions": core_defs,
                 "coverage_0_1": round(score_coverage, 2),
                 "validated_scores": validated_used,
+                "validated_core_scores": core_validated,
                 "validated_share_0_1": round(validated_share, 2),
                 "confidence_0_1": round(confidence, 2),
                 "confidence_label": _confidence_band(confidence),
@@ -2406,8 +2423,9 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
 
     overall_score_100 = sum(o["score_100"] for o in organ_breakdown) / len(organ_breakdown)
     overall_organ_coverage = (len(organ_breakdown) / len(all_organs)) if all_organs else 1.0
-    overall_score_coverage = (total_scores_used / len(definitions)) if definitions else 1.0
-    validated_share = (total_validated_used / total_scores_used) if total_scores_used else 0.0
+    core_definition_count = sum(total_core_defs_by_organ.values())
+    overall_score_coverage = (total_core_scores_used / core_definition_count) if core_definition_count else 1.0
+    validated_share = (total_core_validated_used / total_core_scores_used) if total_core_scores_used else 0.0
     overall_confidence = (
         overall_score_coverage * 0.35
         + overall_organ_coverage * 0.1
@@ -2423,11 +2441,14 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         "overall_confidence_0_1": round(overall_confidence, 2),
         "overall_confidence_pct": int(round(overall_confidence * 100)),
         "overall_confidence_label": _confidence_band(overall_confidence),
-        "computed_scores": total_scores_used,
-        "total_definitions": len(definitions),
+        "computed_scores": total_core_scores_used,
+        "total_definitions": core_definition_count,
+        "computed_scores_all": total_scores_used,
+        "total_definitions_all": len(definitions),
+        "optional_scores_used": total_scores_used - total_core_scores_used,
         "score_coverage_0_1": round(overall_score_coverage, 2),
         "score_coverage_pct": int(round(overall_score_coverage * 100)),
-        "validated_scores": total_validated_used,
+        "validated_scores": total_core_validated_used,
         "validated_share_0_1": round(validated_share, 2),
         "validated_share_pct": int(round(validated_share * 100)),
         "organs_covered": len(organ_breakdown),

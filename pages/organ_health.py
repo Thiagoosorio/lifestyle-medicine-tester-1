@@ -1,7 +1,7 @@
 """Organ Health Scores page — Computed clinical indices from lab results."""
 
 import streamlit as st
-from config.organ_scores_data import ORGAN_SYSTEMS
+from config.organ_scores_data import ORGAN_SYSTEMS, OPTIONAL_ADVANCED_SCORE_CODES
 from components.custom_theme import render_hero_banner, render_section_header
 from services.organ_score_service import (
     compute_all_scores, get_computable_scores, get_latest_computed_scores,
@@ -50,6 +50,19 @@ def _build_organ_action_plan(existing_scores: list[dict], comp_data: dict) -> li
     return actions[:3]
 
 
+def _split_missing_scores(missing_items: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split missing items into core vs optional advanced scores."""
+    core_missing: list[dict] = []
+    optional_missing: list[dict] = []
+    for item in missing_items:
+        code = item.get("definition", {}).get("code")
+        if code in OPTIONAL_ADVANCED_SCORE_CODES:
+            optional_missing.append(item)
+        else:
+            core_missing.append(item)
+    return core_missing, optional_missing
+
+
 render_hero_banner("Organ Health Scores", "Composite clinical indices from your lab results.")
 st.markdown(
     "Composite clinical indices computed from your lab results. "
@@ -89,17 +102,20 @@ with tab_dashboard:
         existing_scores = get_latest_computed_scores(user_id)
 
     comp_data = get_computable_scores(user_id)
+    core_missing, optional_missing = _split_missing_scores(comp_data.get("missing", []))
+    core_comp_data = dict(comp_data)
+    core_comp_data["missing"] = core_missing
     overall = compute_overall_organ_score(user_id)
 
     if existing_scores:
         high_count = sum(1 for s in existing_scores if s.get("severity") in {"high", "critical"})
         elevated_count = sum(1 for s in existing_scores if s.get("severity") == "elevated")
-        missing_count = len(comp_data.get("missing", []))
+        missing_count = len(core_missing)
         m1, m2, m3, m4 = st.columns(4)
         m1.metric("Computed Scores", len(existing_scores))
         m2.metric("High Risk", high_count)
         m3.metric("Elevated", elevated_count)
-        m4.metric("Missing Inputs", missing_count)
+        m4.metric("Core Missing Inputs", missing_count)
 
     if overall:
         render_section_header(
@@ -118,6 +134,7 @@ with tab_dashboard:
             f"({overall['score_coverage_pct']}%). "
             f"Validated share: {overall['validated_share_pct']}%. "
             f"Weighting: evidence-first (80%) + prevention emphasis (20%). "
+            f"Optional advanced formulas used: {overall.get('optional_scores_used', 0)}. "
             f"Missing organ systems: "
             f"{', '.join(overall['missing_organs']) if overall['missing_organs'] else 'none'}."
         )
@@ -141,7 +158,7 @@ with tab_dashboard:
         st.divider()
 
     render_section_header("Patient Action Plan", "Your next best steps from current scores and data completeness")
-    for action in _build_organ_action_plan(existing_scores, comp_data):
+    for action in _build_organ_action_plan(existing_scores, core_comp_data):
         st.markdown(f"- {action}")
     q1, q2 = st.columns(2)
     with q1:
@@ -168,7 +185,7 @@ with tab_dashboard:
         defs_by_code = {d["code"]: d for d in definitions}
 
         missing_by_organ = {}
-        for m in comp_data["missing"]:
+        for m in core_missing:
             organ = m["definition"]["organ_system"]
             missing_by_organ.setdefault(organ, []).append(m)
 
@@ -205,6 +222,19 @@ with tab_dashboard:
                         )
 
             st.divider()
+
+        if optional_missing:
+            with st.expander("Optional Advanced Markers (Not Required for Core Readiness)"):
+                st.caption(
+                    "These formulas can add detail if you track specialized markers "
+                    "(e.g., ApoB, GGT, homocysteine), but they do not block core scoring."
+                )
+                for m in optional_missing:
+                    render_missing_score_card(
+                        m["definition"],
+                        m["missing_biomarkers"],
+                        m["missing_clinical"],
+                    )
 
     st.caption(
         "**Disclaimer:** Organ health scores are screening tools derived from published clinical "
@@ -252,21 +282,27 @@ with tab_trends:
 # ── Tab 4: Missing Data ──────────────────────────────────────────────────────
 with tab_missing:
     comp_data = get_computable_scores(user_id)
-    total_definitions = len(get_all_score_definitions())
-    missing_count = len(comp_data.get("missing", []))
+    all_definitions = get_all_score_definitions()
+    core_definitions = [d for d in all_definitions if d.get("code") not in OPTIONAL_ADVANCED_SCORE_CODES]
+    core_missing, optional_missing = _split_missing_scores(comp_data.get("missing", []))
+    total_definitions = len(core_definitions)
+    missing_count = len(core_missing)
     ready_count = max(0, total_definitions - missing_count)
     if total_definitions > 0:
         st.progress(ready_count / total_definitions)
-        st.caption(f"Score readiness: {ready_count}/{total_definitions} formulas can be computed.")
+        st.caption(
+            f"Core readiness: {ready_count}/{total_definitions} formulas can be computed "
+            f"(optional advanced missing: {len(optional_missing)})."
+        )
 
-    if not comp_data["missing"]:
+    if not core_missing:
         st.success("All organ health scores can be computed with your current data!")
     else:
         st.markdown(
-            f"**{len(comp_data['missing'])}** score(s) cannot be computed due to missing inputs."
+            f"**{len(core_missing)}** core score(s) cannot be computed due to missing inputs."
         )
 
-        for m in comp_data["missing"]:
+        for m in core_missing:
             defn = m["definition"]
             with st.expander(f"{defn['name']} ({defn['organ_system'].title()})"):
                 if m["missing_biomarkers"]:
@@ -291,3 +327,20 @@ with tab_missing:
 
                 if defn.get("description"):
                     st.caption(defn["description"])
+
+    if optional_missing:
+        with st.expander(f"Optional Advanced Missing ({len(optional_missing)})"):
+            st.caption(
+                "Optional formulas do not reduce core readiness. Add these markers only if clinically useful."
+            )
+            for m in optional_missing:
+                defn = m["definition"]
+                with st.expander(f"{defn['name']} ({defn['organ_system'].title()})", expanded=False):
+                    if m["missing_biomarkers"]:
+                        st.markdown("**Missing lab results:**")
+                        for b in m["missing_biomarkers"]:
+                            st.markdown(f"- `{b}`")
+                    if m["missing_clinical"]:
+                        st.markdown("**Missing clinical data:**")
+                        for c in m["missing_clinical"]:
+                            st.markdown(f"- `{c}`")

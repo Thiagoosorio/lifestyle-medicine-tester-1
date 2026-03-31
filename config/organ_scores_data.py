@@ -1078,3 +1078,11 @@ ORGAN_SYSTEMS = {
     "neurological": {"name": "Neurological / Dementia Risk", "icon": "&#129504;", "color": "#5C6BC0", "sort_order": 9},
 }
 
+# Optional advanced scores are informative when available, but should not block
+# core readiness/confidence or flood the UI with low-priority "missing" cards.
+OPTIONAL_ADVANCED_SCORE_CODES = {
+    "fli",
+    "apob_risk",
+    "homocysteine_neurovascular",
+}
+
