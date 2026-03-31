@@ -5,8 +5,15 @@ from config.organ_scores_data import ORGAN_SYSTEMS
 from components.custom_theme import render_hero_banner, render_section_header
 from services.organ_score_service import (
     compute_all_scores, get_computable_scores, get_latest_computed_scores,
-    compute_overall_organ_score,
 )
+try:
+    # Backward-compatible fallback for environments that have not yet loaded
+    # the latest organ_score_service symbol set.
+    from services.organ_score_service import compute_overall_organ_score
+except ImportError:  # pragma: no cover - deploy compatibility guard
+    def compute_overall_organ_score(_user_id: int):
+        return None
+
 from models.organ_score import get_all_score_definitions, get_score_history
 from components.organ_health_display import (
     render_organ_score_card, render_missing_score_card,
