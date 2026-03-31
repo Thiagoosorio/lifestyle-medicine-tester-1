@@ -2236,8 +2236,20 @@ _SEVERITY_TO_HEALTH_100 = {
 
 _TIER_WEIGHTS = {
     "validated": 1.0,
-    "derived": 0.7,
+    "derived": 0.45,
 }
+
+_PREVENTION_SEVERITY_WEIGHTS = {
+    # Prevention focus: prioritize early non-optimal states for actionability.
+    "optimal": 0.8,
+    "normal": 0.95,
+    "elevated": 1.15,
+    "high": 1.1,
+    "critical": 1.0,
+}
+
+_EVIDENCE_PRIORITY_SHARE = 0.8
+_PREVENTION_PRIORITY_SHARE = 0.2
 
 
 def _severity_to_health_100(severity: str | None) -> float:
@@ -2252,6 +2264,23 @@ def _tier_weight(tier: str | None) -> float:
     if not tier:
         return 0.8
     return _TIER_WEIGHTS.get(str(tier).lower(), 0.8)
+
+
+def _prevention_weight(severity: str | None) -> float:
+    """Secondary prevention-oriented weight (early warning gets higher focus)."""
+    if not severity:
+        return 0.9
+    return _PREVENTION_SEVERITY_WEIGHTS.get(str(severity).lower(), 0.9)
+
+
+def _composite_score_weight(tier: str | None, severity: str | None) -> float:
+    """Evidence-first blended weight used for overall organ composites."""
+    evidence = _tier_weight(tier)
+    prevention = _prevention_weight(severity)
+    return (
+        _EVIDENCE_PRIORITY_SHARE * evidence
+        + _PREVENTION_PRIORITY_SHARE * prevention
+    )
 
 
 def _health_band(score_100: float) -> str:
@@ -2283,7 +2312,8 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
 
     Method:
     1. Convert each score severity to a normalized health value (0-100).
-    2. Weight score contribution by evidence tier (validated > derived).
+    2. Weight score contribution with evidence-first model
+       (80% evidence tier, 20% prevention emphasis by severity).
     3. Average within each organ system.
     4. Average across organ systems (organ-balanced, not formula-count biased).
     """
@@ -2306,14 +2336,18 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
     for score in latest_scores:
         organ = score.get("organ_system", "other")
         sev_health = _severity_to_health_100(score.get("severity"))
-        weight = _tier_weight(score.get("tier"))
+        evidence_weight = _tier_weight(score.get("tier"))
+        prevention_weight = _prevention_weight(score.get("severity"))
+        weight = _composite_score_weight(score.get("tier"), score.get("severity"))
         score_row = {
             "code": score.get("code"),
             "name": score.get("name"),
             "tier": score.get("tier"),
             "severity": score.get("severity"),
             "health_100": round(sev_health, 1),
-            "tier_weight": weight,
+            "evidence_weight": round(evidence_weight, 2),
+            "prevention_weight": round(prevention_weight, 2),
+            "composite_weight": round(weight, 2),
             "weighted_health_100": round(sev_health * weight, 1),
         }
         scores_by_organ.setdefault(organ, []).append(score_row)
@@ -2334,7 +2368,7 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
             continue
 
         weighted_sum = sum(r["weighted_health_100"] for r in rows)
-        weight_sum = sum(r["tier_weight"] for r in rows) or float(len(rows))
+        weight_sum = sum(r["composite_weight"] for r in rows) or float(len(rows))
         organ_score_100 = weighted_sum / weight_sum
 
         validated_used = sum(1 for r in rows if r.get("tier") == "validated")
@@ -2344,7 +2378,7 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         total_defs = total_defs_by_organ.get(organ, len(rows))
         score_coverage = (len(rows) / total_defs) if total_defs else 1.0
         validated_share = validated_used / len(rows)
-        confidence = (score_coverage * 0.7) + (validated_share * 0.3)
+        confidence = (score_coverage * 0.45) + (validated_share * 0.55)
 
         organ_meta = ORGAN_SYSTEMS.get(organ, {})
         organ_breakdown.append(
@@ -2375,9 +2409,9 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
     overall_score_coverage = (total_scores_used / len(definitions)) if definitions else 1.0
     validated_share = (total_validated_used / total_scores_used) if total_scores_used else 0.0
     overall_confidence = (
-        overall_score_coverage * 0.5
-        + overall_organ_coverage * 0.2
-        + validated_share * 0.3
+        overall_score_coverage * 0.35
+        + overall_organ_coverage * 0.1
+        + validated_share * 0.55
     )
 
     missing_organs = [o for o in all_organs if o not in scores_by_organ]
@@ -2401,6 +2435,12 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         "organ_coverage_0_1": round(overall_organ_coverage, 2),
         "organ_coverage_pct": int(round(overall_organ_coverage * 100)),
         "missing_organs": missing_organs,
+        "weighting_model": {
+            "evidence_priority_share": _EVIDENCE_PRIORITY_SHARE,
+            "prevention_priority_share": _PREVENTION_PRIORITY_SHARE,
+            "tier_weights": _TIER_WEIGHTS,
+            "prevention_severity_weights": _PREVENTION_SEVERITY_WEIGHTS,
+        },
         "organ_breakdown": organ_breakdown,
     }
 

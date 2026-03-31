@@ -110,6 +110,7 @@ with tab_dashboard:
             f"Formula coverage: {overall['computed_scores']}/{overall['total_definitions']} "
             f"({overall['score_coverage_pct']}%). "
             f"Validated share: {overall['validated_share_pct']}%. "
+            f"Weighting: evidence-first (80%) + prevention emphasis (20%). "
             f"Missing organ systems: "
             f"{', '.join(overall['missing_organs']) if overall['missing_organs'] else 'none'}."
         )

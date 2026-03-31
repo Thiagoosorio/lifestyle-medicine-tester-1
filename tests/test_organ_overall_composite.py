@@ -61,3 +61,15 @@ def test_overall_composite_coverage_and_confidence(monkeypatch):
     assert overall["overall_confidence_label"] in {"Low", "Very Low"}
     assert set(overall["missing_organs"]) == {"liver", "kidney"}
 
+
+def test_evidence_weight_is_primary_driver():
+    # Evidence must dominate: validated-elevated still outweighs derived-optimal.
+    validated_elevated = oss._composite_score_weight("validated", "elevated")
+    derived_optimal = oss._composite_score_weight("derived", "optimal")
+    assert validated_elevated > derived_optimal
+
+
+def test_prevention_weight_boosts_early_warning_within_same_tier():
+    validated_normal = oss._composite_score_weight("validated", "normal")
+    validated_elevated = oss._composite_score_weight("validated", "elevated")
+    assert validated_elevated > validated_normal
