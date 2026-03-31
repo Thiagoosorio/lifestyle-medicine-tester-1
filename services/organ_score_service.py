@@ -9,6 +9,7 @@ Tier 2 (Derived/Experimental): Emerging indices or percentile-rank composites.
 
 import math
 import json
+from config.organ_scores_data import ORGAN_SYSTEMS
 from db.database import get_connection
 from models.organ_score import (
     get_all_score_definitions, save_score_result, get_latest_scores,
@@ -2225,6 +2226,185 @@ def get_latest_computed_scores(user_id: int) -> list:
     return get_latest_scores(user_id)
 
 
+_SEVERITY_TO_HEALTH_100 = {
+    "optimal": 100.0,
+    "normal": 82.0,
+    "elevated": 58.0,
+    "high": 32.0,
+    "critical": 12.0,
+}
+
+_TIER_WEIGHTS = {
+    "validated": 1.0,
+    "derived": 0.7,
+}
+
+
+def _severity_to_health_100(severity: str | None) -> float:
+    """Map score severity to normalized health score (higher is better)."""
+    if not severity:
+        return 72.0
+    return _SEVERITY_TO_HEALTH_100.get(str(severity).lower(), 72.0)
+
+
+def _tier_weight(tier: str | None) -> float:
+    """Weight by evidence tier (validated > derived)."""
+    if not tier:
+        return 0.8
+    return _TIER_WEIGHTS.get(str(tier).lower(), 0.8)
+
+
+def _health_band(score_100: float) -> str:
+    """Convert normalized score into a user-facing status band."""
+    if score_100 >= 85:
+        return "Excellent"
+    if score_100 >= 70:
+        return "Good"
+    if score_100 >= 55:
+        return "Watchlist"
+    if score_100 >= 40:
+        return "Concerning"
+    return "High Risk"
+
+
+def _confidence_band(confidence_0_1: float) -> str:
+    """Label confidence based on data coverage + validated-score ratio."""
+    if confidence_0_1 >= 0.8:
+        return "High"
+    if confidence_0_1 >= 0.6:
+        return "Moderate"
+    if confidence_0_1 >= 0.4:
+        return "Low"
+    return "Very Low"
+
+
+def compute_overall_organ_score(user_id: int) -> dict | None:
+    """Compute balanced overall organ score from latest computed organ indices.
+
+    Method:
+    1. Convert each score severity to a normalized health value (0-100).
+    2. Weight score contribution by evidence tier (validated > derived).
+    3. Average within each organ system.
+    4. Average across organ systems (organ-balanced, not formula-count biased).
+    """
+    definitions = get_all_score_definitions()
+    latest_scores = get_latest_scores(user_id)
+    if not definitions or not latest_scores:
+        return None
+
+    total_defs_by_organ: dict[str, int] = {}
+    for defn in definitions:
+        organ = defn.get("organ_system", "other")
+        total_defs_by_organ[organ] = total_defs_by_organ.get(organ, 0) + 1
+
+    all_organs = sorted(
+        [organ for organ, count in total_defs_by_organ.items() if count > 0],
+        key=lambda organ: ORGAN_SYSTEMS.get(organ, {}).get("sort_order", 999),
+    )
+
+    scores_by_organ: dict[str, list[dict]] = {}
+    for score in latest_scores:
+        organ = score.get("organ_system", "other")
+        sev_health = _severity_to_health_100(score.get("severity"))
+        weight = _tier_weight(score.get("tier"))
+        score_row = {
+            "code": score.get("code"),
+            "name": score.get("name"),
+            "tier": score.get("tier"),
+            "severity": score.get("severity"),
+            "health_100": round(sev_health, 1),
+            "tier_weight": weight,
+            "weighted_health_100": round(sev_health * weight, 1),
+        }
+        scores_by_organ.setdefault(organ, []).append(score_row)
+
+    if not scores_by_organ:
+        return None
+
+    organ_breakdown = []
+    total_validated_used = 0
+    total_scores_used = 0
+
+    for organ in sorted(
+        scores_by_organ.keys(),
+        key=lambda code: ORGAN_SYSTEMS.get(code, {}).get("sort_order", 999),
+    ):
+        rows = scores_by_organ[organ]
+        if not rows:
+            continue
+
+        weighted_sum = sum(r["weighted_health_100"] for r in rows)
+        weight_sum = sum(r["tier_weight"] for r in rows) or float(len(rows))
+        organ_score_100 = weighted_sum / weight_sum
+
+        validated_used = sum(1 for r in rows if r.get("tier") == "validated")
+        total_validated_used += validated_used
+        total_scores_used += len(rows)
+
+        total_defs = total_defs_by_organ.get(organ, len(rows))
+        score_coverage = (len(rows) / total_defs) if total_defs else 1.0
+        validated_share = validated_used / len(rows)
+        confidence = (score_coverage * 0.7) + (validated_share * 0.3)
+
+        organ_meta = ORGAN_SYSTEMS.get(organ, {})
+        organ_breakdown.append(
+            {
+                "organ_system": organ,
+                "name": organ_meta.get("name", organ.replace("_", " ").title()),
+                "score_100": round(organ_score_100, 1),
+                "score_10": round(organ_score_100 / 10.0, 1),
+                "label": _health_band(organ_score_100),
+                "computed_scores": len(rows),
+                "total_definitions": total_defs,
+                "coverage_0_1": round(score_coverage, 2),
+                "validated_scores": validated_used,
+                "validated_share_0_1": round(validated_share, 2),
+                "confidence_0_1": round(confidence, 2),
+                "confidence_label": _confidence_band(confidence),
+                "elevated_or_worse": sum(
+                    1 for r in rows if r.get("severity") in {"elevated", "high", "critical"}
+                ),
+            }
+        )
+
+    if not organ_breakdown:
+        return None
+
+    overall_score_100 = sum(o["score_100"] for o in organ_breakdown) / len(organ_breakdown)
+    overall_organ_coverage = (len(organ_breakdown) / len(all_organs)) if all_organs else 1.0
+    overall_score_coverage = (total_scores_used / len(definitions)) if definitions else 1.0
+    validated_share = (total_validated_used / total_scores_used) if total_scores_used else 0.0
+    overall_confidence = (
+        overall_score_coverage * 0.5
+        + overall_organ_coverage * 0.2
+        + validated_share * 0.3
+    )
+
+    missing_organs = [o for o in all_organs if o not in scores_by_organ]
+
+    return {
+        "overall_score_100": round(overall_score_100, 1),
+        "overall_score_10": round(overall_score_100 / 10.0, 1),
+        "overall_label": _health_band(overall_score_100),
+        "overall_confidence_0_1": round(overall_confidence, 2),
+        "overall_confidence_pct": int(round(overall_confidence * 100)),
+        "overall_confidence_label": _confidence_band(overall_confidence),
+        "computed_scores": total_scores_used,
+        "total_definitions": len(definitions),
+        "score_coverage_0_1": round(overall_score_coverage, 2),
+        "score_coverage_pct": int(round(overall_score_coverage * 100)),
+        "validated_scores": total_validated_used,
+        "validated_share_0_1": round(validated_share, 2),
+        "validated_share_pct": int(round(validated_share * 100)),
+        "organs_covered": len(organ_breakdown),
+        "total_organs": len(all_organs),
+        "organ_coverage_0_1": round(overall_organ_coverage, 2),
+        "organ_coverage_pct": int(round(overall_organ_coverage * 100)),
+        "missing_organs": missing_organs,
+        "organ_breakdown": organ_breakdown,
+    }
+
+
 def get_organ_score_summary(user_id: int) -> str:
     """Build a text summary of organ scores for AI coach context."""
     scores = get_latest_scores(user_id)
@@ -2232,8 +2412,18 @@ def get_organ_score_summary(user_id: int) -> str:
         return ""
 
     parts = []
+    overall = compute_overall_organ_score(user_id)
+    if overall:
+        parts.append(
+            "OverallOrganScore="
+            f"{overall['overall_score_10']:.1f}/10 ({overall['overall_label']}, "
+            f"{overall['overall_confidence_label']} confidence)"
+        )
+
     for s in scores:
         tier_label = "validated" if s["tier"] == "validated" else "experimental"
-        parts.append(f"{s['name']}={s['value']:.2f} ({s['label']}, {tier_label})")
+        val = s.get("value")
+        value_text = f"{float(val):.2f}" if isinstance(val, (float, int)) else str(val)
+        parts.append(f"{s['name']}={value_text} ({s['label']}, {tier_label})")
 
     return "; ".join(parts)

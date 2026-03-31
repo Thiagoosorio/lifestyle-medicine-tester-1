@@ -5,6 +5,7 @@ from config.organ_scores_data import ORGAN_SYSTEMS
 from components.custom_theme import render_hero_banner, render_section_header
 from services.organ_score_service import (
     compute_all_scores, get_computable_scores, get_latest_computed_scores,
+    compute_overall_organ_score,
 )
 from models.organ_score import get_all_score_definitions, get_score_history
 from components.organ_health_display import (
@@ -81,6 +82,7 @@ with tab_dashboard:
         existing_scores = get_latest_computed_scores(user_id)
 
     comp_data = get_computable_scores(user_id)
+    overall = compute_overall_organ_score(user_id)
 
     if existing_scores:
         high_count = sum(1 for s in existing_scores if s.get("severity") in {"high", "critical"})
@@ -91,6 +93,44 @@ with tab_dashboard:
         m2.metric("High Risk", high_count)
         m3.metric("Elevated", elevated_count)
         m4.metric("Missing Inputs", missing_count)
+
+    if overall:
+        render_section_header(
+            "Overall Organ Composite",
+            "Balanced index across organ systems, weighted by evidence tier and data coverage",
+        )
+        o1, o2, o3, o4 = st.columns(4)
+        o1.metric("Overall Organ Score", f"{overall['overall_score_10']}/10")
+        o2.metric("Status", overall["overall_label"])
+        o3.metric("Confidence", f"{overall['overall_confidence_pct']}%")
+        o4.metric("Organs Covered", f"{overall['organs_covered']}/{overall['total_organs']}")
+
+        st.progress(float(overall["organ_coverage_0_1"]))
+        st.caption(
+            f"Formula coverage: {overall['computed_scores']}/{overall['total_definitions']} "
+            f"({overall['score_coverage_pct']}%). "
+            f"Validated share: {overall['validated_share_pct']}%. "
+            f"Missing organ systems: "
+            f"{', '.join(overall['missing_organs']) if overall['missing_organs'] else 'none'}."
+        )
+
+        with st.expander("Per-organ composite scores"):
+            organ_rows = overall.get("organ_breakdown", [])
+            if organ_rows:
+                cols = st.columns(min(3, len(organ_rows)))
+                for idx, organ_row in enumerate(organ_rows):
+                    with cols[idx % len(cols)]:
+                        with st.container(border=True):
+                            st.markdown(f"**{organ_row['name']}**")
+                            st.metric("Score", f"{organ_row['score_10']}/10")
+                            st.caption(
+                                f"{organ_row['label']} | "
+                                f"Coverage {int(round(organ_row['coverage_0_1'] * 100))}% | "
+                                f"{organ_row['confidence_label']} confidence"
+                            )
+            else:
+                st.caption("No per-organ composite data available yet.")
+        st.divider()
 
     render_section_header("Patient Action Plan", "Your next best steps from current scores and data completeness")
     for action in _build_organ_action_plan(existing_scores, comp_data):
