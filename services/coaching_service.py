@@ -200,13 +200,21 @@ def _assemble_user_context(user_id: int) -> str:
     )
 
 
-def _get_conversation_history(user_id: int, limit: int = 20) -> list:
+def _get_conversation_history(user_id: int, limit: int = 20, context_type: str | None = None) -> list:
     conn = get_connection()
     try:
-        rows = conn.execute(
-            "SELECT role, content FROM coaching_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
-            (user_id, limit),
-        ).fetchall()
+        if context_type:
+            rows = conn.execute(
+                """SELECT role, content FROM coaching_messages
+                   WHERE user_id = ? AND context_type = ?
+                   ORDER BY created_at DESC LIMIT ?""",
+                (user_id, context_type, limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT role, content FROM coaching_messages WHERE user_id = ? ORDER BY created_at DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
         messages = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
         return messages
     finally:
@@ -259,6 +267,103 @@ def get_coaching_response(user_id: int, message: str, context_type: str = "gener
     return response
 
 
+def _assemble_gptcoach_context(user_id: int) -> str:
+    """Build enhanced context for GPTCoach-style physical activity sessions."""
+    base_context = _assemble_user_context(user_id)
+    extra_parts = []
+
+    try:
+        from services.exercise_service import get_comprehensive_exercise_context
+        exercise_ctx = get_comprehensive_exercise_context(user_id)
+        if exercise_ctx:
+            extra_parts.append("=== MOVEMENT CONTEXT ===")
+            extra_parts.append(exercise_ctx)
+    except Exception:
+        pass
+
+    try:
+        from services.wearable_wheel_service import compute_wearable_wheel
+        wheel = compute_wearable_wheel(user_id)
+        metrics = wheel.get("metrics", {})
+
+        step_metric = metrics.get("steps_count")
+        hrv_metric = metrics.get("heart_rate_variability_ms")
+        rhr_metric = metrics.get("resting_heart_rate_bpm")
+        sleep_eff_metric = metrics.get("sleep_efficiency_pct")
+        recovery_metric = metrics.get("recovery_score")
+
+        wearable_bits = []
+        if step_metric:
+            wearable_bits.append(
+                f"Steps recent: {step_metric.get('raw_value'):.0f} {step_metric.get('unit') or ''}".strip()
+            )
+        if hrv_metric:
+            wearable_bits.append(
+                f"HRV recent: {hrv_metric.get('raw_value'):.1f} {hrv_metric.get('unit') or ''}".strip()
+            )
+        if rhr_metric:
+            wearable_bits.append(
+                f"Resting HR recent: {rhr_metric.get('raw_value'):.1f} {rhr_metric.get('unit') or ''}".strip()
+            )
+        if sleep_eff_metric:
+            wearable_bits.append(
+                f"Sleep efficiency recent: {sleep_eff_metric.get('raw_value'):.1f}{sleep_eff_metric.get('unit') or ''}"
+            )
+        if recovery_metric:
+            wearable_bits.append(
+                f"Recovery score recent: {recovery_metric.get('raw_value'):.1f}"
+            )
+
+        if wearable_bits:
+            extra_parts.append("=== WEARABLE SNAPSHOT ===")
+            extra_parts.extend(wearable_bits)
+            extra_parts.append(
+                f"Wearable readiness/resilience: {wheel.get('overall_readiness_10', 0)}/10 and "
+                f"{wheel.get('overall_resilience_10', 0)}/10"
+            )
+    except Exception:
+        pass
+
+    if not extra_parts:
+        return base_context
+    return base_context + "\n" + "\n".join(extra_parts)
+
+
+def get_gptcoach_response(user_id: int, message: str) -> str:
+    """Get a GPTCoach-style physical activity coaching response."""
+    context_type = "gptcoach_pa"
+    _save_message(user_id, "user", message, context_type)
+
+    user_context = _assemble_gptcoach_context(user_id)
+    context_prompt = get_context_prompt(context_type)
+    system_prompt = (
+        BASE_SYSTEM_PROMPT
+        + "\n\n"
+        + context_prompt
+        + "\n\n"
+        + CONTEXT_TEMPLATE.format(user_context=user_context)
+    )
+    history = _get_conversation_history(user_id, limit=20, context_type=context_type)
+
+    provider = _get_llm_provider()
+    try:
+        if provider == "anthropic":
+            response = _call_anthropic(system_prompt, history)
+        elif provider == "openai":
+            response = _call_openai(system_prompt, history)
+        else:
+            response = _fallback_response(context_type, user_context)
+    except Exception:
+        LOGGER.exception("GPTCoach-style call failed")
+        response = (
+            "I could not reach the coaching model right now.\n\n"
+            "Fallback: today pick one easy movement block (10-20 min) and schedule it at a fixed time."
+        )
+
+    _save_message(user_id, "assistant", response, context_type)
+    return response
+
+
 def _call_anthropic(system_prompt: str, messages: list) -> str:
     import anthropic
     client = anthropic.Anthropic()
@@ -292,6 +397,7 @@ def _fallback_response(context_type: str, user_context: str) -> str:
         "weekly_reflection": "Take a moment to appreciate what went well this week. What's one thing you're proud of? What's one small thing you'd like to do differently next week?",
         "barrier_analysis": "When you're stuck, ask yourself: Is it a knowledge/skill issue (Capability)? An environment/support issue (Opportunity)? Or a motivation/habit issue (Motivation)? Identifying the barrier type helps find the right solution.",
         "thought_check": "Share a thought you're having about your health journey. Common distortions include: All-or-Nothing Thinking ('I missed one day, it's all ruined'), Catastrophizing ('This will never work'), and Overgeneralization ('I always fail'). Recognizing the pattern is the first step to reframing it!",
+        "gptcoach_pa": "Let's build a 7-day movement plan. Pick 3 specific days and reserve 20-30 minutes each. Add one fallback: if your main session is missed, do a 10-minute brisk walk the same day.",
     }
     return responses.get(context_type, responses["general"])
 
@@ -302,11 +408,17 @@ def _get_quick_tip(context_type: str) -> str:
     return random.choice(MOTIVATIONAL_QUOTES)
 
 
-def clear_conversation(user_id: int):
-    """Clear all coaching messages for a user."""
+def clear_conversation(user_id: int, context_type: str | None = None):
+    """Clear coaching messages for a user (optionally one context only)."""
     conn = get_connection()
     try:
-        conn.execute("DELETE FROM coaching_messages WHERE user_id = ?", (user_id,))
+        if context_type:
+            conn.execute(
+                "DELETE FROM coaching_messages WHERE user_id = ? AND context_type = ?",
+                (user_id, context_type),
+            )
+        else:
+            conn.execute("DELETE FROM coaching_messages WHERE user_id = ?", (user_id,))
         conn.commit()
     finally:
         conn.close()

@@ -189,6 +189,23 @@ Additional instructions:
 - Be warm and validating — the thought is understandable, but the distortion is what we're addressing
 - End with an encouraging statement about their self-awareness"""
 
+GPTCOACH_PHYSICAL_ACTIVITY_PROMPT = """The user wants Stanford GPTCoach-style physical activity coaching.
+
+Additional instructions:
+- Focus on movement, exercise adherence, and behavior change for physical activity.
+- Use motivational interviewing style (open questions, affirmations, reflections, summaries).
+- Build a plan that is realistic for daily life constraints (time, family, work, recovery).
+- Use available wearable and exercise context when present.
+- Avoid proprietary scripts or named protocol text from external licensed materials.
+- Output in this structure:
+  1) "What I heard" - summarize barriers, goals, and current baseline briefly.
+  2) "7-day movement plan" - specific days, duration, intensity, and fallback option.
+  3) "If-then barrier plan" - 2-3 implementation intentions for likely barriers.
+  4) "Check-in metric" - one primary metric and one backup metric to review next week.
+- Keep plans conservative if recovery or readiness signals are low.
+- Never diagnose conditions or prescribe medication.
+"""
+
 
 def get_context_prompt(context_type: str) -> str:
     prompts = {
@@ -198,6 +215,7 @@ def get_context_prompt(context_type: str) -> str:
         "barrier_analysis": BARRIER_ANALYSIS_PROMPT,
         "general": GENERAL_COACHING_PROMPT,
         "thought_check": THOUGHT_CHECK_PROMPT,
+        "gptcoach_pa": GPTCOACH_PHYSICAL_ACTIVITY_PROMPT,
     }
     return prompts.get(context_type, GENERAL_COACHING_PROMPT)
 
