@@ -261,6 +261,53 @@ def _migrate(conn):
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, name))""",
         "CREATE INDEX IF NOT EXISTS idx_habit_stacks_user ON habit_stacks(user_id, is_active)",
+        # Clinical command-center tables
+        """CREATE TABLE IF NOT EXISTS clinical_diagnoses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            diagnosis_name TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'active'
+                CHECK (status IN ('active', 'resolved', 'ruled_out')),
+            confirmed_date TEXT,
+            confirming_clinician TEXT,
+            source TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, diagnosis_name))""",
+        "CREATE INDEX IF NOT EXISTS idx_clinical_diagnoses_user ON clinical_diagnoses(user_id, status, updated_at)",
+        """CREATE TABLE IF NOT EXISTS clinical_interventions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            intervention_type TEXT NOT NULL
+                CHECK (intervention_type IN ('medication', 'supplement', 'lifestyle', 'training', 'other')),
+            name TEXT NOT NULL,
+            dose TEXT,
+            schedule TEXT,
+            start_date TEXT,
+            end_date TEXT,
+            status TEXT NOT NULL DEFAULT 'active'
+                CHECK (status IN ('active', 'paused', 'completed', 'stopped')),
+            prescriber TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')))""",
+        "CREATE INDEX IF NOT EXISTS idx_clinical_interventions_user ON clinical_interventions(user_id, status, intervention_type, updated_at)",
+        """CREATE TABLE IF NOT EXISTS clinical_test_results (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            test_type TEXT NOT NULL,
+            test_date TEXT,
+            status TEXT NOT NULL DEFAULT 'confirmed'
+                CHECK (status IN ('confirmed', 'pending', 'excluded')),
+            summary TEXT,
+            key_metrics_json TEXT,
+            source_ref TEXT,
+            risk_flag TEXT DEFAULT 'unknown'
+                CHECK (risk_flag IN ('low', 'moderate', 'high', 'critical', 'unknown')),
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')))""",
+        "CREATE INDEX IF NOT EXISTS idx_clinical_tests_user ON clinical_test_results(user_id, test_type, test_date)",
     ]
     # Atomic Habits columns on habits table
     atomic_habits_migrations = [
