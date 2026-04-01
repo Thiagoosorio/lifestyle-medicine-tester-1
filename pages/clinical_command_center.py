@@ -15,6 +15,11 @@ import streamlit as st
 
 from components.custom_theme import render_hero_banner, render_section_header
 from services.clinical_command_service import build_clinical_snapshot
+from services.ai_cds_service import (
+    build_ai_cds_rollout_plan,
+    get_ai_cds_use_cases,
+    get_institution_emr_benchmarks,
+)
 from models.clinical_registry import (
     delete_record,
     save_diagnosis,
@@ -195,6 +200,82 @@ def _render_five_domain_cards(snapshot: dict) -> None:
                         st.caption(row["note"])
 
 
+def _render_ai_cds_tab(snapshot: dict) -> None:
+    render_section_header(
+        "AI Decision Support (Institution Benchmarks + App Rollout)",
+        "Evidence-backed use cases from Harvard-affiliated and peer health systems, adapted to this app.",
+    )
+    rollout = build_ai_cds_rollout_plan(snapshot)
+    readiness = rollout.get("readiness_score_100", 0)
+    m1, m2, m3 = st.columns(3)
+    m1.metric("AI CDS Readiness", f"{readiness}/100")
+    m2.metric("Readiness Label", rollout.get("readiness_label", "N/A"))
+    m3.metric("Modules Planned", len(rollout.get("modules", [])))
+
+    st.caption(
+        "Design principle: clinical safety first. AI supports decisions, but clinician review remains mandatory."
+    )
+
+    for module in rollout.get("modules", []):
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([2, 1, 2])
+            c1.markdown(f"**{module.get('module')}**")
+            c2.caption(f"Priority: {module.get('priority')}")
+            c3.caption(f"Status: {module.get('status')}")
+            st.caption(f"Why now: {module.get('why_now')}")
+            st.caption(f"Safety model: {module.get('safety_model')}")
+            st.caption(f"Evidence anchor: {module.get('evidence_anchor')}")
+
+    st.divider()
+    render_section_header("Institution EMR Benchmarks", "Harvard-affiliated and peer institutions")
+    benchmark_rows = get_institution_emr_benchmarks()
+    if benchmark_rows:
+        st.dataframe(
+            _as_rows(
+                benchmark_rows,
+                [
+                    "institution",
+                    "emr_platform",
+                    "what_they_built",
+                    "source_title",
+                    "source_type",
+                    "year",
+                    "link",
+                ],
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No institution benchmarks available yet.")
+
+    st.divider()
+    render_section_header("Validated AI CDS Use Cases", "Only evidence-backed patterns are listed")
+    use_cases = get_ai_cds_use_cases()
+    if use_cases:
+        for item in use_cases:
+            with st.expander(f"{item.get('use_case')} ({item.get('evidence_level')})", expanded=False):
+                st.markdown(f"**Institution examples:** {item.get('institution_examples')}")
+                st.markdown(f"**Impact:** {item.get('impact_summary')}")
+                st.markdown(f"**Study type:** {item.get('study_type')} ({item.get('year')})")
+                st.markdown(f"**Citation:** {item.get('citation')}")
+                if item.get("pmid"):
+                    st.markdown(f"**PMID:** {item.get('pmid')}")
+                if item.get("doi"):
+                    st.markdown(f"**DOI:** {item.get('doi')}")
+                st.markdown(f"**Source link:** {item.get('link')}")
+                st.markdown(f"**How to use in this app:** {item.get('app_pattern')}")
+                st.markdown(f"**Current app status:** {item.get('status_in_app')}")
+    else:
+        st.info("No AI CDS use cases available yet.")
+
+    with st.expander("Safety & Governance Rules", expanded=False):
+        for rule in rollout.get("governance_rules", []):
+            st.markdown(f"- {rule}")
+        for phase in rollout.get("phases", []):
+            st.markdown(f"- {phase}")
+
+
 user_id = st.session_state.get("user_id")
 if not user_id:
     st.warning("Please log in first.")
@@ -234,6 +315,7 @@ st.divider()
     tab_priority,
     tab_timeline,
     tab_evidence,
+    tab_ai_cds,
     tab_dx,
     tab_rx,
     tab_tests,
@@ -243,6 +325,7 @@ st.divider()
         "Priority List",
         "Timeline",
         "Evidence Trace",
+        "AI CDS",
         "Diagnoses",
         "Interventions",
         "Tests & Imaging",
@@ -412,7 +495,7 @@ with tab_timeline:
 with tab_evidence:
     render_section_header(
         "Evidence Trace",
-        "Only validated scores with PMID and Q1/Q2 or guideline-organization source tags are shown.",
+        "Only validated scores with PMID and Q1/Q2 tags or major-organization/guideline support are shown.",
     )
     trace = snapshot.get("evidence_trace", {})
     trace_counts = trace.get("counts", {})
@@ -440,6 +523,9 @@ with tab_evidence:
                 use_container_width=True,
                 hide_index=True,
             )
+
+with tab_ai_cds:
+    _render_ai_cds_tab(snapshot)
 
 with tab_dx:
     render_section_header("Confirmed Diagnoses", "Maintain active/resolved diagnosis list")
