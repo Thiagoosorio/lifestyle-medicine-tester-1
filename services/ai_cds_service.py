@@ -465,6 +465,69 @@ def build_precision_plan_markdown(plan: dict, evidence_by_topic: dict[str, dict]
     return "\n".join(lines)
 
 
+def build_precision_plan_weekly_schedule(plan: dict) -> list[dict]:
+    """Generate a simple 8-week progression schedule from precision plan tracks."""
+    tracks = plan.get("tracks", []) or []
+    if not tracks:
+        return []
+
+    primary_track = tracks[0].get("title", "Core")
+    secondary_track = tracks[1].get("title", tracks[0].get("title", "Core")) if len(tracks) > 1 else primary_track
+    tertiary_track = tracks[2].get("title", secondary_track) if len(tracks) > 2 else secondary_track
+
+    weeks = [
+        {
+            "week": 1,
+            "phase": "Baseline & Setup",
+            "focus": f"Define minimum viable routine for {primary_track}.",
+            "checkpoint": "Complete at least 4 of 7 planned daily actions.",
+        },
+        {
+            "week": 2,
+            "phase": "Consistency",
+            "focus": f"Stabilize schedule and adherence in {primary_track}.",
+            "checkpoint": "Achieve 70% adherence and log barriers.",
+        },
+        {
+            "week": 3,
+            "phase": "Progressive Build",
+            "focus": f"Increase dose gradually and add {secondary_track} support block.",
+            "checkpoint": "No abrupt load spikes; maintain recovery quality.",
+        },
+        {
+            "week": 4,
+            "phase": "First Review",
+            "focus": "Review trends, simplify what is failing, reinforce what is working.",
+            "checkpoint": "Reassess readiness/resilience and adjust one variable only.",
+        },
+        {
+            "week": 5,
+            "phase": "Optimization",
+            "focus": f"Tune quality and execution in {secondary_track} and {tertiary_track}.",
+            "checkpoint": "Keep adherence above week-2 baseline.",
+        },
+        {
+            "week": 6,
+            "phase": "Resilience",
+            "focus": "Practice fallback strategies under real-life schedule stress.",
+            "checkpoint": "Use if-then fallback plan at least twice when needed.",
+        },
+        {
+            "week": 7,
+            "phase": "Consolidation",
+            "focus": "Reduce friction and lock in sustainable routines.",
+            "checkpoint": "Demonstrate stable weekly rhythm with low missed sessions.",
+        },
+        {
+            "week": 8,
+            "phase": "Reassessment",
+            "focus": "Summarize gains, refresh priorities, and design next 8-week cycle.",
+            "checkpoint": "Review labs/scores and publish next-cycle plan.",
+        },
+    ]
+    return weeks
+
+
 def build_ai_cds_rollout_plan(snapshot: dict) -> dict:
     """Build an evidence-backed, human-in-the-loop lifestyle AI rollout plan."""
     counts = snapshot.get("counts", {}) or {}

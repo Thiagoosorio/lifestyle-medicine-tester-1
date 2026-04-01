@@ -280,6 +280,15 @@ def _render_ai_cds_tab(snapshot: dict) -> None:
     st.caption(
         "Design principle: prevention-first and evidence-first. AI supports decisions, but clinician review remains mandatory."
     )
+    st.info(
+        "Precision Plans now has a dedicated full workspace page. "
+        "Use the button below for full-screen planning, exports, and roadmap view."
+    )
+    if st.button("Open Full Precision Plans Section", use_container_width=True, key="cc_open_precision_page"):
+        try:
+            st.switch_page("pages/precision_plans.py")
+        except Exception:
+            st.warning("Open 'Precision Plans' from the left navigation menu.")
 
     st.divider()
     render_section_header(

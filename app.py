@@ -79,6 +79,7 @@ else:
         {
             "Overview": [
                 st.Page("pages/clinical_command_center.py", title="Clinical Summary", icon=":material/clinical_notes:", default=True),
+                st.Page("pages/precision_plans.py", title="Precision Plans", icon=":material/auto_awesome:"),
                 st.Page("pages/dashboard.py", title="Dashboard", icon=":material/dashboard:"),
                 st.Page("pages/wheel_assessment.py", title="Wheel of Life", icon=":material/donut_large:"),
                 st.Page("pages/recovery.py", title="Recovery", icon=":material/hotel:"),

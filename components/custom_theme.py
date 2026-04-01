@@ -103,11 +103,37 @@ header[data-testid="stHeader"] { background:rgba(247,247,250,0.92) !important; b
     background-color: var(--bg-primary) !important;
     font-family: var(--font-text) !important;
     -webkit-font-smoothing: antialiased;
+    position: relative;
+}
+.stApp::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+        radial-gradient(900px 500px at -10% -15%, rgba(103,80,164,0.11), transparent 60%),
+        radial-gradient(800px 500px at 110% 0%, rgba(26,115,232,0.10), transparent 62%),
+        radial-gradient(700px 450px at 100% 100%, rgba(30,142,62,0.08), transparent 65%);
+}
+.stApp::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image:
+        linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.18;
 }
 section.main .block-container {
     padding-top: 32px;
     padding-bottom: 40px;
     max-width: 1200px;
+    position: relative;
+    z-index: 1;
 }
 .main .block-container {
     animation: anim-fade-up 0.4s cubic-bezier(0.4,0,0.2,1) both !important;
@@ -222,6 +248,17 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
     box-shadow: 0 4px 12px rgba(0,0,0,0.10) !important;
     transform: translateY(-2px) !important;
 }
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: rgba(255,255,255,0.92) !important;
+    border: 1px solid rgba(0,0,0,0.08) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    transition: var(--ease-default) !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    box-shadow: 0 6px 18px rgba(0,0,0,0.10) !important;
+    transform: translateY(-1px) !important;
+}
 [data-testid="stMetricLabel"] {
     font-family: var(--font-text) !important;
     font-size: 11px !important; font-weight: 600 !important;
@@ -258,6 +295,34 @@ section[data-testid="stSidebar"] [data-testid="stSidebarNavLink"][aria-current="
 .stButton > button[kind="primary"]:hover {
     background: #7E67C1 !important;
     box-shadow: 0 4px 16px rgba(103,80,164,0.35) !important;
+}
+[data-testid="stLinkButton"] > a {
+    border-radius: 9999px !important;
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+    border: 1px solid rgba(26,115,232,0.32) !important;
+    background: linear-gradient(135deg, rgba(26,115,232,0.10), rgba(103,80,164,0.08)) !important;
+    color: #1A73E8 !important;
+    font-weight: 600 !important;
+    transition: var(--ease-default) !important;
+}
+[data-testid="stLinkButton"] > a:hover {
+    border-color: rgba(26,115,232,0.55) !important;
+    box-shadow: 0 4px 14px rgba(26,115,232,0.16) !important;
+    transform: translateY(-1px) !important;
+}
+[data-testid="stDownloadButton"] > button {
+    border-radius: 9999px !important;
+    min-height: 44px !important;
+    font-weight: 700 !important;
+    border: none !important;
+    color: #FFFFFF !important;
+    background: linear-gradient(135deg, #1A73E8, #6750A4) !important;
+    box-shadow: 0 4px 16px rgba(26,115,232,0.25) !important;
+}
+[data-testid="stDownloadButton"] > button:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(26,115,232,0.30) !important;
 }
 .stTextInput > div > div > input,
 .stTextArea > div > div > textarea {

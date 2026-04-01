@@ -6,6 +6,8 @@ def test_catalogs_are_available():
     use_cases = ai_cds.get_ai_cds_use_cases()
     github_patterns = ai_cds.get_github_lifestyle_patterns()
     evidence = ai_cds.get_lifestyle_evidence_base()
+    goals = ai_cds.get_precision_plan_goals()
+    templates = ai_cds.get_precision_plan_templates()
 
     assert len(benchmarks) >= 3
     assert len(use_cases) >= 3
@@ -15,6 +17,8 @@ def test_catalogs_are_available():
     assert all("use_case" in row for row in use_cases)
     assert all("repo" in row for row in github_patterns)
     assert all("topic" in row for row in evidence)
+    assert len(goals) >= 3
+    assert len(templates) >= 3
 
 
 def test_rollout_prioritizes_critical_events_when_present():
@@ -113,3 +117,13 @@ def test_precision_plan_markdown_contains_core_sections():
     assert "# Precision Plan" in md
     assert "## Action Tracks" in md
     assert "## Evidence Links" in md
+
+
+def test_precision_plan_weekly_schedule_has_8_weeks():
+    snapshot = {"organ_domain_categories": []}
+    plan = ai_cds.build_precision_plan(snapshot, goal_code="healthy_longevity", template_code="balanced")
+    weeks = ai_cds.build_precision_plan_weekly_schedule(plan)
+
+    assert len(weeks) == 8
+    assert weeks[0]["week"] == 1
+    assert weeks[-1]["week"] == 8
