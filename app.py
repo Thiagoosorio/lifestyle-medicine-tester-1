@@ -22,9 +22,6 @@ def _bootstrap_app_data() -> bool:
     """Initialize DB schema/migrations once per server process."""
     init_db()
 
-    if not is_demo_mode():
-        return True
-
     conn = get_connection()
     try:
         demo_exists = conn.execute(
@@ -36,10 +33,10 @@ def _bootstrap_app_data() -> bool:
 
     from seed_demo import ensure_demo_organ_score_prereqs, main as seed_demo_main
 
-    if not demo_exists:
+    if not demo_exists and is_demo_mode():
         seed_demo_main()
         LOGGER.info("Seeded demo account for DEMO_MODE session")
-    else:
+    elif demo_exists:
         try:
             # Ensure wearable table exists before backfill
             from services.wearable_wheel_service import _ensure_wearable_measurements_schema
@@ -49,7 +46,12 @@ def _bootstrap_app_data() -> bool:
             finally:
                 _bconn.close()
 
-            backfill_summary = ensure_demo_organ_score_prereqs(demo_exists["id"])
+            # Keep the built-in demo account synchronized in every environment.
+            backfill_summary = ensure_demo_organ_score_prereqs(
+                demo_exists["id"],
+                force_profile=True,
+                force_registry=True,
+            )
             if backfill_summary["profile_backfilled"] or backfill_summary["inserted_biomarkers"] or backfill_summary.get("inserted_wearable_measurements"):
                 LOGGER.info(
                     "Backfilled demo: profile=%s biomarkers=%s wearable=%s missing=%s",

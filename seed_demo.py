@@ -401,22 +401,29 @@ def _seed_maria_clinical_registry(conn, user_id: int, force_replace: bool = Fals
     }
 
 
-def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
+def ensure_demo_organ_score_prereqs(
+    user_id: int,
+    force_profile: bool = False,
+    force_registry: bool = False,
+) -> dict:
     """Backfill Maria's clinical profile + core labs for organ score computation.
 
     Safe to run repeatedly on existing demo databases.
     """
     existing_profile = get_profile(user_id) or {}
-    profile_backfilled = not existing_profile or any(
-        existing_profile.get(key) in (None, "")
-        for key in MARIA_CLINICAL_PROFILE
-    )
-
-    merged_profile = dict(MARIA_CLINICAL_PROFILE)
-    for key in MARIA_CLINICAL_PROFILE:
-        current_value = existing_profile.get(key)
-        if current_value is not None and current_value != "":
-            merged_profile[key] = current_value
+    if force_profile:
+        profile_backfilled = True
+        merged_profile = dict(MARIA_CLINICAL_PROFILE)
+    else:
+        profile_backfilled = not existing_profile or any(
+            existing_profile.get(key) in (None, "")
+            for key in MARIA_CLINICAL_PROFILE
+        )
+        merged_profile = dict(MARIA_CLINICAL_PROFILE)
+        for key in MARIA_CLINICAL_PROFILE:
+            current_value = existing_profile.get(key)
+            if current_value is not None and current_value != "":
+                merged_profile[key] = current_value
     save_profile(user_id, merged_profile)
 
     inserted_biomarkers = 0
@@ -479,7 +486,28 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             "SELECT 1 FROM body_metrics WHERE user_id = ? LIMIT 1",
             (user_id,),
         ).fetchone()
-        if not existing_metrics:
+        backfill_metric_row = conn.execute(
+            "SELECT id FROM body_metrics WHERE user_id = ? AND log_date = ? LIMIT 1",
+            (user_id, MARIA_BACKFILL_LAB_DATE),
+        ).fetchone()
+        if backfill_metric_row:
+            conn.execute(
+                """UPDATE body_metrics
+                   SET weight_kg = ?, height_cm = ?, waist_cm = ?, hip_cm = ?, body_fat_pct = ?,
+                       notes = ?, created_at = ?
+                   WHERE id = ?""",
+                (
+                    MARIA_ORGAN_SCORE_BODY_METRICS["weight_kg"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["height_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["waist_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["hip_cm"],
+                    MARIA_ORGAN_SCORE_BODY_METRICS["body_fat_pct"],
+                    "Backfilled for organ score prerequisites",
+                    MARIA_BACKFILL_LAB_DATE,
+                    backfill_metric_row["id"],
+                ),
+            )
+        elif force_profile or not existing_metrics:
             conn.execute(
                 """INSERT OR IGNORE INTO body_metrics
                    (user_id, log_date, weight_kg, height_cm, waist_cm, hip_cm, body_fat_pct, notes, created_at)
@@ -505,7 +533,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             "SELECT COUNT(*) as cnt FROM wearable_measurements WHERE user_id = ? AND measured_at >= ?",
             (user_id, recent_cutoff),
         ).fetchone()
-        has_recent_wearable = recent_wearable and recent_wearable["cnt"] > 50
+        has_recent_wearable = (recent_wearable and recent_wearable["cnt"] > 50) and (not force_profile)
 
         if not has_recent_wearable:
             # Seed 30 days of wearable data with realistic variance
@@ -587,7 +615,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
                         except Exception:
                             pass
 
-        registry_summary = _seed_maria_clinical_registry(conn, user_id, force_replace=False)
+        registry_summary = _seed_maria_clinical_registry(conn, user_id, force_replace=force_registry)
         conn.commit()
     finally:
         conn.close()
