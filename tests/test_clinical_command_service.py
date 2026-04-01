@@ -106,6 +106,8 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     monkeypatch.setattr(ccs, "get_latest_computed_scores", lambda _uid: [{"severity": "high"}, {"severity": "normal"}])
     monkeypatch.setattr(ccs, "compute_overall_organ_score", lambda _uid: {"overall_score_10": 6.3, "overall_label": "Watchlist", "overall_confidence_pct": 78, "score_coverage_pct": 82})
     monkeypatch.setattr(ccs, "compute_wearable_wheel", lambda _uid: {"overall_score_10": 6.9, "overall_readiness_10": 7.2, "overall_resilience_10": 6.6})
+    monkeypatch.setattr(ccs, "get_lab_dates", lambda _uid: [])
+    monkeypatch.setattr(ccs, "get_results_by_date", lambda _uid, _lab_date: [])
 
     snap = ccs.build_clinical_snapshot(7)
     assert snap["patient"]["display_name"] == "Maria Silva"
@@ -115,3 +117,69 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     assert snap["counts"]["organ_scores_high_risk"] == 1
     assert snap["organ_overall"]["overall_score_10"] == 6.3
     assert snap["wearable"]["overall_score_10"] == 6.9
+
+
+def test_evidence_trace_keeps_only_validated_q_or_guideline_sources():
+    trace = ccs._build_evidence_trace(
+        [
+            {
+                "code": "fib4",
+                "name": "FIB-4",
+                "organ_system": "liver",
+                "tier": "validated",
+                "citation_pmid": "38851997",
+                "citation_text": "EASL guideline [Q1]",
+            },
+            {
+                "code": "q2_item",
+                "name": "Q2 Score",
+                "organ_system": "kidney",
+                "tier": "validated",
+                "citation_pmid": "12345",
+                "citation_text": "Some study [Q2]",
+            },
+            {
+                "code": "derived_item",
+                "name": "Derived Score",
+                "organ_system": "metabolic",
+                "tier": "derived",
+                "citation_pmid": "67890",
+                "citation_text": "Some study [Q1]",
+            },
+            {
+                "code": "no_pmid",
+                "name": "Missing PMID",
+                "organ_system": "metabolic",
+                "tier": "validated",
+                "citation_pmid": None,
+                "citation_text": "AHA statement",
+            },
+        ]
+    )
+
+    assert trace["counts"]["allowed"] == 2
+    assert trace["counts"]["excluded"] == 2
+    allowed_codes = {row["code"] for row in trace["allowed_sources"]}
+    assert allowed_codes == {"fib4", "q2_item"}
+
+
+def test_organ_domain_categories_include_requested_five_domains():
+    overall = {
+        "organ_breakdown": [
+            {"organ_system": "cardiovascular", "name": "Cardio", "score_10": 7.5, "confidence_0_1": 0.8, "elevated_or_worse": 1},
+            {"organ_system": "metabolic", "name": "Metabolic", "score_10": 6.5, "confidence_0_1": 0.7, "elevated_or_worse": 2},
+            {"organ_system": "liver", "name": "Liver", "score_10": 8.0, "confidence_0_1": 0.9, "elevated_or_worse": 0},
+            {"organ_system": "neurological", "name": "Neuro", "score_10": 7.0, "confidence_0_1": 0.6, "elevated_or_worse": 1},
+            {"organ_system": "thyroid", "name": "Thyroid", "score_10": 5.5, "confidence_0_1": 0.5, "elevated_or_worse": 1},
+        ]
+    }
+
+    categories = ccs._build_organ_domain_categories(overall, latest_dexa={"scan_date": "2026-01-01"})
+    by_code = {row["domain_code"]: row for row in categories}
+
+    assert set(by_code.keys()) == {"heart_metabolism", "muscle_bones", "gut_digestion", "brain_health", "system_wide"}
+    assert by_code["heart_metabolism"]["score_10"] == 7.0
+    assert by_code["gut_digestion"]["score_10"] == 8.0
+    assert by_code["brain_health"]["score_10"] == 7.0
+    assert by_code["muscle_bones"]["score_10"] is None
+    assert "DEXA present" in by_code["muscle_bones"]["note"]

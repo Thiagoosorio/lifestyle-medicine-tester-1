@@ -5,6 +5,7 @@ Physician-style first page that summarizes:
 - confirmed interventions (meds/supplements/lifestyle/training)
 - out-of-range labs
 - key objective test highlights (DEXA + clinician-entered tests like CPET/Kinemo/Carotid US)
+- evidence trace constrained to validated Q1/Q2 or guideline-organization sources
 """
 
 from __future__ import annotations
@@ -15,12 +16,12 @@ import streamlit as st
 from components.custom_theme import render_hero_banner, render_section_header
 from services.clinical_command_service import build_clinical_snapshot
 from models.clinical_registry import (
-    save_diagnosis,
-    update_diagnosis_status,
-    save_intervention,
-    update_intervention_status,
-    save_test_result,
     delete_record,
+    save_diagnosis,
+    save_intervention,
+    save_test_result,
+    update_diagnosis_status,
+    update_intervention_status,
 )
 
 
@@ -45,6 +46,107 @@ def _as_rows(items: list[dict], columns: list[str]) -> list[dict]:
     return rows
 
 
+def _lab_rows(labs: list[dict]) -> list[dict]:
+    rows = []
+    for row in labs:
+        rows.append(
+            {
+                "Marker": row.get("name"),
+                "Value": f"{row.get('value')} {row.get('unit') or ''}".strip(),
+                "Classification": row.get("classification"),
+                "Standard Range": row.get("standard_range"),
+                "Optimal Range": row.get("optimal_range"),
+                "Date": row.get("lab_date"),
+            }
+        )
+    return rows
+
+
+def _render_kpi_detail_panel(snapshot: dict) -> None:
+    focus = st.session_state.get("cc_focus", "diagnoses")
+    render_section_header(
+        "KPI Detail View",
+        "Click any KPI card button above to open its details here.",
+    )
+
+    if focus == "diagnoses":
+        rows = _as_rows(
+            snapshot.get("diagnoses_active", []),
+            ["diagnosis_name", "status", "confirmed_date", "confirming_clinician", "source"],
+        )
+        if rows:
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No active diagnoses.")
+        return
+
+    if focus == "interventions":
+        rows = _as_rows(
+            snapshot.get("interventions_active", []),
+            ["intervention_type", "name", "dose", "schedule", "status", "start_date"],
+        )
+        if rows:
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No active interventions.")
+        return
+
+    if focus == "labs_flagged":
+        rows = _lab_rows(snapshot.get("labs_attention", {}).get("all", []))
+        if rows:
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.success("No flagged labs.")
+        return
+
+    if focus == "labs_critical":
+        rows = _lab_rows(snapshot.get("labs_attention", {}).get("critical", []))
+        if rows:
+            st.dataframe(rows, use_container_width=True, hide_index=True)
+        else:
+            st.success("No critical labs.")
+        return
+
+    rows = _as_rows(
+        snapshot.get("organ_high_risk_scores", []),
+        ["name", "organ_system", "value", "label", "severity", "lab_date"],
+    )
+    if rows:
+        st.dataframe(rows, use_container_width=True, hide_index=True)
+    else:
+        st.success("No high-risk organ scores.")
+
+
+def _render_five_domain_cards(snapshot: dict) -> None:
+    render_section_header(
+        "5-Domain Organ Representation",
+        "Heart & Metabolism, Muscle & Bones, Gut & Digestion, Brain Health, and System Wide.",
+    )
+    rows = snapshot.get("organ_domain_categories", [])
+    if not rows:
+        st.info("No domain-level organ representation available yet.")
+        return
+
+    for offset in range(0, len(rows), 3):
+        cols = st.columns(3)
+        chunk = rows[offset : offset + 3]
+        for idx, row in enumerate(chunk):
+            with cols[idx]:
+                with st.container(border=True):
+                    value = f"{row.get('score_10')}/10" if row.get("score_10") is not None else "N/A"
+                    st.metric(row.get("domain_name"), value)
+                    st.caption(
+                        f"Coverage: {row.get('coverage_pct', 0)}% | "
+                        f"Confidence: {row.get('confidence_pct', 0)}% | "
+                        f"Elevated+: {row.get('elevated_or_worse', 0)}"
+                    )
+                    covered = row.get("systems_covered") or []
+                    if covered:
+                        st.caption("Covered systems: " + ", ".join(covered))
+                    if row.get("note"):
+                        st.caption(row["note"])
+
+
 user_id = st.session_state.get("user_id")
 if not user_id:
     st.warning("Please log in first.")
@@ -58,15 +160,45 @@ render_hero_banner(
 snapshot = build_clinical_snapshot(user_id)
 counts = snapshot["counts"]
 
-metric_cols = st.columns(5)
-metric_cols[0].metric("Active Diagnoses", counts["diagnoses_active"])
-metric_cols[1].metric("Active Interventions", counts["interventions_active"])
-metric_cols[2].metric("Labs Flagged", counts["labs_flagged"])
-metric_cols[3].metric("Labs Critical", counts["labs_critical"])
-metric_cols[4].metric("High-Risk Organ Scores", counts["organ_scores_high_risk"])
+if "cc_focus" not in st.session_state:
+    st.session_state["cc_focus"] = "diagnoses"
 
-tab_summary, tab_dx, tab_rx, tab_tests = st.tabs(
-    ["Clinical Summary", "Diagnoses", "Interventions", "Tests & Imaging"]
+metric_defs = [
+    ("Active Diagnoses", counts["diagnoses_active"], "diagnoses"),
+    ("Active Interventions", counts["interventions_active"], "interventions"),
+    ("Labs Flagged", counts["labs_flagged"], "labs_flagged"),
+    ("Labs Critical", counts["labs_critical"], "labs_critical"),
+    ("High-Risk Organ Scores", counts["organ_scores_high_risk"], "high_risk_scores"),
+]
+
+metric_cols = st.columns(5)
+for idx, (label, value, focus_key) in enumerate(metric_defs):
+    with metric_cols[idx]:
+        st.metric(label, value)
+        if st.button("Open details", key=f"cc_focus_{focus_key}", use_container_width=True):
+            st.session_state["cc_focus"] = focus_key
+
+_render_kpi_detail_panel(snapshot)
+st.divider()
+
+(
+    tab_summary,
+    tab_priority,
+    tab_timeline,
+    tab_evidence,
+    tab_dx,
+    tab_rx,
+    tab_tests,
+) = st.tabs(
+    [
+        "Clinical Summary",
+        "Priority List",
+        "Timeline",
+        "Evidence Trace",
+        "Diagnoses",
+        "Interventions",
+        "Tests & Imaging",
+    ]
 )
 
 with tab_summary:
@@ -94,11 +226,11 @@ with tab_summary:
         render_section_header("Confirmed Diagnoses", "Active problem list")
         diagnoses = snapshot["diagnoses_active"]
         if diagnoses:
-            for d in diagnoses:
+            for diagnosis in diagnoses:
                 st.markdown(
-                    f"- **{d.get('diagnosis_name')}** "
-                    f"({d.get('status')})"
-                    f"{' - ' + d.get('confirmed_date') if d.get('confirmed_date') else ''}"
+                    f"- **{diagnosis.get('diagnosis_name')}** "
+                    f"({diagnosis.get('status')})"
+                    f"{' - ' + diagnosis.get('confirmed_date') if diagnosis.get('confirmed_date') else ''}"
                 )
         else:
             st.info("No active confirmed diagnoses yet.")
@@ -107,11 +239,12 @@ with tab_summary:
         render_section_header("Confirmed Interventions", "Medication, supplements, lifestyle, training")
         interventions = snapshot["interventions_active"]
         if interventions:
-            for iv in interventions[:12]:
-                dose = f" | {iv.get('dose')}" if iv.get("dose") else ""
-                sched = f" | {iv.get('schedule')}" if iv.get("schedule") else ""
+            for intervention in interventions[:12]:
+                dose = f" | {intervention.get('dose')}" if intervention.get("dose") else ""
+                schedule = f" | {intervention.get('schedule')}" if intervention.get("schedule") else ""
                 st.markdown(
-                    f"- **{iv.get('name')}** ({iv.get('intervention_type')}){dose}{sched}"
+                    f"- **{intervention.get('name')}** "
+                    f"({intervention.get('intervention_type')}){dose}{schedule}"
                 )
             if len(interventions) > 12:
                 st.caption(f"+{len(interventions) - 12} more interventions")
@@ -119,28 +252,14 @@ with tab_summary:
             st.info("No active interventions confirmed yet.")
 
     st.divider()
-
     render_section_header("Labs Requiring Attention", "Outside normal/target range on latest panel")
     labs = snapshot["labs_attention"]["all"]
     if labs:
-        rows = []
-        for r in labs:
-            rows.append(
-                {
-                    "Marker": r.get("name"),
-                    "Value": f"{r.get('value')} {r.get('unit') or ''}".strip(),
-                    "Classification": r.get("classification"),
-                    "Standard Range": r.get("standard_range"),
-                    "Optimal Range": r.get("optimal_range"),
-                    "Date": r.get("lab_date"),
-                }
-            )
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        st.dataframe(_lab_rows(labs), use_container_width=True, hide_index=True)
     else:
         st.success("No out-of-range labs detected from latest results.")
 
     st.divider()
-
     organ_overall = snapshot.get("organ_overall")
     wearable = snapshot.get("wearable")
     col_o, col_w = st.columns(2)
@@ -167,7 +286,14 @@ with tab_summary:
         else:
             st.info("No wearable summary available yet.")
 
-    render_section_header("Key Objective Tests", "DEXA plus confirmed clinician-entered tests (CPET/Kinemo/Carotid)")
+    st.divider()
+    _render_five_domain_cards(snapshot)
+
+    st.divider()
+    render_section_header(
+        "Key Objective Tests",
+        "DEXA plus confirmed clinician-entered tests (CPET/Kinemo/Carotid).",
+    )
     key_tests = snapshot.get("key_tests", [])
     if key_tests:
         st.dataframe(
@@ -177,6 +303,94 @@ with tab_summary:
         )
     else:
         st.info("No key objective tests recorded yet.")
+
+with tab_priority:
+    render_section_header(
+        "Priority Problem List",
+        "Prevention-first ordering with recommended action windows.",
+    )
+    problems = snapshot.get("priority_problem_list", [])
+    if problems:
+        st.dataframe(
+            _as_rows(
+                problems,
+                [
+                    "priority_rank",
+                    "problem_type",
+                    "problem",
+                    "severity",
+                    "recommended_action",
+                    "due_in_days",
+                    "target_date",
+                    "evidence_source",
+                ],
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.success("No active priority problems detected.")
+
+with tab_timeline:
+    render_section_header(
+        "Clinical Timeline",
+        "Chronological events from diagnoses, interventions, labs, tests, and score recomputations.",
+    )
+    timeline = snapshot.get("timeline", [])
+    if timeline:
+        types = sorted({row.get("event_type") for row in timeline if row.get("event_type")})
+        selected_type = st.selectbox(
+            "Filter event type",
+            ["All"] + types,
+            index=0,
+            key="cc_timeline_filter",
+        )
+        limit = st.slider("Rows", min_value=10, max_value=120, value=40, step=5, key="cc_timeline_limit")
+        filtered = timeline
+        if selected_type != "All":
+            filtered = [row for row in timeline if row.get("event_type") == selected_type]
+        st.dataframe(
+            _as_rows(
+                filtered[:limit],
+                ["date_time", "event_type", "title", "details", "severity", "source"],
+            ),
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.info("No timeline events yet.")
+
+with tab_evidence:
+    render_section_header(
+        "Evidence Trace",
+        "Only validated scores with PMID and Q1/Q2 or guideline-organization source tags are shown.",
+    )
+    trace = snapshot.get("evidence_trace", {})
+    trace_counts = trace.get("counts", {})
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Allowed Sources", trace_counts.get("allowed", 0))
+    m2.metric("Excluded Sources", trace_counts.get("excluded", 0))
+    m3.metric("Unique Scores Checked", trace_counts.get("total_unique_scores", 0))
+    st.info(trace.get("policy", "Evidence policy unavailable."))
+
+    allowed = trace.get("allowed_sources", [])
+    if allowed:
+        for row in allowed:
+            st.markdown(
+                f"- **{row.get('score_name')}** ({row.get('source_class')}) | "
+                f"[PMID {row.get('pmid')}]({row.get('pubmed_url')})"
+            )
+    else:
+        st.warning("No score sources passed the strict evidence gate yet.")
+
+    excluded = trace.get("excluded_sources", [])
+    if excluded:
+        with st.expander("Excluded / Not Yet Eligible Sources", expanded=False):
+            st.dataframe(
+                _as_rows(excluded, ["score_name", "tier", "source_class", "reason"]),
+                use_container_width=True,
+                hide_index=True,
+            )
 
 with tab_dx:
     render_section_header("Confirmed Diagnoses", "Maintain active/resolved diagnosis list")
@@ -254,7 +468,7 @@ with tab_rx:
             st.success("Intervention saved.")
             st.rerun()
 
-    all_iv = [x for x in snapshot["interventions_active"] if str(x.get("id", "")).isdigit()]
+    all_iv = [x for x in snapshot["interventions_all"] if str(x.get("id", "")).isdigit()]
     if all_iv:
         st.dataframe(
             _as_rows(all_iv, ["id", "intervention_type", "name", "dose", "schedule", "status", "start_date", "end_date"]),
@@ -327,7 +541,10 @@ with tab_tests:
             use_container_width=True,
             hide_index=True,
         )
-        options = {f"{t['test_type']} ({t.get('test_date') or 'no date'}) [{t.get('status')}]": t["id"] for t in all_tests}
+        options = {
+            f"{t['test_type']} ({t.get('test_date') or 'no date'}) [{t.get('status')}]": t["id"]
+            for t in all_tests
+        }
         pick = st.selectbox("Select test record", list(options.keys()), key="test_pick")
         if st.button("Delete Test Record", use_container_width=True):
             delete_record(user_id, "clinical_test_results", options[pick])
