@@ -1,4 +1,4 @@
-"""Evidence-backed EMR benchmarks and AI clinical decision support patterns.
+"""Evidence-backed EMR benchmarks and lifestyle-focused AI CDS patterns.
 
 All entries should link to primary sources (institution pages, journals, regulators).
 """
@@ -57,20 +57,6 @@ INSTITUTION_EMR_BENCHMARKS = [
 
 AI_CDS_USE_CASES = [
     {
-        "use_case": "Sepsis early-warning in live EHR workflow",
-        "institution_examples": "Johns Hopkins / multi-site health systems",
-        "impact_summary": "Prospective multi-site deployment linked with faster evaluation and lower mortality risk in sepsis care.",
-        "evidence_level": "Q1 cohort implementation",
-        "study_type": "Prospective multi-site cohort",
-        "citation": "Prospective, multi-site study of TREWS sepsis early warning",
-        "year": 2022,
-        "pmid": "35864252",
-        "doi": "10.1038/s41591-022-01894-0",
-        "link": "https://pubmed.ncbi.nlm.nih.gov/35864252/",
-        "app_pattern": "Use AI/rule triage to detect acute deterioration and trigger closed-loop escalation pathways.",
-        "status_in_app": "Partially present (critical-lab escalation + priority list).",
-    },
-    {
         "use_case": "AI-enabled low ejection fraction (EF) detection from ECG",
         "institution_examples": "Mayo Clinic",
         "impact_summary": "Pragmatic cluster-randomized trial showed higher low-EF diagnosis when AI-CDS result was surfaced to clinicians.",
@@ -83,6 +69,20 @@ AI_CDS_USE_CASES = [
         "link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8441328/",
         "app_pattern": "Add AI/risk trigger layer that suggests confirmatory testing when cardiometabolic risk stack is elevated.",
         "status_in_app": "Not yet implemented.",
+    },
+    {
+        "use_case": "LLM-based physical activity coaching with wearable context",
+        "institution_examples": "Stanford HCI (research prototype)",
+        "impact_summary": "Open prototype combines motivational interviewing with wearable context for personalized physical activity planning.",
+        "evidence_level": "Peer-reviewed conference system",
+        "study_type": "Human-computer interaction research",
+        "citation": "GPTCoach: Towards LLM-Based Physical Activity Coaching (CHI 2025)",
+        "year": 2025,
+        "pmid": None,
+        "doi": None,
+        "link": "https://github.com/StanfordHCI/GPTCoach-CHI2025",
+        "app_pattern": "Use motivational interviewing prompts + stage-of-change aware plan builder.",
+        "status_in_app": "Partially present (AI Coach), can be upgraded with wearable context memory.",
     },
     {
         "use_case": "Virtual scribe / ambient documentation for EHR burden reduction",
@@ -111,5 +111,103 @@ AI_CDS_USE_CASES = [
         "link": "https://www.fda.gov/regulatory-information/search-fda-guidance-documents/clinical-decision-support-software",
         "app_pattern": "Require human review, auditable rationale, and post-deployment monitoring for every AI recommendation.",
         "status_in_app": "Partially present (disclaimers + evidence trace), can be formalized.",
+    },
+]
+
+
+LIFESTYLE_EVIDENCE_BASE = [
+    {
+        "topic": "Physical activity dose-response and prevention",
+        "evidence": "WHO 2020 physical activity guideline update",
+        "source_type": "Guideline",
+        "year": 2020,
+        "pmid": "33239350",
+        "doi": "10.1136/bjsports-2020-102955",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/33239350/",
+    },
+    {
+        "topic": "Mediterranean diet for primary CVD prevention",
+        "evidence": "PREDIMED trial (reanalysis)",
+        "source_type": "Randomized trial",
+        "year": 2018,
+        "pmid": "29897866",
+        "doi": "10.1056/NEJMoa1800389",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/29897866/",
+    },
+    {
+        "topic": "Prediabetes/T2D prevention with lifestyle change",
+        "evidence": "Diabetes Prevention Program (lifestyle vs metformin)",
+        "source_type": "Randomized trial",
+        "year": 2002,
+        "pmid": "11832527",
+        "doi": "10.1056/NEJMoa012512",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/11832527/",
+    },
+    {
+        "topic": "Blood pressure management with non-pharmacologic interventions",
+        "evidence": "ACC/AHA hypertension guideline",
+        "source_type": "Guideline",
+        "year": 2017,
+        "pmid": "29133356",
+        "doi": "10.1161/HYP.0000000000000065",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/29133356/",
+    },
+    {
+        "topic": "Primary prevention lifestyle and risk-factor control",
+        "evidence": "ACC/AHA guideline on primary prevention of CVD",
+        "source_type": "Guideline",
+        "year": 2019,
+        "pmid": "30879355",
+        "doi": "10.1161/CIR.0000000000000678",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/30879355/",
+    },
+    {
+        "topic": "NAFLD/MASLD lifestyle-first management",
+        "evidence": "AASLD practice guidance",
+        "source_type": "Guideline",
+        "year": 2023,
+        "pmid": "36727674",
+        "doi": "10.1002/hep.32772",
+        "link": "https://pubmed.ncbi.nlm.nih.gov/36727674/",
+    },
+]
+
+
+GITHUB_LIFESTYLE_PATTERNS = [
+    {
+        "name": "HL7 CDS Hooks Specification",
+        "repo": "https://github.com/HL7/cds-hooks",
+        "why_relevant": "Standard way to deliver in-workflow recommendation cards in EHR contexts.",
+        "adopt_next": "Use CDS card structure for your intervention recommendation cards.",
+    },
+    {
+        "name": "CDS Hooks Sandbox",
+        "repo": "https://github.com/cds-hooks/sandbox",
+        "why_relevant": "Test harness for patient-view and order-select decision support workflows.",
+        "adopt_next": "Mirror card UX patterns for explainable recommendations.",
+    },
+    {
+        "name": "AHRQ CDS Connect CQL Services",
+        "repo": "https://github.com/AHRQ-CDS/AHRQ-CDS-Connect-CQL-SERVICES",
+        "why_relevant": "Reference implementation for evidence logic to service endpoints (including CDS Hooks).",
+        "adopt_next": "Represent lifestyle rules as explicit, auditable logic blocks.",
+    },
+    {
+        "name": "SMART on FHIR CDS Example (QRISK/NICE)",
+        "repo": "https://github.com/srdc/smart-on-fhir-cds",
+        "why_relevant": "Shows FHIR + CDS integration with cardiovascular risk and guideline suggestions.",
+        "adopt_next": "Adapt structure to map your organ/wearable domains into recommendation cards.",
+    },
+    {
+        "name": "Stanford GPTCoach",
+        "repo": "https://github.com/StanfordHCI/GPTCoach-CHI2025",
+        "why_relevant": "Motivational interviewing + wearable-aware coaching prototype.",
+        "adopt_next": "Improve AI Coach with stage-of-change + adherence barrier prompts.",
+    },
+    {
+        "name": "BCIO (Behavior Change Intervention Ontology)",
+        "repo": "https://github.com/HumanBehaviourChangeProject/ontologies",
+        "why_relevant": "Structured intervention ontology for consistent recommendation language.",
+        "adopt_next": "Tag each recommendation by behavior-change mechanism for auditability.",
     },
 ]

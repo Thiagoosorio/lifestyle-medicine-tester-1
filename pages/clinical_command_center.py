@@ -17,8 +17,11 @@ from components.custom_theme import render_hero_banner, render_section_header
 from services.clinical_command_service import build_clinical_snapshot
 from services.ai_cds_service import (
     build_ai_cds_rollout_plan,
+    build_lifestyle_intervention_support,
     get_ai_cds_use_cases,
+    get_github_lifestyle_patterns,
     get_institution_emr_benchmarks,
+    get_lifestyle_evidence_base,
 )
 from models.clinical_registry import (
     delete_record,
@@ -202,8 +205,8 @@ def _render_five_domain_cards(snapshot: dict) -> None:
 
 def _render_ai_cds_tab(snapshot: dict) -> None:
     render_section_header(
-        "AI Decision Support (Institution Benchmarks + App Rollout)",
-        "Evidence-backed use cases from Harvard-affiliated and peer health systems, adapted to this app.",
+        "Lifestyle Intervention Support (AI + Evidence)",
+        "Lifestyle-medicine focused support only: no emergency workflows.",
     )
     rollout = build_ai_cds_rollout_plan(snapshot)
     readiness = rollout.get("readiness_score_100", 0)
@@ -213,9 +216,45 @@ def _render_ai_cds_tab(snapshot: dict) -> None:
     m3.metric("Modules Planned", len(rollout.get("modules", [])))
 
     st.caption(
-        "Design principle: clinical safety first. AI supports decisions, but clinician review remains mandatory."
+        "Design principle: prevention-first and evidence-first. AI supports decisions, but clinician review remains mandatory."
     )
 
+    st.divider()
+    render_section_header(
+        "Next-Best Lifestyle Interventions",
+        "Domain-based recommendations generated from current profile, labs, organ scores, and wearables.",
+    )
+    support_cards = build_lifestyle_intervention_support(snapshot)
+    evidence_by_topic = {row.get("topic"): row for row in get_lifestyle_evidence_base()}
+
+    for card in support_cards:
+        with st.container(border=True):
+            c1, c2 = st.columns([3, 1])
+            c1.markdown(f"**{card.get('domain')}**")
+            c2.caption(f"Priority: {card.get('priority')}")
+            st.caption(f"Trigger: {card.get('trigger')}")
+            st.markdown(f"**Recommendation:** {card.get('recommendation')}")
+            st.caption(f"Success metric: {card.get('success_metric')}")
+
+            topics = card.get("evidence_topics") or []
+            if topics:
+                st.markdown("**Evidence links**")
+                for topic in topics:
+                    ev = evidence_by_topic.get(topic)
+                    if not ev:
+                        st.markdown(f"- {topic} - source pending")
+                        continue
+                    label = (
+                        f"{ev.get('evidence')} ({ev.get('source_type')}, {ev.get('year')})"
+                    )
+                    st.markdown(f"- {label}")
+                    st.link_button(
+                        f"Open source: {ev.get('topic')}",
+                        ev.get("link"),
+                        use_container_width=True,
+                    )
+
+    st.divider()
     for module in rollout.get("modules", []):
         with st.container(border=True):
             c1, c2, c3 = st.columns([2, 1, 2])
@@ -230,22 +269,13 @@ def _render_ai_cds_tab(snapshot: dict) -> None:
     render_section_header("Institution EMR Benchmarks", "Harvard-affiliated and peer institutions")
     benchmark_rows = get_institution_emr_benchmarks()
     if benchmark_rows:
-        st.dataframe(
-            _as_rows(
-                benchmark_rows,
-                [
-                    "institution",
-                    "emr_platform",
-                    "what_they_built",
-                    "source_title",
-                    "source_type",
-                    "year",
-                    "link",
-                ],
-            ),
-            use_container_width=True,
-            hide_index=True,
-        )
+        for row in benchmark_rows:
+            with st.container(border=True):
+                st.markdown(f"**{row.get('institution')}**")
+                st.caption(f"EMR platform: {row.get('emr_platform')}")
+                st.caption(row.get("what_they_built"))
+                st.caption(f"Source: {row.get('source_title')} ({row.get('source_type')}, {row.get('year')})")
+                st.link_button("Open source", row.get("link"), use_container_width=False)
     else:
         st.info("No institution benchmarks available yet.")
 
@@ -263,11 +293,24 @@ def _render_ai_cds_tab(snapshot: dict) -> None:
                     st.markdown(f"**PMID:** {item.get('pmid')}")
                 if item.get("doi"):
                     st.markdown(f"**DOI:** {item.get('doi')}")
-                st.markdown(f"**Source link:** {item.get('link')}")
+                st.link_button("Open source", item.get("link"), use_container_width=True)
                 st.markdown(f"**How to use in this app:** {item.get('app_pattern')}")
                 st.markdown(f"**Current app status:** {item.get('status_in_app')}")
     else:
         st.info("No AI CDS use cases available yet.")
+
+    st.divider()
+    render_section_header("GitHub Patterns We Can Reuse", "Open-source building blocks for lifestyle CDS")
+    patterns = get_github_lifestyle_patterns()
+    if patterns:
+        for row in patterns:
+            with st.container(border=True):
+                st.markdown(f"**{row.get('name')}**")
+                st.caption(row.get("why_relevant"))
+                st.caption(f"Adopt next: {row.get('adopt_next')}")
+                st.link_button("Open GitHub repo", row.get("repo"), use_container_width=False)
+    else:
+        st.info("No GitHub patterns configured yet.")
 
     with st.expander("Safety & Governance Rules", expanded=False):
         for rule in rollout.get("governance_rules", []):
@@ -315,7 +358,7 @@ st.divider()
     tab_priority,
     tab_timeline,
     tab_evidence,
-    tab_ai_cds,
+    tab_lifestyle_ai,
     tab_dx,
     tab_rx,
     tab_tests,
@@ -325,7 +368,7 @@ st.divider()
         "Priority List",
         "Timeline",
         "Evidence Trace",
-        "AI CDS",
+        "Lifestyle AI Support",
         "Diagnoses",
         "Interventions",
         "Tests & Imaging",
@@ -524,7 +567,7 @@ with tab_evidence:
                 hide_index=True,
             )
 
-with tab_ai_cds:
+with tab_lifestyle_ai:
     _render_ai_cds_tab(snapshot)
 
 with tab_dx:
