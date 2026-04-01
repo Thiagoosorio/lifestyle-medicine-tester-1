@@ -2,17 +2,19 @@
 Seed script: Maria's Lifestyle Medicine Transformation
 ======================================================
 Maria, 43, mother of two. Over 12 months she:
-- Lost 40 kg (started at 105 kg, now 65 kg)
+- Lost 27 kg (started at 105 kg, now 78 kg)
 - Went from sedentary to running a 21K half-marathon
 - Transformed her diet from processed/fast food to whole-food plant-predominant
 - Fixed her sleep from 4-5h fragmented to 7-8h restorative
 - Started daily meditation practice
 - Rebuilt relationships with family and friends
 - Quit smoking, reduced alcohol to occasional wine
+- Still carries active cardiometabolic risk diagnoses on treatment
 """
 
 import random
 import uuid
+import json
 from datetime import date, datetime, timedelta
 from db.database import init_db, get_connection
 from models.user import create_user
@@ -32,13 +34,13 @@ MARIA_CLINICAL_PROFILE = {
     "date_of_birth": "1982-10-12",  # 43y during demo timeline
     "sex": "female",
     "height_cm": 167.0,
-    "weight_kg": 65.0,
+    "weight_kg": 78.0,
     "smoking_status": "former",
     "diabetes_status": 0,
-    "systolic_bp": 112.0,
-    "diastolic_bp": 72.0,
-    "on_bp_medication": 0,
-    "on_statin": 0,
+    "systolic_bp": 134.0,
+    "diastolic_bp": 84.0,
+    "on_bp_medication": 1,
+    "on_statin": 1,
     "ethnicity": "other",
     "diabetes_type": "none",
     "family_history_chd": 1,
@@ -62,78 +64,216 @@ MARIA_CLINICAL_PROFILE = {
 
 # Latest follow-up panel values used to backfill legacy demo databases.
 MARIA_ORGAN_SCORE_BIOMARKERS = {
-    "hba1c": 4.9,
-    "fasting_glucose": 79.0,
-    "fasting_insulin": 4.8,
-    "hs_crp": 0.4,
-    "ldl_cholesterol": 88.0,
-    "hdl_cholesterol": 68.0,
-    "triglycerides": 72.0,
-    "apob": 72.0,
-    "ggt": 18.0,
-    "total_cholesterol": 172.0,
-    "lpa": 19.0,
-    "homocysteine": 7.8,
-    "vitamin_d": 52.0,
-    "tsh": 1.8,
-    "free_t4": 1.18,
-    "free_t3": 3.4,
-    "alt": 18.0,
-    "ast": 19.0,
-    "albumin": 4.5,
-    "total_bilirubin": 0.8,
-    "platelets": 245.0,
-    "creatinine": 0.78,
-    "uacr": 9.0,
-    "hemoglobin": 14.5,
-    "wbc": 5.9,
-    "neutrophils_abs": 3.2,
-    "lymphocytes_abs": 2.2,
-    "mcv": 92.0,
-    "rdw": 12.8,
-    "ferritin": 75.0,
-    "iron": 98.0,
-    "tibc": 330.0,
-    "transferrin_sat": 30.0,
+    "hba1c": 5.9,
+    "fasting_glucose": 108.0,
+    "fasting_insulin": 13.2,
+    "hs_crp": 2.4,
+    "ldl_cholesterol": 154.0,
+    "hdl_cholesterol": 45.0,
+    "triglycerides": 186.0,
+    "apob": 132.0,
+    "ggt": 42.0,
+    "total_cholesterol": 248.0,
+    "lpa": 42.0,
+    "homocysteine": 11.8,
+    "vitamin_d": 24.0,
+    "tsh": 2.6,
+    "free_t4": 1.02,
+    "free_t3": 3.0,
+    "alt": 36.0,
+    "ast": 31.0,
+    "albumin": 4.2,
+    "total_bilirubin": 0.7,
+    "platelets": 258.0,
+    "creatinine": 0.84,
+    "uacr": 22.0,
+    "hemoglobin": 13.6,
+    "wbc": 6.8,
+    "neutrophils_abs": 4.0,
+    "lymphocytes_abs": 2.0,
+    "mcv": 90.0,
+    "rdw": 13.9,
+    "ferritin": 48.0,
+    "iron": 74.0,
+    "tibc": 366.0,
+    "transferrin_sat": 20.0,
 }
 MARIA_ORGAN_SCORE_BODY_METRICS = {
-    "weight_kg": 65.0,
+    "weight_kg": 78.0,
     "height_cm": 167.0,
-    "waist_cm": 72.0,
-    "hip_cm": 95.0,
-    "body_fat_pct": 22.0,
+    "waist_cm": 92.0,
+    "hip_cm": 103.0,
+    "body_fat_pct": 31.0,
 }
 MARIA_WEARABLE_METRICS = {
     # Heart & Metabolism
-    "resting_heart_rate_bpm": 54.0,
-    "heart_rate_variability_ms": 58.0,
-    "steps_count": 9800.0,
-    "respiratory_rate_bpm": 14.2,
+    "resting_heart_rate_bpm": 67.0,
+    "heart_rate_variability_ms": 31.0,
+    "steps_count": 6400.0,
+    "respiratory_rate_bpm": 17.1,
     "arrhythmia_alert_afib": 0.0,
-    "kilojoule_expended": 2450.0,
-    "systolic_bp_mmhg": 112.0,
-    "diastolic_bp_mmhg": 72.0,
-    "cgm_avg_glucose_mgdl": 96.0,
-    "cgm_time_in_range_pct": 93.0,
-    "body_weight_kg": 65.0,
+    "kilojoule_expended": 1850.0,
+    "systolic_bp_mmhg": 136.0,
+    "diastolic_bp_mmhg": 86.0,
+    "cgm_avg_glucose_mgdl": 112.0,
+    "cgm_time_in_range_pct": 78.0,
+    "body_weight_kg": 78.0,
     # System Wide
-    "overnight_spo2_avg_pct": 96.5,
-    "overnight_spo2_nadir_pct": 93.0,
-    "body_temperature_deviation_c": 0.1,
-    "recovery_score": 82.0,
-    "spo2_pct": 97.0,
+    "overnight_spo2_avg_pct": 93.8,
+    "overnight_spo2_nadir_pct": 86.0,
+    "body_temperature_deviation_c": 0.3,
+    "recovery_score": 58.0,
+    "spo2_pct": 94.5,
     # Brain Health
-    "sleep_efficiency_pct": 92.0,
-    "sleep_consistency_pct": 86.0,
-    "total_slow_wave_sleep_time_min": 85.0,
-    "total_rem_sleep_time_min": 105.0,
-    "sleep_debt_hours": 0.7,
-    "sleep_disturbance_count": 3.0,
-    "total_awake_time_min": 25.0,
-    "sleep_latency_min": 14.0,
-    "sleep_cycle_count": 5.0,
-    "sleep_performance_pct": 89.0,
+    "sleep_efficiency_pct": 81.0,
+    "sleep_consistency_pct": 69.0,
+    "total_slow_wave_sleep_time_min": 62.0,
+    "total_rem_sleep_time_min": 74.0,
+    "sleep_debt_hours": 2.6,
+    "sleep_disturbance_count": 9.0,
+    "total_awake_time_min": 61.0,
+    "sleep_latency_min": 28.0,
+    "sleep_cycle_count": 4.0,
+    "sleep_performance_pct": 72.0,
 }
+MARIA_DIAGNOSES = [
+    {
+        "diagnosis_name": "Hypertension (Essential)",
+        "status": "active",
+        "confirmed_date": "2025-02-01",
+        "confirming_clinician": "Dr. Yasmin Rahman",
+        "source": "Primary care evaluation",
+        "notes": "Persistent stage-1 to stage-2 range blood pressure; treated with ARB.",
+    },
+    {
+        "diagnosis_name": "Prediabetes",
+        "status": "active",
+        "confirmed_date": "2025-02-01",
+        "confirming_clinician": "Dr. Yasmin Rahman",
+        "source": "ADA criteria (HbA1c + fasting glucose)",
+        "notes": "Persistent dysglycemia despite lifestyle changes; managed with metformin XR.",
+    },
+    {
+        "diagnosis_name": "Hypercholesterolemia",
+        "status": "active",
+        "confirmed_date": "2025-02-01",
+        "confirming_clinician": "Dr. Yasmin Rahman",
+        "source": "Fasting lipid profile + ApoB",
+        "notes": "LDL-C and ApoB remain above target; statin therapy started.",
+    },
+    {
+        "diagnosis_name": "Obstructive Sleep Apnea (moderate)",
+        "status": "active",
+        "confirmed_date": "2025-05-20",
+        "confirming_clinician": "Dr. Thomas Klein",
+        "source": "Home sleep apnea test (HSAT)",
+        "notes": "Moderate OSA with nocturnal desaturation; nightly CPAP prescribed.",
+    },
+]
+MARIA_INTERVENTIONS = [
+    {
+        "intervention_type": "medication",
+        "name": "Losartan",
+        "dose": "50 mg",
+        "schedule": "Nightly",
+        "start_date": "2025-02-03",
+        "end_date": None,
+        "status": "active",
+        "prescriber": "Dr. Yasmin Rahman",
+        "notes": "For hypertension control.",
+    },
+    {
+        "intervention_type": "medication",
+        "name": "Rosuvastatin",
+        "dose": "10 mg",
+        "schedule": "Nightly",
+        "start_date": "2025-02-10",
+        "end_date": None,
+        "status": "active",
+        "prescriber": "Dr. Yasmin Rahman",
+        "notes": "For LDL-C/ApoB lowering.",
+    },
+    {
+        "intervention_type": "medication",
+        "name": "Metformin XR",
+        "dose": "500 mg",
+        "schedule": "Twice daily with meals",
+        "start_date": "2025-03-01",
+        "end_date": None,
+        "status": "active",
+        "prescriber": "Dr. Yasmin Rahman",
+        "notes": "For prediabetes and insulin resistance.",
+    },
+    {
+        "intervention_type": "other",
+        "name": "CPAP therapy",
+        "dose": "Auto-CPAP 6-12 cm H2O",
+        "schedule": "Nightly during sleep",
+        "start_date": "2025-05-25",
+        "end_date": None,
+        "status": "active",
+        "prescriber": "Dr. Thomas Klein",
+        "notes": "For moderate obstructive sleep apnea.",
+    },
+    {
+        "intervention_type": "supplement",
+        "name": "Vitamin D3 (cholecalciferol)",
+        "dose": "4000 IU",
+        "schedule": "Daily with a meal",
+        "start_date": "2025-02-05",
+        "end_date": None,
+        "status": "active",
+        "prescriber": "Dr. Yasmin Rahman",
+        "notes": "Started for prior 25-OH vitamin D deficiency.",
+    },
+]
+MARIA_TEST_RESULTS = [
+    {
+        "test_type": "Home Sleep Apnea Test",
+        "test_date": "2025-05-20",
+        "status": "confirmed",
+        "summary": "Moderate obstructive sleep apnea with recurrent oxygen desaturation.",
+        "key_metrics": {"ahi_events_per_hour": 18.4, "spo2_nadir_pct": 84, "odi_events_per_hour": 16.2},
+        "source_ref": "Sleep lab report",
+        "risk_flag": "high",
+    },
+    {
+        "test_type": "24h Ambulatory Blood Pressure Monitoring",
+        "test_date": "2025-02-08",
+        "status": "confirmed",
+        "summary": "Elevated daytime blood pressure with reduced nocturnal dipping.",
+        "key_metrics": {"daytime_avg_bp_mmhg": "138/86", "night_avg_bp_mmhg": "130/80", "nocturnal_dip_pct": 5.8},
+        "source_ref": "Cardiology outpatient ABPM",
+        "risk_flag": "moderate",
+    },
+    {
+        "test_type": "Carotid Ultrasound",
+        "test_date": "2025-09-12",
+        "status": "confirmed",
+        "summary": "Mild bilateral carotid plaque, no hemodynamically significant stenosis.",
+        "key_metrics": {"max_ica_stenosis_pct": 25, "mean_imt_mm": 0.86},
+        "source_ref": "Vascular imaging",
+        "risk_flag": "moderate",
+    },
+    {
+        "test_type": "CPET",
+        "test_date": "2026-01-20",
+        "status": "confirmed",
+        "summary": "Reduced cardiorespiratory fitness with early anaerobic threshold.",
+        "key_metrics": {"vo2_peak_ml_kg_min": 24.1, "ve_vco2_slope": 33.4, "anaerobic_threshold_ml_kg_min": 14.7},
+        "source_ref": "Exercise physiology lab",
+        "risk_flag": "moderate",
+    },
+    {
+        "test_type": "CGM 14-day profile",
+        "test_date": "2026-01-26",
+        "status": "confirmed",
+        "summary": "Prediabetes pattern with elevated mean glucose and reduced time-in-range.",
+        "key_metrics": {"mean_glucose_mgdl": 112, "time_in_range_pct": 78, "gmi_pct": 5.9},
+        "source_ref": "Freestyle Libre 14-day AGP",
+        "risk_flag": "moderate",
+    },
+]
 MARIA_BACKFILL_LAB_DATE = "2026-02-01"
 MARIA_BACKFILL_LAB_NAME = "Quest Diagnostics"
 
@@ -160,6 +300,107 @@ def _seed_maria_clinical_profile(user_id: int):
     save_profile(user_id, dict(MARIA_CLINICAL_PROFILE))
 
 
+def _seed_maria_clinical_registry(conn, user_id: int, force_replace: bool = False) -> dict:
+    """Seed clinician-facing diagnoses, interventions, and tests for Maria."""
+    inserted_diagnoses = 0
+    inserted_interventions = 0
+    inserted_tests = 0
+
+    for diag in MARIA_DIAGNOSES:
+        before = conn.execute(
+            "SELECT id FROM clinical_diagnoses WHERE user_id = ? AND diagnosis_name = ?",
+            (user_id, diag["diagnosis_name"]),
+        ).fetchone()
+        conn.execute(
+            """INSERT INTO clinical_diagnoses
+               (user_id, diagnosis_name, status, confirmed_date, confirming_clinician, source, notes, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(user_id, diagnosis_name) DO UPDATE SET
+                 status = excluded.status,
+                 confirmed_date = excluded.confirmed_date,
+                 confirming_clinician = excluded.confirming_clinician,
+                 source = excluded.source,
+                 notes = excluded.notes,
+                 updated_at = datetime('now')""",
+            (
+                user_id,
+                diag["diagnosis_name"],
+                diag["status"],
+                diag["confirmed_date"],
+                diag["confirming_clinician"],
+                diag["source"],
+                diag["notes"],
+            ),
+        )
+        if before is None:
+            inserted_diagnoses += 1
+
+    if force_replace:
+        conn.execute("DELETE FROM clinical_interventions WHERE user_id = ?", (user_id,))
+        conn.execute("DELETE FROM clinical_test_results WHERE user_id = ?", (user_id,))
+
+    for iv in MARIA_INTERVENTIONS:
+        exists = conn.execute(
+            """SELECT 1 FROM clinical_interventions
+               WHERE user_id = ? AND intervention_type = ? AND name = ? AND COALESCE(start_date, '') = COALESCE(?, '')
+               LIMIT 1""",
+            (user_id, iv["intervention_type"], iv["name"], iv.get("start_date")),
+        ).fetchone()
+        if exists and not force_replace:
+            continue
+        conn.execute(
+            """INSERT INTO clinical_interventions
+               (user_id, intervention_type, name, dose, schedule, start_date, end_date,
+                status, prescriber, notes, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                user_id,
+                iv["intervention_type"],
+                iv["name"],
+                iv["dose"],
+                iv["schedule"],
+                iv["start_date"],
+                iv["end_date"],
+                iv["status"],
+                iv["prescriber"],
+                iv["notes"],
+            ),
+        )
+        inserted_interventions += 1
+
+    for test in MARIA_TEST_RESULTS:
+        exists = conn.execute(
+            """SELECT 1 FROM clinical_test_results
+               WHERE user_id = ? AND test_type = ? AND COALESCE(test_date, '') = COALESCE(?, '') AND status = ?
+               LIMIT 1""",
+            (user_id, test["test_type"], test.get("test_date"), test.get("status", "confirmed")),
+        ).fetchone()
+        if exists and not force_replace:
+            continue
+        conn.execute(
+            """INSERT INTO clinical_test_results
+               (user_id, test_type, test_date, status, summary, key_metrics_json, source_ref, risk_flag, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (
+                user_id,
+                test["test_type"],
+                test.get("test_date"),
+                test.get("status", "confirmed"),
+                test.get("summary"),
+                json.dumps(test.get("key_metrics", {})),
+                test.get("source_ref"),
+                test.get("risk_flag", "unknown"),
+            ),
+        )
+        inserted_tests += 1
+
+    return {
+        "inserted_diagnoses": inserted_diagnoses,
+        "inserted_interventions": inserted_interventions,
+        "inserted_tests": inserted_tests,
+    }
+
+
 def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
     """Backfill Maria's clinical profile + core labs for organ score computation.
 
@@ -179,8 +420,10 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
     save_profile(user_id, merged_profile)
 
     inserted_biomarkers = 0
+    updated_biomarkers = 0
     inserted_body_metrics = 0
     inserted_wearable_measurements = 0
+    registry_summary = {"inserted_diagnoses": 0, "inserted_interventions": 0, "inserted_tests": 0}
     missing_definitions = []
     conn = get_connection()
     try:
@@ -188,31 +431,49 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
             row["code"]: row["id"]
             for row in conn.execute("SELECT id, code FROM biomarker_definitions").fetchall()
         }
-        existing_codes = {
-            row["code"]
-            for row in conn.execute(
-                """SELECT DISTINCT bd.code
-                   FROM biomarker_results br
-                   JOIN biomarker_definitions bd ON bd.id = br.biomarker_id
-                   WHERE br.user_id = ?""",
-                (user_id,),
-            ).fetchall()
-        }
-
         for code, value in MARIA_ORGAN_SCORE_BIOMARKERS.items():
             biomarker_id = biomarker_ids.get(code)
             if biomarker_id is None:
                 missing_definitions.append(code)
                 continue
-            if code in existing_codes:
-                continue
-            conn.execute(
-                """INSERT OR IGNORE INTO biomarker_results
-                   (user_id, biomarker_id, value, lab_date, lab_name)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (user_id, biomarker_id, float(value), MARIA_BACKFILL_LAB_DATE, MARIA_BACKFILL_LAB_NAME),
-            )
-            inserted_biomarkers += 1
+            existing_row = conn.execute(
+                """SELECT id FROM biomarker_results
+                   WHERE user_id = ? AND biomarker_id = ? AND lab_date = ?
+                   ORDER BY id DESC LIMIT 1""",
+                (user_id, biomarker_id, MARIA_BACKFILL_LAB_DATE),
+            ).fetchone()
+            if existing_row:
+                conn.execute(
+                    """UPDATE biomarker_results
+                       SET value = ?, lab_name = ?
+                       WHERE id = ?""",
+                    (float(value), MARIA_BACKFILL_LAB_NAME, existing_row["id"]),
+                )
+                updated_biomarkers += 1
+            else:
+                any_row = conn.execute(
+                    """SELECT id FROM biomarker_results
+                       WHERE user_id = ? AND biomarker_id = ?
+                       ORDER BY COALESCE(lab_date, ''), id DESC
+                       LIMIT 1""",
+                    (user_id, biomarker_id),
+                ).fetchone()
+                if any_row:
+                    conn.execute(
+                        """UPDATE biomarker_results
+                           SET value = ?, lab_date = ?, lab_name = ?
+                           WHERE id = ?""",
+                        (float(value), MARIA_BACKFILL_LAB_DATE, MARIA_BACKFILL_LAB_NAME, any_row["id"]),
+                    )
+                    updated_biomarkers += 1
+                else:
+                    conn.execute(
+                        """INSERT OR IGNORE INTO biomarker_results
+                           (user_id, biomarker_id, value, lab_date, lab_name)
+                           VALUES (?, ?, ?, ?, ?)""",
+                        (user_id, biomarker_id, float(value), MARIA_BACKFILL_LAB_DATE, MARIA_BACKFILL_LAB_NAME),
+                    )
+                    inserted_biomarkers += 1
 
         existing_metrics = conn.execute(
             "SELECT 1 FROM body_metrics WHERE user_id = ? LIMIT 1",
@@ -249,35 +510,37 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
         if not has_recent_wearable:
             # Seed 30 days of wearable data with realistic variance
             _wb = {
-                "resting_heart_rate_bpm": (58, 5, "Whoop Band"),
-                "heart_rate_variability_ms": (52, 12, "Whoop Band"),
-                "average_heart_rate_bpm": (68, 6, "Whoop Band"),
-                "respiratory_rate_bpm": (14.5, 1.5, "Oura Ring"),
-                "steps_count": (9500, 2500, "Whoop Band"),
-                "kilojoule_expended": (2200, 400, "Whoop Band"),
+                "resting_heart_rate_bpm": (67, 6, "Whoop Band"),
+                "heart_rate_variability_ms": (31, 9, "Whoop Band"),
+                "average_heart_rate_bpm": (76, 7, "Whoop Band"),
+                "respiratory_rate_bpm": (17.1, 1.2, "Oura Ring"),
+                "steps_count": (6400, 2100, "Whoop Band"),
+                "kilojoule_expended": (1850, 320, "Whoop Band"),
                 "arrhythmia_alert_afib": (0, 0, "Whoop Band"),
-                "recovery_score": (72, 15, "Whoop Band"),
-                "spo2_pct": (97.5, 1.0, "Oura Ring"),
-                "overnight_spo2_avg_pct": (96.5, 1.0, "Oura Ring"),
-                "skin_temperature_c": (33.2, 0.6, "Oura Ring"),
-                "body_temperature_deviation_c": (0.15, 0.15, "Oura Ring"),
-                "sleep_efficiency_pct": (89, 5, "Oura Ring"),
-                "sleep_consistency_pct": (82, 8, "Oura Ring"),
-                "sleep_performance_pct": (85, 7, "Whoop Band"),
-                "sleep_debt_hours": (1.2, 0.8, "Whoop Band"),
-                "total_rem_sleep_time_min": (95, 20, "Oura Ring"),
-                "total_slow_wave_sleep_time_min": (85, 18, "Oura Ring"),
-                "total_light_sleep_time_min": (210, 30, "Oura Ring"),
-                "total_time_spent_in_bed_min": (465, 25, "Oura Ring"),
-                "sleep_latency_min": (14, 6, "Oura Ring"),
-                "sleep_disturbance_count": (3, 2, "Oura Ring"),
-                "total_awake_time_min": (25, 12, "Oura Ring"),
-                "sleep_cycle_count": (5, 1, "Oura Ring"),
+                "recovery_score": (58, 12, "Whoop Band"),
+                "spo2_pct": (94.5, 1.2, "Oura Ring"),
+                "overnight_spo2_avg_pct": (93.8, 1.4, "Oura Ring"),
+                "skin_temperature_c": (33.0, 0.5, "Oura Ring"),
+                "body_temperature_deviation_c": (0.30, 0.14, "Oura Ring"),
+                "sleep_efficiency_pct": (81, 6, "Oura Ring"),
+                "sleep_consistency_pct": (69, 9, "Oura Ring"),
+                "sleep_performance_pct": (72, 8, "Whoop Band"),
+                "sleep_debt_hours": (2.6, 0.9, "Whoop Band"),
+                "total_rem_sleep_time_min": (74, 16, "Oura Ring"),
+                "total_slow_wave_sleep_time_min": (62, 14, "Oura Ring"),
+                "total_light_sleep_time_min": (248, 36, "Oura Ring"),
+                "total_time_spent_in_bed_min": (488, 24, "Oura Ring"),
+                "sleep_latency_min": (28, 8, "Oura Ring"),
+                "sleep_disturbance_count": (9, 3, "Oura Ring"),
+                "total_awake_time_min": (61, 18, "Oura Ring"),
+                "sleep_cycle_count": (4, 1, "Oura Ring"),
             }
             _wo = {
-                "systolic_bp_mmhg": (118, 6, "Withings BPM Connect Pro"),
-                "diastolic_bp_mmhg": (74, 5, "Withings BPM Connect Pro"),
-                "body_weight_kg": (65.5, 0.5, "InBody H40 Home Scale"),
+                "systolic_bp_mmhg": (136, 8, "Withings BPM Connect Pro"),
+                "diastolic_bp_mmhg": (86, 6, "Withings BPM Connect Pro"),
+                "body_weight_kg": (78.0, 0.7, "InBody H40 Home Scale"),
+                "cgm_avg_glucose_mgdl": (112, 8, "CGM FreeStyle Libre"),
+                "cgm_time_in_range_pct": (78, 8, "CGM FreeStyle Libre"),
             }
             for _doff in range(30):
                 _md = (date.today() - timedelta(days=29 - _doff))
@@ -324,6 +587,7 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
                         except Exception:
                             pass
 
+        registry_summary = _seed_maria_clinical_registry(conn, user_id, force_replace=False)
         conn.commit()
     finally:
         conn.close()
@@ -331,8 +595,12 @@ def ensure_demo_organ_score_prereqs(user_id: int) -> dict:
     return {
         "profile_backfilled": profile_backfilled,
         "inserted_biomarkers": inserted_biomarkers,
+        "updated_biomarkers": updated_biomarkers,
         "inserted_body_metrics": inserted_body_metrics,
         "inserted_wearable_measurements": inserted_wearable_measurements,
+        "inserted_diagnoses": registry_summary["inserted_diagnoses"],
+        "inserted_interventions": registry_summary["inserted_interventions"],
+        "inserted_tests": registry_summary["inserted_tests"],
         "missing_definitions": missing_definitions,
     }
 
@@ -368,6 +636,7 @@ def main():
                        "workout_sets",
                        "cycling_plan", "cycling_profile", "cycling_ride_logs",
                        "dexa_scans", "organ_score_results",
+                       "clinical_diagnoses", "clinical_interventions", "clinical_test_results",
                        "sibo_fodmap_phase", "sibo_food_logs",
                        "sibo_reintro_challenges", "sibo_symptom_logs", "sibo_user_state",
                        "garmin_connections", "strava_connections",
@@ -393,6 +662,14 @@ def main():
     _seed_maria_clinical_profile(user_id)
 
     conn = get_connection()
+    registry_seeded = _seed_maria_clinical_registry(conn, user_id, force_replace=True)
+    print(
+        "Seeding Maria's clinical registry..."
+        f" diagnoses={registry_seeded['inserted_diagnoses']},"
+        f" interventions={registry_seeded['inserted_interventions']},"
+        f" tests={registry_seeded['inserted_tests']}"
+    )
+    conn.commit()
 
     # ════════════════════════════════════════════════════════════════════════
     # MARIA'S STORY — The Journey Arc
@@ -1042,19 +1319,19 @@ def main():
         t = week / 52.0
         # Sigmoid weight loss curve
         s = 1 / (1 + math.exp(-10 * (t - 0.4)))
-        weight = 105 - (40 * s) + random.gauss(0, 0.5)
-        weight = round(max(64, min(106, weight)), 1)
+        weight = 105 - (27 * s) + random.gauss(0, 0.5)
+        weight = round(max(76, min(106, weight)), 1)
         # Waist: 110cm → 72cm
-        waist = round(110 - (38 * s) + random.gauss(0, 0.5), 1)
-        waist = max(70, min(112, waist))
+        waist = round(110 - (18 * s) + random.gauss(0, 0.5), 1)
+        waist = max(90, min(112, waist))
         # Hip: 120cm → 95cm
-        hip = round(120 - (25 * s) + random.gauss(0, 0.5), 1)
-        hip = max(93, min(122, hip))
+        hip = round(120 - (17 * s) + random.gauss(0, 0.5), 1)
+        hip = max(101, min(122, hip))
         # Body fat: 42% → 22%
-        bf = round(42 - (20 * s) + random.gauss(0, 0.3), 1)
-        bf = max(20, min(43, bf))
+        bf = round(42 - (11 * s) + random.gauss(0, 0.3), 1)
+        bf = max(30, min(43, bf))
         # Height constant
-        height = 165.0
+        height = 167.0
 
         note = ""
         if week == 0:
@@ -1062,11 +1339,11 @@ def main():
         elif week == 8:
             note = "First 5kg lost! Clothes are looser."
         elif week == 20:
-            note = "20kg down. Had to buy new running clothes."
+            note = "15kg down. Had to buy new running clothes."
         elif week == 36:
-            note = "30kg lost. Blood work completely normal."
+            note = "22kg down. Blood pressure and lipids still need active treatment."
         elif week == 52:
-            note = "40kg lost. Half-marathon body. I am a runner."
+            note = "27kg lost. Running capacity improved; maintaining meds and CPAP."
 
         conn.execute(
             """INSERT OR IGNORE INTO body_metrics
@@ -1338,36 +1615,39 @@ def main():
     # Maria's biomarker story: pre-diabetic baseline → optimal at 12 months
     # (biomarker_code, month0, month4, month8, month12)
     _biomarker_panels = [
-        ("hba1c", 6.1, 5.6, 5.2, 4.9),
-        ("fasting_glucose", 108, 95, 84, 79),
-        ("fasting_insulin", 18.5, 12.0, 7.2, 4.8),
-        ("hs_crp", 4.2, 2.8, 1.1, 0.4),
-        ("ldl_cholesterol", 158, 132, 105, 88),
-        ("hdl_cholesterol", 38, 45, 55, 68),
-        ("triglycerides", 210, 165, 110, 72),
-        ("total_cholesterol", 248, 218, 192, 172),
-        ("lpa", 24, 22, 20, 19),
-        ("vitamin_d", 18, 28, 42, 52),
-        ("tsh", 3.2, 2.8, 2.1, 1.8),
-        ("free_t4", 0.95, 1.05, 1.12, 1.18),
-        ("free_t3", 2.6, 2.9, 3.2, 3.4),
-        ("alt", 42, 32, 22, 18),
-        ("ast", 38, 30, 23, 19),
-        ("albumin", 4.0, 4.2, 4.4, 4.5),
-        ("total_bilirubin", 0.5, 0.6, 0.7, 0.8),
-        ("platelets", 260, 255, 250, 245),
-        ("creatinine", 0.95, 0.88, 0.82, 0.78),
-        ("uacr", 55, 35, 18, 9),
-        ("hemoglobin", 12.8, 13.2, 14.0, 14.5),
-        ("wbc", 8.7, 7.4, 6.6, 5.9),
-        ("neutrophils_abs", 5.5, 4.6, 3.8, 3.2),
-        ("lymphocytes_abs", 1.5, 1.8, 2.0, 2.2),
-        ("mcv", 90.0, 91.0, 92.0, 92.0),
-        ("rdw", 14.8, 14.0, 13.3, 12.8),
-        ("ferritin", 32, 45, 62, 75),
-        ("iron", 55, 70, 85, 98),
-        ("tibc", 410, 385, 355, 330),
-        ("transferrin_sat", 13, 18, 24, 30),
+        ("hba1c", 6.3, 6.1, 6.0, 5.9),
+        ("fasting_glucose", 124, 118, 112, 108),
+        ("fasting_insulin", 24.0, 19.0, 15.0, 13.2),
+        ("hs_crp", 5.8, 4.1, 3.1, 2.4),
+        ("ldl_cholesterol", 186, 172, 161, 154),
+        ("hdl_cholesterol", 35, 39, 42, 45),
+        ("triglycerides", 298, 245, 208, 186),
+        ("apob", 165, 152, 141, 132),
+        ("ggt", 72, 58, 48, 42),
+        ("total_cholesterol", 284, 270, 258, 248),
+        ("lpa", 46, 44, 43, 42),
+        ("homocysteine", 14.2, 13.1, 12.4, 11.8),
+        ("vitamin_d", 12, 16, 20, 24),
+        ("tsh", 3.4, 3.1, 2.8, 2.6),
+        ("free_t4", 0.92, 0.96, 0.99, 1.02),
+        ("free_t3", 2.5, 2.7, 2.9, 3.0),
+        ("alt", 58, 49, 41, 36),
+        ("ast", 46, 40, 35, 31),
+        ("albumin", 3.9, 4.0, 4.1, 4.2),
+        ("total_bilirubin", 0.5, 0.6, 0.6, 0.7),
+        ("platelets", 272, 268, 262, 258),
+        ("creatinine", 0.96, 0.92, 0.88, 0.84),
+        ("uacr", 48, 35, 27, 22),
+        ("hemoglobin", 12.6, 12.9, 13.2, 13.6),
+        ("wbc", 8.9, 7.8, 7.1, 6.8),
+        ("neutrophils_abs", 5.8, 4.9, 4.4, 4.0),
+        ("lymphocytes_abs", 1.4, 1.6, 1.8, 2.0),
+        ("mcv", 89.0, 89.5, 89.8, 90.0),
+        ("rdw", 15.2, 14.6, 14.1, 13.9),
+        ("ferritin", 22, 28, 37, 48),
+        ("iron", 48, 56, 65, 74),
+        ("tibc", 420, 402, 384, 366),
+        ("transferrin_sat", 11, 14, 17, 20),
     ]
 
     _panel_dates = [
@@ -1383,8 +1663,11 @@ def main():
             continue
         _bm_id = _bm_defs[_code]
         for (_pdate, _idx), _lab in zip(_panel_dates, _lab_names):
-            _val = _values[_idx] + random.gauss(0, 0.2)
-            _val = round(_val, 1)
+            if _idx == 3:
+                # Keep latest panel deterministic so demo diagnoses stay aligned.
+                _val = round(_values[_idx], 1)
+            else:
+                _val = round(_values[_idx] + random.gauss(0, 0.2), 1)
             conn.execute(
                 """INSERT OR IGNORE INTO biomarker_results
                    (user_id, biomarker_id, value, lab_date, lab_name)
@@ -2065,39 +2348,41 @@ def main():
     from config.wearable_wheel_data import WEARABLE_METRIC_SPECS
     _wearable_count = 0
 
-    # Maria's wearable data: Whoop Band + Oura Ring + manual BP/weight
-    # 30 days of daily metrics showing healthy ranges (she's in month 11-12)
+    # Maria's wearable data: Whoop Band + Oura Ring + manual BP/weight/CGM
+    # 30 days with cardiometabolic + sleep risk patterns
     _wearable_base = {
         # Heart & Metabolism
-        "resting_heart_rate_bpm": (58, 5, "Whoop Band"),
-        "heart_rate_variability_ms": (52, 12, "Whoop Band"),
-        "steps_count": (9500, 2500, "Whoop Band"),
-        "respiratory_rate_bpm": (14.5, 1.5, "Oura Ring"),
+        "resting_heart_rate_bpm": (67, 6, "Whoop Band"),
+        "heart_rate_variability_ms": (31, 9, "Whoop Band"),
+        "steps_count": (6400, 2100, "Whoop Band"),
+        "respiratory_rate_bpm": (17.1, 1.2, "Oura Ring"),
         "arrhythmia_alert_afib": (0, 0, "Whoop Band"),
-        "kilojoule_expended": (2200, 400, "Whoop Band"),
+        "kilojoule_expended": (1850, 320, "Whoop Band"),
         # System Wide
-        "overnight_spo2_avg_pct": (96.5, 1.0, "Oura Ring"),
-        "overnight_spo2_nadir_pct": (93.0, 1.5, "Oura Ring"),
-        "body_temperature_deviation_c": (0.15, 0.15, "Oura Ring"),
-        "recovery_score": (72, 15, "Whoop Band"),
-        "spo2_pct": (97.5, 1.0, "Oura Ring"),
+        "overnight_spo2_avg_pct": (93.8, 1.4, "Oura Ring"),
+        "overnight_spo2_nadir_pct": (86.0, 2.0, "Oura Ring"),
+        "body_temperature_deviation_c": (0.30, 0.14, "Oura Ring"),
+        "recovery_score": (58, 12, "Whoop Band"),
+        "spo2_pct": (94.5, 1.2, "Oura Ring"),
         # Brain Health
-        "sleep_efficiency_pct": (89, 5, "Oura Ring"),
-        "sleep_consistency_pct": (82, 8, "Oura Ring"),
-        "total_slow_wave_sleep_time_min": (85, 18, "Oura Ring"),
-        "total_rem_sleep_time_min": (95, 20, "Oura Ring"),
-        "sleep_debt_hours": (1.2, 0.8, "Whoop Band"),
-        "sleep_disturbance_count": (3, 2, "Oura Ring"),
-        "total_awake_time_min": (25, 12, "Oura Ring"),
-        "sleep_latency_min": (14, 6, "Oura Ring"),
-        "sleep_cycle_count": (5, 1, "Oura Ring"),
-        "sleep_performance_pct": (85, 7, "Whoop Band"),
+        "sleep_efficiency_pct": (81, 6, "Oura Ring"),
+        "sleep_consistency_pct": (69, 9, "Oura Ring"),
+        "total_slow_wave_sleep_time_min": (62, 14, "Oura Ring"),
+        "total_rem_sleep_time_min": (74, 16, "Oura Ring"),
+        "sleep_debt_hours": (2.6, 0.9, "Whoop Band"),
+        "sleep_disturbance_count": (9, 3, "Oura Ring"),
+        "total_awake_time_min": (61, 18, "Oura Ring"),
+        "sleep_latency_min": (28, 8, "Oura Ring"),
+        "sleep_cycle_count": (4, 1, "Oura Ring"),
+        "sleep_performance_pct": (72, 8, "Whoop Band"),
     }
     # Optional metrics (every few days)
     _wearable_optional = {
-        "systolic_bp_mmhg": (118, 6, "Withings BPM Connect Pro"),
-        "diastolic_bp_mmhg": (74, 5, "Withings BPM Connect Pro"),
-        "body_weight_kg": (65.5, 0.5, "InBody H40 Home Scale"),
+        "systolic_bp_mmhg": (136, 8, "Withings BPM Connect Pro"),
+        "diastolic_bp_mmhg": (86, 6, "Withings BPM Connect Pro"),
+        "body_weight_kg": (78.0, 0.7, "InBody H40 Home Scale"),
+        "cgm_avg_glucose_mgdl": (112, 8, "CGM FreeStyle Libre"),
+        "cgm_time_in_range_pct": (78, 8, "CGM FreeStyle Libre"),
     }
 
     for _day_off in range(30):
@@ -2165,7 +2450,7 @@ def main():
     print("  Password: demo123456")
     print("")
     print("  Journey: Feb 2025 - Feb 2026 (12 months)")
-    print("  Weight: 105 kg - 65 kg (-40 kg)")
+    print("  Weight: 105 kg - 78 kg (-27 kg)")
     print("  Milestone: 21K Half-Marathon completed!")
     print("")
     print("  Data created:")
@@ -2185,7 +2470,8 @@ def main():
     print("  - 5 adopted protocols with completion logs")
     print(f"  - ~{_exercise_count} exercise logs (running, walking, strength, yoga)")
     print("  - Weekly exercise summaries with scores")
-    print("  - ~120 biomarker results (30 markers x 4 panels, organ-score ready)")
+    print("  - ~130 biomarker results (33 markers x 4 panels, organ-score ready)")
+    print("  - Clinical registry: 4 active diagnoses, 5 active interventions, 5 confirmed tests")
     print("  - ~250 sleep logs with scores")
     print("  - 1 chronotype assessment (Bear)")
     print("  - ~80 fasting sessions (12:12 -> 16:8)")
@@ -2209,7 +2495,7 @@ def main():
     print("  - SIBO user state (low_fodmap diet, reintroduction phase)")
     print("")
     print("  ALL PHASES:")
-    print("  - Biomarker Dashboard (40 markers, standard+optimal ranges)")
+    print("  - Biomarker Dashboard (40 markers, reference + critical threshold classification)")
     print("  - Sleep Tracker (PSQI scoring, chronotype quiz)")
     print("  - Fasting Tracker (metabolic zones, timer)")
     print("  - Nutrition Logger (plant score, Noom-style colors)")
