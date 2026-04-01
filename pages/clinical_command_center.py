@@ -15,18 +15,76 @@ import streamlit as st
 
 from components.custom_theme import render_hero_banner, render_section_header
 from services.clinical_command_service import build_clinical_snapshot
-from services.ai_cds_service import (
-    build_precision_plan,
-    build_precision_plan_markdown,
-    build_ai_cds_rollout_plan,
-    build_lifestyle_intervention_support,
-    get_ai_cds_use_cases,
-    get_github_lifestyle_patterns,
-    get_institution_emr_benchmarks,
-    get_lifestyle_evidence_base,
-    get_precision_plan_goals,
-    get_precision_plan_templates,
-)
+try:
+    from services.ai_cds_service import (
+        build_precision_plan,
+        build_precision_plan_markdown,
+        build_ai_cds_rollout_plan,
+        build_lifestyle_intervention_support,
+        get_ai_cds_use_cases,
+        get_github_lifestyle_patterns,
+        get_institution_emr_benchmarks,
+        get_lifestyle_evidence_base,
+        get_precision_plan_goals,
+        get_precision_plan_templates,
+    )
+except Exception:
+    # Backward-compatible safety fallback so the Clinical Summary page never hard-crashes
+    # if a deployment is temporarily out of sync with ai_cds_service exports.
+    def build_precision_plan(_snapshot, goal_code="healthy_longevity", template_code="balanced"):
+        return {
+            "goal_code": goal_code,
+            "goal_label": "Healthy Longevity",
+            "template_code": template_code,
+            "template_label": "Balanced (all pillars)",
+            "horizon_weeks": 8,
+            "priority_domains": [],
+            "tracks": [],
+            "checkpoints": [],
+            "retest_windows": [],
+            "evidence_topics": [],
+            "disclaimer": "AI lifestyle plan module temporarily unavailable in this deployment.",
+        }
+
+    def build_precision_plan_markdown(plan, _evidence_by_topic):
+        return (
+            "# Precision Plan\n\n"
+            f"- Goal: {plan.get('goal_label', 'Healthy Longevity')}\n"
+            f"- Template: {plan.get('template_label', 'Balanced')}\n\n"
+            "Module is temporarily unavailable in this deployment."
+        )
+
+    def build_ai_cds_rollout_plan(_snapshot):
+        return {
+            "readiness_score_100": 0,
+            "readiness_label": "Unavailable",
+            "modules": [],
+            "phases": [],
+            "governance_rules": [
+                "AI CDS module temporarily unavailable in this deployment. Retry after sync.",
+            ],
+        }
+
+    def build_lifestyle_intervention_support(_snapshot):
+        return []
+
+    def get_ai_cds_use_cases():
+        return []
+
+    def get_github_lifestyle_patterns():
+        return []
+
+    def get_institution_emr_benchmarks():
+        return []
+
+    def get_lifestyle_evidence_base():
+        return []
+
+    def get_precision_plan_goals():
+        return [{"code": "healthy_longevity", "label": "Healthy Longevity"}]
+
+    def get_precision_plan_templates():
+        return [{"code": "balanced", "label": "Balanced (all pillars)"}]
 from models.clinical_registry import (
     delete_record,
     save_diagnosis,
