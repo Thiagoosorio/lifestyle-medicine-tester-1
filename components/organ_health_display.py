@@ -19,6 +19,41 @@ TIER_BADGES = {
 }
 
 
+def _first_sentence(text: str, max_len: int = 210) -> str:
+    """Return a compact first sentence for inline card explanations."""
+    cleaned = " ".join((text or "").strip().split())
+    if not cleaned:
+        return ""
+    for sep in (". ", "; ", " — ", " - "):
+        if sep in cleaned:
+            cleaned = cleaned.split(sep, 1)[0]
+            break
+    if len(cleaned) > max_len:
+        cleaned = cleaned[: max_len - 1].rstrip() + "…"
+    return cleaned
+
+
+def _scientific_explanation(score_def: dict) -> str:
+    """Build a short scientific explanation shown on every score card."""
+    description = _first_sentence(score_def.get("description", ""))
+    citation_pmid = str(score_def.get("citation_pmid") or "").strip()
+    tier = str(score_def.get("tier") or "validated").lower()
+
+    if not description:
+        score_name = score_def.get("name", "This score")
+        description = f"{score_name} combines clinical inputs into a risk estimate."
+
+    if citation_pmid:
+        if tier == "validated":
+            evidence = f"Validated in peer-reviewed studies (PMID: {citation_pmid})."
+        else:
+            evidence = f"Evidence is emerging and should be interpreted directionally (PMID: {citation_pmid})."
+    else:
+        evidence = "Evidence citation not linked in this card."
+
+    return f"{description}. {evidence}"
+
+
 def render_organ_score_card(score_result: dict, score_def: dict):
     """Render a single organ health score card."""
     tier = score_def.get("tier", "validated")
@@ -59,6 +94,7 @@ def render_organ_score_card(score_result: dict, score_def: dict):
                 f'{label}</div>',
                 unsafe_allow_html=True,
             )
+            st.caption(f"Scientific explanation: {_scientific_explanation(score_def)}")
 
         _render_severity_bar(severity)
 
@@ -129,6 +165,7 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
             '<div style="color:#AEAEB2;font-size:1.5em;text-align:center;padding:8px 0;">\u2014</div>',
             unsafe_allow_html=True,
         )
+        st.caption(f"Scientific explanation: {_scientific_explanation(score_def)}")
 
         missing_items = []
         if missing_biomarkers:
