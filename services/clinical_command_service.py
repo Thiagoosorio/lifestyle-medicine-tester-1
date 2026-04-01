@@ -35,6 +35,7 @@ from services.exercise_prescription_service import get_saved_program
 from services.cycling_service import get_cycling_profile, get_active_plan
 from services.body_metrics_service import get_latest_dexa, get_latest_metrics
 from services.organ_score_service import get_latest_computed_scores
+from services.critical_lab_policy_service import build_critical_communication_plan
 
 try:
     from services.organ_score_service import compute_overall_organ_score
@@ -551,6 +552,8 @@ def get_labs_requiring_attention(user_id: int) -> dict:
                 "classification": cls,
                 "lab_date": row.get("lab_date"),
                 "standard_range": _fmt_range(row.get("standard_low"), row.get("standard_high"), row.get("unit")),
+                "critical_low": row.get("critical_low"),
+                "critical_high": row.get("critical_high"),
             }
         )
 
@@ -716,6 +719,7 @@ def build_clinical_snapshot(user_id: int) -> dict:
             )
 
     evidence_trace = _build_evidence_trace(organ_scores)
+    critical_lab_communication = build_critical_communication_plan(lab_attention["critical"])
     domain_categories = _build_organ_domain_categories(overall_organ, latest_dexa)
     priority_list = _build_priority_problem_list(
         diagnoses_active=diagnoses_active,
@@ -739,6 +743,7 @@ def build_clinical_snapshot(user_id: int) -> dict:
         "interventions_active": interventions_active,
         "interventions_all": interventions_all,
         "labs_attention": lab_attention,
+        "critical_lab_communication": critical_lab_communication,
         "organ_overall": overall_organ,
         "organ_high_risk_count": len(high_risk_organs),
         "organ_high_risk_scores": high_risk_organs,

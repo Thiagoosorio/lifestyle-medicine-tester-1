@@ -61,6 +61,54 @@ def _lab_rows(labs: list[dict]) -> list[dict]:
     return rows
 
 
+def _critical_policy_rows(plan: dict) -> list[dict]:
+    rows = []
+    for row in plan.get("alerts", []):
+        rows.append(
+            {
+                "Marker": row.get("name"),
+                "Value": f"{row.get('value')} {row.get('unit') or ''}".strip(),
+                "Classification": row.get("classification"),
+                "Critical Threshold": row.get("critical_threshold"),
+                "Notify <= (min)": row.get("notify_within_minutes"),
+                "Escalate after (min)": row.get("escalate_after_minutes"),
+                "Urgency": row.get("urgency_level"),
+                "Recommended Action": row.get("recommended_action"),
+            }
+        )
+    return rows
+
+
+def _render_critical_policy_block(snapshot: dict) -> None:
+    plan = snapshot.get("critical_lab_communication") or {}
+    if not plan.get("has_critical"):
+        return
+
+    policy = plan.get("policy") or {}
+    st.error(
+        "Critical lab values detected. Follow urgent communication workflow and clinician escalation."
+    )
+
+    rows = _critical_policy_rows(plan)
+    if rows:
+        st.dataframe(rows, use_container_width=True, hide_index=True)
+
+    with st.expander("Critical Communication Policy (Evidence-backed)", expanded=False):
+        for step in policy.get("workflow_steps", []):
+            st.markdown(f"- {step}")
+        st.caption(
+            f"Read-back required: {policy.get('read_back_required')} | "
+            f"Documentation required: {policy.get('documentation_required')}"
+        )
+        sources = policy.get("evidence_sources", [])
+        if sources:
+            st.markdown("**Sources**")
+            for src in sources:
+                title = src.get("title", "Source")
+                year = src.get("year", "n/a")
+                st.markdown(f"- {title} ({year}) - {src.get('link')}")
+
+
 def _render_kpi_detail_panel(snapshot: dict) -> None:
     focus = st.session_state.get("cc_focus", "diagnoses")
     render_section_header(
@@ -102,6 +150,7 @@ def _render_kpi_detail_panel(snapshot: dict) -> None:
         rows = _lab_rows(snapshot.get("labs_attention", {}).get("critical", []))
         if rows:
             st.dataframe(rows, use_container_width=True, hide_index=True)
+            _render_critical_policy_block(snapshot)
         else:
             st.success("No critical labs.")
         return
@@ -255,6 +304,7 @@ with tab_summary:
     labs = snapshot["labs_attention"]["all"]
     if labs:
         st.dataframe(_lab_rows(labs), use_container_width=True, hide_index=True)
+        _render_critical_policy_block(snapshot)
     else:
         st.success("No out-of-range labs detected from latest results.")
 

@@ -28,6 +28,7 @@ from services.biomarker_service import (
     save_blood_analysis,
     extract_biomarkers_from_pdf,
 )
+from services.critical_lab_policy_service import build_critical_communication_plan_from_results
 from services.coaching_service import get_blood_ai_analysis
 
 A = APPLE
@@ -44,6 +45,23 @@ def _sanitize_lab_note(note: str | None) -> str:
     cleaned = cleaned.replace("Target", "Threshold")
     cleaned = cleaned.replace("target", "threshold")
     return cleaned
+
+
+def _critical_rows(plan: dict) -> list[dict]:
+    rows = []
+    for row in plan.get("alerts", []):
+        rows.append(
+            {
+                "Marker": row.get("name"),
+                "Value": f"{row.get('value')} {row.get('unit') or ''}".strip(),
+                "Classification": row.get("classification"),
+                "Critical Threshold": row.get("critical_threshold"),
+                "Notify <= (min)": row.get("notify_within_minutes"),
+                "Escalate after (min)": row.get("escalate_after_minutes"),
+                "Urgency": row.get("urgency_level"),
+            }
+        )
+    return rows
 
 
 render_hero_banner(
@@ -93,6 +111,18 @@ with tab_dashboard:
         render_section_header("Latest Results by Category")
 
         results = get_latest_results(user_id)
+        critical_plan = build_critical_communication_plan_from_results(results)
+        if critical_plan.get("has_critical"):
+            st.error("Critical lab values detected. Use urgent communication workflow immediately.")
+            rows = _critical_rows(critical_plan)
+            if rows:
+                st.dataframe(rows, use_container_width=True, hide_index=True)
+            with st.expander("Urgent Communication Policy", expanded=False):
+                for step in critical_plan.get("policy", {}).get("workflow_steps", []):
+                    st.markdown(f"- {step}")
+                for src in critical_plan.get("policy", {}).get("evidence_sources", []):
+                    st.markdown(f"- {src.get('title')} ({src.get('year')}) - {src.get('link')}")
+
         # Group by category
         grouped = {}
         for r in results:
