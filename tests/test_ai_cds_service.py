@@ -84,3 +84,32 @@ def test_lifestyle_intervention_support_returns_domain_cards():
     assert "Heart & Metabolism" in domains
     assert "Gut & Digestion" in domains
     assert "Brain Health" in domains
+
+
+def test_precision_plan_builder_returns_structured_plan():
+    snapshot = {
+        "organ_domain_categories": [
+            {"domain_code": "brain_health", "domain_name": "Brain Health", "score_10": 6.2, "elevated_or_worse": 1},
+            {"domain_code": "heart_metabolism", "domain_name": "Heart & Metabolism", "score_10": 5.9, "elevated_or_worse": 2},
+            {"domain_code": "gut_digestion", "domain_name": "Gut & Digestion", "score_10": 7.4, "elevated_or_worse": 0},
+        ]
+    }
+    plan = ai_cds.build_precision_plan(snapshot, goal_code="cardiometabolic_reset", template_code="movement_first")
+
+    assert plan["goal_code"] == "cardiometabolic_reset"
+    assert plan["template_code"] == "movement_first"
+    assert plan["horizon_weeks"] == 8
+    assert len(plan["tracks"]) >= 4
+    assert plan["tracks"][0]["title"] == "Movement"
+    assert "Heart & Metabolism" in plan["priority_domains"]
+
+
+def test_precision_plan_markdown_contains_core_sections():
+    snapshot = {"organ_domain_categories": []}
+    plan = ai_cds.build_precision_plan(snapshot, goal_code="healthy_longevity", template_code="balanced")
+    evidence_by_topic = {row["topic"]: row for row in ai_cds.get_lifestyle_evidence_base()}
+    md = ai_cds.build_precision_plan_markdown(plan, evidence_by_topic)
+
+    assert "# Precision Plan" in md
+    assert "## Action Tracks" in md
+    assert "## Evidence Links" in md

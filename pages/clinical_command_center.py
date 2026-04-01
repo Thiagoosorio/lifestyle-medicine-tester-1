@@ -16,12 +16,16 @@ import streamlit as st
 from components.custom_theme import render_hero_banner, render_section_header
 from services.clinical_command_service import build_clinical_snapshot
 from services.ai_cds_service import (
+    build_precision_plan,
+    build_precision_plan_markdown,
     build_ai_cds_rollout_plan,
     build_lifestyle_intervention_support,
     get_ai_cds_use_cases,
     get_github_lifestyle_patterns,
     get_institution_emr_benchmarks,
     get_lifestyle_evidence_base,
+    get_precision_plan_goals,
+    get_precision_plan_templates,
 )
 from models.clinical_registry import (
     delete_record,
@@ -218,6 +222,87 @@ def _render_ai_cds_tab(snapshot: dict) -> None:
     st.caption(
         "Design principle: prevention-first and evidence-first. AI supports decisions, but clinician review remains mandatory."
     )
+
+    st.divider()
+    render_section_header(
+        "Precision Plan Builder",
+        "NU-inspired workflow: select a goal + template, generate an 8-week data-driven lifestyle plan.",
+    )
+    goal_options = get_precision_plan_goals()
+    template_options = get_precision_plan_templates()
+    goal_map = {row["label"]: row["code"] for row in goal_options}
+    template_map = {row["label"]: row["code"] for row in template_options}
+
+    c_goal, c_template, c_action = st.columns([2, 2, 1])
+    with c_goal:
+        selected_goal_label = st.selectbox(
+            "Primary goal",
+            options=list(goal_map.keys()),
+            index=0,
+            key="cc_precision_goal",
+        )
+    with c_template:
+        selected_template_label = st.selectbox(
+            "Plan template",
+            options=list(template_map.keys()),
+            index=0,
+            key="cc_precision_template",
+        )
+    with c_action:
+        st.caption(" ")
+        if st.button("Generate Plan", type="primary", use_container_width=True, key="cc_generate_precision_plan"):
+            st.session_state["cc_precision_plan"] = build_precision_plan(
+                snapshot,
+                goal_code=goal_map[selected_goal_label],
+                template_code=template_map[selected_template_label],
+            )
+
+    generated_plan = st.session_state.get("cc_precision_plan")
+    if generated_plan:
+        with st.container(border=True):
+            h1, h2, h3 = st.columns(3)
+            h1.metric("Goal", generated_plan.get("goal_label"))
+            h2.metric("Template", generated_plan.get("template_label"))
+            h3.metric("Horizon", f"{generated_plan.get('horizon_weeks', 8)} weeks")
+            st.caption("Priority domains: " + ", ".join(generated_plan.get("priority_domains", [])))
+
+            for track in generated_plan.get("tracks", []):
+                st.markdown(f"**{track.get('title')}**")
+                for action in track.get("actions", []):
+                    st.markdown(f"- {action}")
+
+            st.markdown("**Checkpoints**")
+            for checkpoint in generated_plan.get("checkpoints", []):
+                st.markdown(f"- {checkpoint}")
+
+            st.markdown("**Retest & review windows**")
+            for window in generated_plan.get("retest_windows", []):
+                st.markdown(f"- {window}")
+
+            evidence_by_topic = {row.get("topic"): row for row in get_lifestyle_evidence_base()}
+            st.markdown("**Evidence links for this plan**")
+            for topic in generated_plan.get("evidence_topics", []):
+                ev = evidence_by_topic.get(topic)
+                if not ev:
+                    st.markdown(f"- {topic} - source pending")
+                    continue
+                st.markdown(f"- {topic}: {ev.get('evidence')} ({ev.get('year')})")
+                st.link_button(
+                    f"Open source: {topic}",
+                    ev.get("link"),
+                    use_container_width=True,
+                    key=f"cc_precision_src_{topic}",
+                )
+
+            st.info(generated_plan.get("disclaimer"))
+            plan_md = build_precision_plan_markdown(generated_plan, evidence_by_topic)
+            st.download_button(
+                "Download Plan (Markdown)",
+                data=plan_md,
+                file_name=f"precision_plan_{generated_plan.get('goal_code', 'lifestyle')}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
 
     st.divider()
     render_section_header(

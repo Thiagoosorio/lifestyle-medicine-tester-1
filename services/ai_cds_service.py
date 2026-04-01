@@ -2,12 +2,36 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 from config.ai_cds_catalog import (
     AI_CDS_USE_CASES,
     GITHUB_LIFESTYLE_PATTERNS,
     INSTITUTION_EMR_BENCHMARKS,
     LIFESTYLE_EVIDENCE_BASE,
 )
+
+_PLAN_GOALS = {
+    "healthy_longevity": "Healthy Longevity",
+    "cardiometabolic_reset": "Cardiometabolic Reset",
+    "gut_liver_support": "Gut & Liver Support",
+    "brain_performance": "Brain Performance",
+}
+
+_PLAN_TEMPLATES = {
+    "balanced": "Balanced (all pillars)",
+    "nutrition_first": "Nutrition-first",
+    "movement_first": "Movement-first",
+    "recovery_first": "Recovery-first",
+}
+
+
+def get_precision_plan_goals() -> list[dict]:
+    return [{"code": code, "label": label} for code, label in _PLAN_GOALS.items()]
+
+
+def get_precision_plan_templates() -> list[dict]:
+    return [{"code": code, "label": label} for code, label in _PLAN_TEMPLATES.items()]
 
 
 def get_institution_emr_benchmarks() -> list[dict]:
@@ -202,6 +226,243 @@ def build_lifestyle_intervention_support(snapshot: dict) -> list[dict]:
         )
 
     return interventions
+
+
+def _sorted_domain_scores(snapshot: dict) -> list[dict]:
+    rows = []
+    for row in snapshot.get("organ_domain_categories", []) or []:
+        score = row.get("score_10")
+        if score is None:
+            continue
+        rows.append(
+            {
+                "domain_code": row.get("domain_code"),
+                "domain_name": row.get("domain_name"),
+                "score_10": float(score),
+            }
+        )
+    rows.sort(key=lambda x: x["score_10"])
+    return rows
+
+
+def _goal_specific_actions(goal_code: str) -> dict[str, list[str]]:
+    if goal_code == "cardiometabolic_reset":
+        return {
+            "Nutrition": [
+                "Use a Mediterranean meal pattern: at least 2 meals/day centered on vegetables, legumes, fish, olive oil, and nuts.",
+                "Aim for >=30 g/day fiber and reduce ultra-processed snacks to <=1 serving/day.",
+            ],
+            "Movement": [
+                "Target 150-300 min/week moderate aerobic work + 2 resistance sessions/week.",
+                "Set a daily step floor and increase by 500-1000 steps every 1-2 weeks if tolerated.",
+            ],
+            "Recovery": [
+                "Set fixed wake time and consistent sleep window for 7 nights/week.",
+                "Use morning daylight exposure and reduce late-evening stimulants.",
+            ],
+            "Adherence": [
+                "Define one if-then fallback: if a planned session is missed, complete a 10-15 minute walk the same day.",
+                "Review weekly trend metrics each Sunday and adjust only one variable per week.",
+            ],
+        }
+
+    if goal_code == "gut_liver_support":
+        return {
+            "Nutrition": [
+                "Reduce added sugars and refined carbohydrates; prioritize minimally processed foods.",
+                "Use protein + high-fiber meals to support glycemic and liver-fat control.",
+            ],
+            "Movement": [
+                "Schedule brisk walking most days and 2 strength sessions/week.",
+                "Add post-meal 10 minute walks after largest meals.",
+            ],
+            "Recovery": [
+                "Maintain regular sleep timing to support metabolic rhythm alignment.",
+                "Track digestion symptom trends with food pattern changes weekly.",
+            ],
+            "Adherence": [
+                "Build a weekly meal template (repeatable breakfast/lunch options).",
+                "Use a one-page log for food quality, activity, and key symptoms.",
+            ],
+        }
+
+    if goal_code == "brain_performance":
+        return {
+            "Nutrition": [
+                "Use a neuroprotective dietary pattern rich in colorful plants, omega-3 sources, and low refined sugar.",
+                "Hydration and meal timing should support sustained daytime cognition.",
+            ],
+            "Movement": [
+                "Combine aerobic movement with 2 sessions/week of resistance training.",
+                "Include brief movement breaks every 60-90 minutes during sedentary work.",
+            ],
+            "Recovery": [
+                "Prioritize sleep consistency and maintain pre-sleep wind-down routine.",
+                "Use stress-regulation practice (breathwork or mindfulness) at least 5 days/week.",
+            ],
+            "Adherence": [
+                "Set one daily cognitive-energy anchor habit (same wake + first light + short walk).",
+                "Use weekly reflection to adjust workload, recovery, and exercise dose.",
+            ],
+        }
+
+    return {
+        "Nutrition": [
+            "Use a whole-food, plant-forward pattern with sufficient protein and fiber.",
+            "Keep food quality high on weekdays and use planned flexibility on weekends.",
+        ],
+        "Movement": [
+            "Accumulate at least 150 min/week moderate activity plus 2 strength sessions.",
+            "Increase volume progressively only when recovery metrics remain stable.",
+        ],
+        "Recovery": [
+            "Protect sleep regularity and reduce late-evening stimulation.",
+            "Use simple stress-management micro-practices daily.",
+        ],
+        "Adherence": [
+            "Set one non-negotiable minimum action for each day.",
+            "Review trend metrics weekly and tune one behavior at a time.",
+        ],
+    }
+
+
+def _ordered_tracks_for_template(template_code: str, tracks: list[dict]) -> list[dict]:
+    if template_code == "nutrition_first":
+        order = ["Nutrition", "Movement", "Recovery", "Adherence"]
+    elif template_code == "movement_first":
+        order = ["Movement", "Recovery", "Nutrition", "Adherence"]
+    elif template_code == "recovery_first":
+        order = ["Recovery", "Movement", "Nutrition", "Adherence"]
+    else:
+        order = ["Nutrition", "Movement", "Recovery", "Adherence"]
+
+    rank = {name: idx for idx, name in enumerate(order)}
+    out = list(tracks)
+    out.sort(key=lambda row: rank.get(row.get("title"), 99))
+    return out
+
+
+def build_precision_plan(snapshot: dict, goal_code: str, template_code: str) -> dict:
+    """Build a NU-inspired precision plan from current user snapshot.
+
+    Note: workflow inspired by NU's public product framing (goal-based plans + data integration),
+    but content is generated from this app's own logic and evidence catalog.
+    """
+    goal_code = goal_code if goal_code in _PLAN_GOALS else "healthy_longevity"
+    template_code = template_code if template_code in _PLAN_TEMPLATES else "balanced"
+
+    domain_rows = _sorted_domain_scores(snapshot)
+    priority_domains = [row["domain_name"] for row in domain_rows[:2]]
+    if not priority_domains:
+        priority_domains = ["Heart & Metabolism", "Brain Health"]
+
+    actions = _goal_specific_actions(goal_code)
+    tracks = []
+    for title, action_rows in actions.items():
+        tracks.append(
+            {
+                "title": title,
+                "actions": action_rows,
+            }
+        )
+    tracks = _ordered_tracks_for_template(template_code, tracks)
+
+    checkpoints = [
+        "Daily: complete minimum action for the highest-priority track.",
+        "Weekly: review wearable readiness/resilience and training consistency.",
+        "Bi-weekly: review symptoms, recovery quality, and adherence barriers.",
+        "Monthly: review flagged labs and organ-domain trend movement.",
+    ]
+
+    retest_windows = [
+        "Weeks 4-6: reassess behavior adherence and wearable trend shift.",
+        "Weeks 8-12: repeat key labs aligned with active risk domains.",
+        "Quarterly: recompute organ and wearable composites and refresh plan.",
+    ]
+
+    evidence_topics = [
+        "Physical activity dose-response and prevention",
+        "Primary prevention lifestyle and risk-factor control",
+    ]
+    if goal_code == "cardiometabolic_reset":
+        evidence_topics.extend(
+            [
+                "Mediterranean diet for primary CVD prevention",
+                "Blood pressure management with non-pharmacologic interventions",
+                "Prediabetes/T2D prevention with lifestyle change",
+            ]
+        )
+    elif goal_code == "gut_liver_support":
+        evidence_topics.append("NAFLD/MASLD lifestyle-first management")
+    elif goal_code == "brain_performance":
+        evidence_topics.append("Primary prevention lifestyle and risk-factor control")
+
+    # Preserve order while deduplicating.
+    seen: set[str] = set()
+    ordered_topics: list[str] = []
+    for topic in evidence_topics:
+        if topic in seen:
+            continue
+        seen.add(topic)
+        ordered_topics.append(topic)
+
+    return {
+        "generated_on": date.today().isoformat(),
+        "goal_code": goal_code,
+        "goal_label": _PLAN_GOALS[goal_code],
+        "template_code": template_code,
+        "template_label": _PLAN_TEMPLATES[template_code],
+        "horizon_weeks": 8,
+        "priority_domains": priority_domains,
+        "tracks": tracks,
+        "checkpoints": checkpoints,
+        "retest_windows": retest_windows,
+        "evidence_topics": ordered_topics,
+        "disclaimer": (
+            "Lifestyle support plan for coaching and prevention. "
+            "It does not replace clinician diagnosis or treatment decisions."
+        ),
+    }
+
+
+def build_precision_plan_markdown(plan: dict, evidence_by_topic: dict[str, dict]) -> str:
+    """Render precision plan as markdown for export/download."""
+    lines: list[str] = []
+    lines.append(f"# Precision Plan - {plan.get('goal_label', 'Lifestyle Goal')}")
+    lines.append("")
+    lines.append(f"- Generated on: {plan.get('generated_on')}")
+    lines.append(f"- Template: {plan.get('template_label')}")
+    lines.append(f"- Horizon: {plan.get('horizon_weeks', 8)} weeks")
+    lines.append("")
+    lines.append("## Priority Domains")
+    for domain in plan.get("priority_domains", []):
+        lines.append(f"- {domain}")
+    lines.append("")
+    lines.append("## Action Tracks")
+    for track in plan.get("tracks", []):
+        lines.append(f"### {track.get('title')}")
+        for action in track.get("actions", []):
+            lines.append(f"- {action}")
+        lines.append("")
+    lines.append("## Checkpoints")
+    for row in plan.get("checkpoints", []):
+        lines.append(f"- {row}")
+    lines.append("")
+    lines.append("## Retest & Review Windows")
+    for row in plan.get("retest_windows", []):
+        lines.append(f"- {row}")
+    lines.append("")
+    lines.append("## Evidence Links")
+    for topic in plan.get("evidence_topics", []):
+        ev = evidence_by_topic.get(topic, {})
+        title = ev.get("evidence", "Source")
+        link = ev.get("link", "")
+        lines.append(f"- {topic}: {title} ({link})")
+    lines.append("")
+    lines.append("## Clinical Note")
+    lines.append(plan.get("disclaimer", ""))
+    lines.append("")
+    return "\n".join(lines)
 
 
 def build_ai_cds_rollout_plan(snapshot: dict) -> dict:
