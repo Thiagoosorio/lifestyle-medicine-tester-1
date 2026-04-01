@@ -74,8 +74,8 @@ def test_get_labs_requiring_attention_groups_by_severity(monkeypatch):
     class_map = {
         "a": "critical_high",
         "b": "high",
-        "c": "borderline_high",
-        "d": "normal",
+        "c": "low",
+        "d": "in_range",
     }
 
     monkeypatch.setattr(ccs, "get_latest_results", lambda _uid: sample)
@@ -83,8 +83,7 @@ def test_get_labs_requiring_attention_groups_by_severity(monkeypatch):
 
     out = ccs.get_labs_requiring_attention(1)
     assert len(out["critical"]) == 1
-    assert len(out["abnormal"]) == 1
-    assert len(out["borderline"]) == 1
+    assert len(out["abnormal"]) == 2
     assert [r["code"] for r in out["all"]] == ["a", "b", "c"]
 
 
@@ -101,7 +100,7 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     monkeypatch.setattr(ccs, "get_saved_program", lambda _uid: None)
     monkeypatch.setattr(ccs, "get_cycling_profile", lambda _uid: None)
     monkeypatch.setattr(ccs, "get_active_plan", lambda _uid: None)
-    monkeypatch.setattr(ccs, "get_labs_requiring_attention", lambda _uid: {"critical": [], "abnormal": [{"code": "ldl"}], "borderline": [], "all": [{"code": "ldl"}]})
+    monkeypatch.setattr(ccs, "get_labs_requiring_attention", lambda _uid: {"critical": [], "abnormal": [{"code": "ldl"}], "all": [{"code": "ldl"}]})
     monkeypatch.setattr(ccs, "list_test_results", lambda _uid, confirmed_only=True, limit=50: [{"test_type": "CPET", "test_date": "2026-03-10", "summary": "Moderate impairment", "risk_flag": "moderate"}])
     monkeypatch.setattr(ccs, "get_latest_computed_scores", lambda _uid: [{"severity": "high"}, {"severity": "normal"}])
     monkeypatch.setattr(ccs, "compute_overall_organ_score", lambda _uid: {"overall_score_10": 6.3, "overall_label": "Watchlist", "overall_confidence_pct": 78, "score_coverage_pct": 82})

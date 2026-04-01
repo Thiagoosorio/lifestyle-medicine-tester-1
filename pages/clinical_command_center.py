@@ -55,7 +55,6 @@ def _lab_rows(labs: list[dict]) -> list[dict]:
                 "Value": f"{row.get('value')} {row.get('unit') or ''}".strip(),
                 "Classification": row.get("classification"),
                 "Standard Range": row.get("standard_range"),
-                "Optimal Range": row.get("optimal_range"),
                 "Date": row.get("lab_date"),
             }
         )
@@ -252,7 +251,7 @@ with tab_summary:
             st.info("No active interventions confirmed yet.")
 
     st.divider()
-    render_section_header("Labs Requiring Attention", "Outside normal/target range on latest panel")
+    render_section_header("Labs Requiring Attention", "Outside lab reference interval on latest panel")
     labs = snapshot["labs_attention"]["all"]
     if labs:
         st.dataframe(_lab_rows(labs), use_container_width=True, hide_index=True)

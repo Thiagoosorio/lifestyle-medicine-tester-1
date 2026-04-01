@@ -328,14 +328,14 @@ Analyse ALL markers together - never in isolation. Identify:
 - Clinical patterns and syndrome clusters (metabolic syndrome: TG>150 + HDL<40/50 + glucose>100; insulin resistance: HOMA-IR pattern; thyroid dysfunction; vitamin/mineral deficiency clusters; anaemia subtypes; inflammation cascade; cardiovascular risk constellations)
 - How markers interact and what combinations reveal beyond individual values
 - Severity: use "pattern consistent with" / "suggests" / "warrants evaluation" - NEVER diagnose
-- Distinguish standard-range (clinically acceptable) from optimal-range (lifestyle medicine target)
+- Use only validated lab reference and critical thresholds for interpretation
 - Cite evidence grade (Grade A/B/C) for key clinical claims
 
 ## 2. Delta & Trend Analysis
 For each marker that changed >5% since the previous panel:
 - Direction: Improving / Worsening / Stable
 - Velocity: absolute change per month
-- Zone transitions (e.g., borderline HIGH -> HIGH): flag as PRIORITY
+- Zone transitions (e.g., in range -> high, high -> critical high): flag as PRIORITY
 - Overall trajectory summary
 If no previous data is available, write: "No previous lab data available for comparison."
 

@@ -7,7 +7,7 @@ A = APPLE
 
 
 def render_biomarker_range_bar(result, definition=None):
-    """Render a horizontal range bar versus reference and target bands."""
+    """Render a horizontal range bar versus reference and critical bands."""
     if definition is None:
         definition = result
 
@@ -19,18 +19,15 @@ def render_biomarker_range_bar(result, definition=None):
     unit = definition.get("unit", "")
     std_low = definition.get("standard_low")
     std_high = definition.get("standard_high")
-    opt_low = definition.get("optimal_low")
-    opt_high = definition.get("optimal_high")
     crit_low = definition.get("critical_low")
     crit_high = definition.get("critical_high")
-    target_evidence = definition.get("target_evidence")
 
     from services.biomarker_service import classify_result, get_classification_display
     classification = classify_result(value, definition)
     cls_display = get_classification_display(classification)
 
     # Determine bar range (min to max for display)
-    all_vals = [v for v in [crit_low, std_low, opt_low, opt_high, std_high, crit_high, value] if v is not None]
+    all_vals = [v for v in [crit_low, std_low, std_high, crit_high, value] if v is not None]
     if not all_vals:
         return
     bar_min = min(all_vals) * 0.7
@@ -48,28 +45,7 @@ def render_biomarker_range_bar(result, definition=None):
 
     # Build zone backgrounds
     zones_html = ""
-    # Target zone (green)
-    if opt_low is not None and opt_high is not None:
-        left = pct(opt_low)
-        width = pct(opt_high) - left
-        zones_html += (
-            f'<div style="position:absolute;left:{left}%;width:{width}%;'
-            f'height:100%;background:#30D15830;border-radius:4px"></div>'
-        )
-    elif opt_high is not None:
-        width = pct(opt_high)
-        zones_html += (
-            f'<div style="position:absolute;left:0;width:{width}%;'
-            f'height:100%;background:#30D15830;border-radius:4px"></div>'
-        )
-    elif opt_low is not None:
-        left = pct(opt_low)
-        zones_html += (
-            f'<div style="position:absolute;left:{left}%;right:0;'
-            f'height:100%;background:#30D15830;border-radius:4px"></div>'
-        )
-
-    # Standard zone (subtle blue)
+    # Reference zone (subtle blue)
     if std_low is not None and std_high is not None:
         left = pct(std_low)
         width = pct(std_high) - left
@@ -100,15 +76,7 @@ def render_biomarker_range_bar(result, definition=None):
         range_parts.append(f"Ref: &lt;{std_high} {unit}")
     elif std_low is not None:
         range_parts.append(f"Ref: &gt;{std_low} {unit}")
-    if opt_low is not None and opt_high is not None:
-        range_parts.append(f"Target: {opt_low}-{opt_high}")
     range_text = " &middot; ".join(range_parts)
-    evidence_html = ""
-    if target_evidence:
-        evidence_html = (
-            f'<div style="font-size:10px;color:{A["label_quaternary"]};margin-bottom:6px">'
-            f'Target evidence: {target_evidence}</div>'
-        )
 
     bar_html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
@@ -126,7 +94,6 @@ def render_biomarker_range_bar(result, definition=None):
         f'</div>'
         f'<div style="font-size:11px;color:{A["label_tertiary"]};margin-bottom:8px">'
         f'{range_text}</div>'
-        f'{evidence_html}'
         f'<div style="position:relative;height:14px;background:{A["bg_tertiary"]};'
         f'border-radius:7px;overflow:visible">'
         f'{zones_html}'
@@ -184,10 +151,10 @@ def render_biomarker_score_gauge(score, label="Biomarker Score"):
 def render_biomarker_summary_strip(summary):
     """Render a summary strip of biomarker classification counts."""
     items = [
-        ("On Target", summary.get("optimal", 0), "#30D158"),
-        ("Normal", summary.get("normal", 0), "#64D2FF"),
-        ("Borderline", summary.get("borderline", 0), "#FFD60A"),
-        ("Abnormal", summary.get("abnormal", 0), "#FF453A"),
+        ("In Range", summary.get("in_range", 0), "#30D158"),
+        ("Below Range", summary.get("low", 0), "#FF9F0A"),
+        ("Above Range", summary.get("high", 0), "#FF9F0A"),
+        ("Abnormal", summary.get("abnormal", 0), "#FF9F0A"),
         ("Critical", summary.get("critical", 0), "#FF453A"),
     ]
     cards = ""

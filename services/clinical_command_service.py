@@ -52,8 +52,6 @@ _LAB_CLASS_SEVERITY_RANK = {
     "critical_low": 0,
     "high": 1,
     "low": 1,
-    "borderline_high": 2,
-    "borderline_low": 2,
 }
 
 _PROBLEM_SEVERITY_RANK = {
@@ -489,7 +487,7 @@ def _build_clinical_timeline(
         flagged = [
             row
             for row in panel
-            if classify_result(row.get("value"), row) not in {"optimal", "normal", "unknown"}
+            if classify_result(row.get("value"), row) not in {"in_range", "unknown"}
         ]
         add_event(
             lab_date,
@@ -536,13 +534,13 @@ def _build_clinical_timeline(
 
 
 def get_labs_requiring_attention(user_id: int) -> dict:
-    """Return latest lab markers that are outside normal/target ranges."""
+    """Return latest lab markers that are outside lab reference ranges."""
     latest = get_latest_results(user_id)
     flagged = []
     for row in latest:
         value = row.get("value")
         cls = classify_result(value, row)
-        if cls in {"optimal", "normal", "unknown"}:
+        if cls in {"in_range", "unknown"}:
             continue
         flagged.append(
             {
@@ -553,7 +551,6 @@ def get_labs_requiring_attention(user_id: int) -> dict:
                 "classification": cls,
                 "lab_date": row.get("lab_date"),
                 "standard_range": _fmt_range(row.get("standard_low"), row.get("standard_high"), row.get("unit")),
-                "optimal_range": _fmt_range(row.get("optimal_low"), row.get("optimal_high"), row.get("unit")),
             }
         )
 
@@ -561,7 +558,6 @@ def get_labs_requiring_attention(user_id: int) -> dict:
     return {
         "critical": [r for r in flagged if r["classification"].startswith("critical")],
         "abnormal": [r for r in flagged if r["classification"] in {"high", "low"}],
-        "borderline": [r for r in flagged if r["classification"].startswith("borderline")],
         "all": flagged,
     }
 
@@ -759,7 +755,6 @@ def build_clinical_snapshot(user_id: int) -> dict:
             "labs_flagged": len(lab_attention["all"]),
             "labs_critical": len(lab_attention["critical"]),
             "labs_abnormal": len(lab_attention["abnormal"]),
-            "labs_borderline": len(lab_attention["borderline"]),
             "tests_total": len(test_results),
             "organ_scores_total": len(organ_scores),
             "organ_scores_high_risk": len(high_risk_organs),

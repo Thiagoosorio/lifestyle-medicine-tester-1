@@ -10,7 +10,7 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 
 def _attach_target_evidence(defn: dict) -> dict:
-    """Attach evidence-confidence metadata for target bands."""
+    """Attach evidence-confidence metadata for interpretation thresholds."""
     from config.biomarkers_data import TARGET_EVIDENCE_BY_CODE, TARGET_EVIDENCE_DEFAULT
 
     enriched = dict(defn)
@@ -134,17 +134,15 @@ def get_results_for_biomarker(user_id, biomarker_id):
 
 
 def classify_result(value, definition):
-    """Classify a result value against its definition ranges.
+    """Classify a result value against lab reference and critical thresholds.
 
-    Uses deviation-based severity for out-of-range values:
-    - Within target band → 'optimal' (green)
-    - Within standard range → 'normal' (blue)
-    - Out of range, deviation ≤ 20% → 'borderline_low'/'borderline_high' (yellow)
-    - Out of range, deviation > 20% → 'low'/'high' (red)
-    - Beyond critical threshold → 'critical_low'/'critical_high' (red)
+    Clinical buckets:
+    - Within reference interval -> 'in_range'
+    - Below reference interval -> 'low'
+    - Above reference interval -> 'high'
+    - Beyond critical threshold -> 'critical_low' / 'critical_high'
 
-    Returns: 'critical_low', 'low', 'borderline_low', 'normal', 'optimal',
-             'borderline_high', 'high', 'critical_high', 'unknown'
+    Returns: 'critical_low', 'low', 'in_range', 'high', 'critical_high', 'unknown'
     """
     if value is None:
         return "unknown"
@@ -153,71 +151,32 @@ def classify_result(value, definition):
     crit_high = definition.get("critical_high")
     std_low = definition.get("standard_low")
     std_high = definition.get("standard_high")
-    opt_low = definition.get("optimal_low")
-    opt_high = definition.get("optimal_high")
 
-    # Critical checks
+    # Critical checks first
     if crit_low is not None and value < crit_low:
         return "critical_low"
     if crit_high is not None and value > crit_high:
         return "critical_high"
 
-    # Target-band check
-    in_optimal = True
-    if opt_low is not None and value < opt_low:
-        in_optimal = False
-    if opt_high is not None and value > opt_high:
-        in_optimal = False
-    if in_optimal and (opt_low is not None or opt_high is not None):
-        return "optimal"
+    # Need at least one reference boundary to classify non-critical values
+    if std_low is None and std_high is None:
+        return "unknown"
 
-    # Standard check
-    in_standard = True
     if std_low is not None and value < std_low:
-        in_standard = False
-    if std_high is not None and value > std_high:
-        in_standard = False
-    if in_standard:
-        return "normal"
-
-    # Outside standard — classify severity by deviation percentage
-    if std_low is not None and value < std_low:
-        if std_low > 0:
-            deviation_pct = (std_low - value) / std_low * 100
-        else:
-            deviation_pct = 100
-        if deviation_pct <= 20:
-            return "borderline_low"
         return "low"
 
     if std_high is not None and value > std_high:
-        if std_high > 0:
-            deviation_pct = (value - std_high) / std_high * 100
-        else:
-            deviation_pct = 100
-        if deviation_pct <= 20:
-            return "borderline_high"
         return "high"
 
-    return "normal"
+    return "in_range"
 
 
 def get_classification_display(classification):
-    """Return display properties for a classification.
-
-    Color scheme follows clinical lab reporting best practice:
-    - Green: evidence-based target band
-    - Blue: normal/standard range
-    - Yellow: borderline — slightly out of range (≤ 20% deviation)
-    - Red: abnormal — significantly out of range (> 20% deviation or critical)
-    """
+    """Return display properties for a lab classification."""
     displays = {
-        "optimal": {"label": "On Target", "color": "#30D158", "icon": "&#10004;"},
-        "normal": {"label": "Normal", "color": "#64D2FF", "icon": "&#9679;"},
-        "borderline_low": {"label": "Borderline Low", "color": "#FFD60A", "icon": "&#9660;"},
-        "borderline_high": {"label": "Borderline High", "color": "#FFD60A", "icon": "&#9650;"},
-        "low": {"label": "Low", "color": "#FF453A", "icon": "&#9660;"},
-        "high": {"label": "High", "color": "#FF453A", "icon": "&#9650;"},
+        "in_range": {"label": "In Range", "color": "#30D158", "icon": "&#10004;"},
+        "low": {"label": "Below Range", "color": "#FF9F0A", "icon": "&#9660;"},
+        "high": {"label": "Above Range", "color": "#FF9F0A", "icon": "&#9650;"},
         "critical_low": {"label": "Critical Low", "color": "#FF453A", "icon": "&#10071;"},
         "critical_high": {"label": "Critical High", "color": "#FF453A", "icon": "&#10071;"},
         "unknown": {"label": "Unknown", "color": "#AEAEB2", "icon": "&#8212;"},
@@ -229,12 +188,9 @@ def score_single_result(value, definition):
     """Score a single biomarker result (0-100)."""
     classification = classify_result(value, definition)
     scores = {
-        "optimal": 100,
-        "normal": 70,
-        "borderline_low": 50,
-        "borderline_high": 50,
-        "low": 25,
-        "high": 25,
+        "in_range": 100,
+        "low": 40,
+        "high": 40,
         "critical_low": 10,
         "critical_high": 10,
         "unknown": 0,
@@ -269,18 +225,19 @@ def get_biomarker_summary(user_id):
     """Get summary counts by classification for the latest results."""
     results = get_latest_results(user_id)
     summary = {
-        "optimal": 0, "normal": 0, "borderline": 0,
-        "abnormal": 0, "critical": 0, "total": len(results),
+        "in_range": 0,
+        "low": 0,
+        "high": 0,
+        "abnormal": 0,
+        "critical": 0,
+        "total": len(results),
     }
     for r in results:
         cls = classify_result(r["value"], r)
-        if cls == "optimal":
-            summary["optimal"] += 1
-        elif cls == "normal":
-            summary["normal"] += 1
-        elif cls in ("borderline_low", "borderline_high"):
-            summary["borderline"] += 1
+        if cls == "in_range":
+            summary["in_range"] += 1
         elif cls in ("low", "high"):
+            summary[cls] += 1
             summary["abnormal"] += 1
         elif cls.startswith("critical"):
             summary["critical"] += 1
@@ -316,7 +273,7 @@ def get_lab_dates(user_id):
     return [r["lab_date"] for r in rows]
 
 
-# ── BloodGPT AI Analysis Context ───────────────────────────────────────────
+# ---------------------------- BloodGPT AI Analysis Context ----------------------------
 
 # Human-readable category labels for the AI prompt
 _CATEGORY_LABELS = {
@@ -333,20 +290,16 @@ _CATEGORY_LABELS = {
 }
 
 _CLASSIFICATION_LABEL = {
-    "optimal":        "ON TARGET",
-    "normal":         "NORMAL",
-    "borderline_low": "BORDERLINE LOW",
-    "borderline_high":"BORDERLINE HIGH",
-    "low":            "LOW",
-    "high":           "HIGH",
+    "in_range":       "IN RANGE",
+    "low":            "BELOW RANGE",
+    "high":           "ABOVE RANGE",
     "critical_low":   "CRITICAL LOW",
     "critical_high":  "CRITICAL HIGH",
     "unknown":        "UNKNOWN",
 }
 
-
 def _format_range(low, high, unit: str) -> str:
-    """Format a reference or target range as a compact string."""
+    """Format a reference range as a compact string."""
     if low is not None and high is not None:
         return f"{low}-{high} {unit}"
     if low is not None:
@@ -385,7 +338,7 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
 
     # Get lab name from first result (optional field)
     lab_name = results[0].get("lab_name") or ""
-    header = f"=== BLOOD PANEL — {lab_date}"
+    header = f"=== BLOOD PANEL - {lab_date}"
     if lab_name:
         header += f" ({lab_name})"
     header += " ==="
@@ -404,17 +357,16 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
             cls = classify_result(r["value"], r)
             cls_label = _CLASSIFICATION_LABEL.get(cls, cls.upper())
             std_range = _format_range(r.get("standard_low"), r.get("standard_high"), r["unit"])
-            opt_range = _format_range(r.get("optimal_low"), r.get("optimal_high"), r["unit"])
             dev = _deviation_str(r["value"], r)
             dev_str = f" ({dev})" if dev else ""
             lines.append(
                 f"  {r['name']}: {r['value']} {r['unit']}"
-                f"  [Ref: {std_range}, Target: {opt_range}]"
+                f"  [Ref: {std_range}]"
                 f"  -> {cls_label}{dev_str}"
             )
         lines.append("")
 
-    # Delta section — compare to the most recent *previous* lab date
+    # Delta section - compare to the most recent *previous* lab date
     all_dates = get_lab_dates(user_id)
     try:
         current_idx = all_dates.index(lab_date)
@@ -445,29 +397,19 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
             if abs(delta_pct) < 5 and not is_zone_change:
                 continue
 
-            direction = "Improving" if (
-                (curr_cls in ("optimal", "normal") and prev_cls not in ("optimal", "normal")) or
-                (curr_cls == "optimal" and prev_cls != "optimal") or
-                (delta_pct > 0 and r.get("optimal_low") is not None and curr_val > prev_val and curr_val <= (r.get("optimal_high") or curr_val + 1)) or
-                # For high-is-bad markers (LDL, TG, glucose): decreasing is good
-                (delta < 0 and curr_cls in ("optimal", "normal", "borderline_high") and prev_cls in ("high", "borderline_high", "critical_high"))
-            ) else "Worsening"
+            high_classes = {"high", "critical_high"}
+            low_classes = {"low", "critical_low"}
 
-            # Simple direction: improving if moving toward target band, worsening if moving away
-            if delta < 0 and curr_cls in ("high", "borderline_high", "critical_high"):
+            if curr_cls == "in_range" and prev_cls != "in_range":
                 direction = "Improving"
-            elif delta > 0 and curr_cls in ("low", "borderline_low", "critical_low"):
-                direction = "Improving"
-            elif delta > 0 and curr_cls in ("high", "borderline_high", "critical_high"):
+            elif curr_cls != "in_range" and prev_cls == "in_range":
                 direction = "Worsening"
-            elif delta < 0 and curr_cls in ("low", "borderline_low", "critical_low"):
-                direction = "Worsening"
-            elif curr_cls in ("optimal", "normal") and prev_cls not in ("optimal", "normal"):
-                direction = "Improving"
-            elif curr_cls not in ("optimal", "normal") and prev_cls in ("optimal", "normal"):
-                direction = "Worsening"
-            else:
+            elif curr_cls in high_classes and prev_cls in high_classes:
+                direction = "Improving" if delta < 0 else "Worsening"
+            elif curr_cls in low_classes and prev_cls in low_classes:
                 direction = "Improving" if delta > 0 else "Worsening"
+            else:
+                direction = "Improving" if is_zone_change else "Worsening"
 
             arrow = "UP" if direction == "Improving" else "DOWN"
             zone_flag = " [ZONE CHANGE]" if is_zone_change else ""
@@ -501,8 +443,8 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
         f"=== COMPOSITE BIOMARKER SCORE: {score}/100 ({score_label}) ==="
     )
     lines.append(
-        f"On target: {summary['optimal']} | Normal: {summary['normal']} | "
-        f"Borderline: {summary['borderline']} | Abnormal: {summary['abnormal']} | "
+        f"In range: {summary['in_range']} | Below range: {summary['low']} | "
+        f"Above range: {summary['high']} | Abnormal: {summary['abnormal']} | "
         f"Critical: {summary['critical']} of {summary['total']} markers"
     )
 
@@ -554,7 +496,7 @@ def save_blood_analysis(
         conn.close()
 
 
-# ── PDF Lab Report Extraction ───────────────────────────────────────────────
+# ---------------------------- PDF Lab Report Extraction ----------------------------
 
 def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dict]:
     """Use Claude to extract biomarker values from a PDF blood test report.
@@ -575,7 +517,7 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     import re
     import io
 
-    # ── Step 1: Extract text from PDF ────────────────────────────────────────
+    # ---- Step 1: Extract text from PDF ----
     try:
         import pypdf
         reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
@@ -588,11 +530,11 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     if len(pdf_text) < 20:
         raise ValueError(
-            "PDF has no readable text — it may be a scanned image. "
+            "PDF has no readable text - it may be a scanned image. "
             "Please use a digital PDF (not a photo/scan)."
         )
 
-    # ── Step 2: Ask Claude to parse the lab text ─────────────────────────────
+    # ---- Step 2: Ask Claude to parse the lab text ----
     prompt_text = (
         "Below is text from a blood test lab report PDF.\n"
         "Extract every numeric lab result AND the report metadata.\n\n"
@@ -651,7 +593,7 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
                 detected_lab = parsed.get("lab_name")
                 extracted_raw = parsed.get("results", [])
             elif isinstance(parsed, dict):
-                # Single result object — wrap in list
+                # Single result object - wrap in list
                 extracted_raw = [parsed]
         except json.JSONDecodeError:
             pass
@@ -665,7 +607,7 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     if not extracted_raw:
         raise ValueError(f"Could not parse results from response: {raw[:400]}")
 
-    # ── Lookup tables ────────────────────────────────────────────────────────
+    # ---- Lookup tables ----
     def _norm(s: str) -> str:
         """Lowercase, strip all non-alphanumeric for fuzzy comparison."""
         return re.sub(r'[^a-z0-9]', '', s.lower())
@@ -678,7 +620,7 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
         defs_by_norm[_norm(d["name"])] = d
         defs_by_norm[_norm(d["code"].replace("_", " "))] = d
 
-    # Common abbreviations / synonyms → internal code
+    # Common abbreviations / synonyms -> internal code
     ALIASES = {
         # CBC / Haematology
         "wbc": "wbc_count", "rbc": "rbc_count",
@@ -815,3 +757,11 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
             })
 
     return results, unmatched
+
+
+
+
+
+
+
+

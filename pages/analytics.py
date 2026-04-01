@@ -731,7 +731,12 @@ with tab_body:
                 _name = b.get("name", b.get("code", ""))
                 _unit = b.get("unit", "")
                 _status = b.get("status", "normal")
-                _sc = "#30D158" if _status == "optimal" else "#FFD60A" if _status == "normal" else "#FF453A"
+                if _status in {"in_range", "normal", "optimal"}:
+                    _sc = "#30D158"
+                elif _status in {"low", "high", "borderline_low", "borderline_high"}:
+                    _sc = "#FF9F0A"
+                else:
+                    _sc = "#FF453A"
                 _row = (
                     f'<div style="display:flex;justify-content:space-between;align-items:center;'
                     f'padding:8px 12px;margin-bottom:4px;background:rgba(0,0,0,0.03);'

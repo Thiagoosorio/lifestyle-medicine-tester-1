@@ -6,6 +6,7 @@ that can be downloaded and printed to PDF from any browser.
 from datetime import date, timedelta
 from db.database import get_connection
 from config.settings import PILLARS
+from services.biomarker_service import classify_result
 
 
 # ── Mapping from pillar_id to the daily_checkins column name ──────────────
@@ -1007,7 +1008,10 @@ def _section_biomarkers(data):
         categories.setdefault(cat, []).append(r)
 
     rows = []
-    optimal_count = 0
+    in_range_count = 0
+    low_count = 0
+    high_count = 0
+    critical_count = 0
     for cat in sorted(categories.keys()):
         rows.append(
             f'<tr><td colspan="5" style="background:#f0f4ff;font-weight:700;color:#1a1a2e;'
@@ -1017,17 +1021,23 @@ def _section_biomarkers(data):
             value = r.get("value")
             unit = r.get("unit", "")
             low, high = r.get("standard_low"), r.get("standard_high")
-            opt_low, opt_high = r.get("optimal_low"), r.get("optimal_high")
+            cls = classify_result(value, r)
 
-            status, status_color = "Normal", "#4CAF50"
-            if value is not None:
-                if opt_low is not None and opt_high is not None and opt_low <= value <= opt_high:
-                    status, status_color = "Optimal", "#2196F3"
-                    optimal_count += 1
-                elif low is not None and value < low:
-                    status, status_color = "Low", "#F44336"
-                elif high is not None and value > high:
-                    status, status_color = "High", "#F44336"
+            if cls == "in_range":
+                status, status_color = "In Range", "#4CAF50"
+                in_range_count += 1
+            elif cls == "low":
+                status, status_color = "Below Range", "#FF9800"
+                low_count += 1
+            elif cls == "high":
+                status, status_color = "Above Range", "#FF9800"
+                high_count += 1
+            elif cls in {"critical_low", "critical_high"}:
+                status = "Critical Low" if cls == "critical_low" else "Critical High"
+                status_color = "#F44336"
+                critical_count += 1
+            else:
+                status, status_color = "Unknown", "#9E9E9E"
 
             ref = ""
             if low is not None and high is not None:
@@ -1050,7 +1060,10 @@ def _section_biomarkers(data):
         '<div class="section page-break-before">'
         '<h2 class="section-title">Biomarkers</h2>'
         f'<p style="margin-bottom:12px;">Tested: <strong>{total}</strong> markers'
-        f' &mdash; <strong>{optimal_count}</strong> in optimal range</p>'
+        f' &mdash; <strong>{in_range_count}</strong> in range'
+        f' &mdash; <strong>{low_count}</strong> below range'
+        f' &mdash; <strong>{high_count}</strong> above range'
+        f' &mdash; <strong>{critical_count}</strong> critical</p>'
         '<table class="data-table">'
         '<thead><tr><th>Marker</th><th>Value</th><th>Reference</th><th>Status</th><th>Date</th></tr></thead>'
         f'<tbody>{"".join(rows)}</tbody></table></div>'

@@ -33,13 +33,25 @@ from services.coaching_service import get_blood_ai_analysis
 A = APPLE
 user_id = st.session_state.user_id
 
+
+def _sanitize_lab_note(note: str | None) -> str:
+    """Remove unsupported range-language from lab notes."""
+    if not note:
+        return ""
+    cleaned = str(note)
+    cleaned = cleaned.replace("Optimal", "Reference-informed")
+    cleaned = cleaned.replace("optimal", "reference-informed")
+    cleaned = cleaned.replace("Target", "Threshold")
+    cleaned = cleaned.replace("target", "threshold")
+    return cleaned
+
+
 render_hero_banner(
     "Biomarker Dashboard",
-    "Track lab results over time. Compare your panel with lab reference ranges and evidence-based target bands."
+    "Track lab results over time. Compare your panel with lab reference ranges."
 )
 st.caption(
-    "Interpretation key: `Ref` = lab reference interval, `Target` = evidence-based decision/goal band "
-    "(context-dependent and individualized)."
+    "Interpretation key: `Ref` = lab reference interval used for below/in/above-range classification."
 )
 
 # ── Tabs ─────────────────────────────────────────────────────────────────
@@ -63,14 +75,14 @@ with tab_dashboard:
         with col_summary:
             render_biomarker_summary_strip(summary)
             total = summary["total"]
-            in_range = summary["optimal"] + summary["normal"]
+            in_range = summary["in_range"]
             pct = round(in_range / total * 100) if total else 0
             info_html = (
                 f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
                 f'border-radius:{A["radius_md"]};padding:14px;margin-top:8px">'
                 f'<div style="font-size:13px;color:{A["label_secondary"]}">'
                 f'<span style="font-weight:600;color:{A["label_primary"]}">{in_range}/{total}</span>'
-                f' markers in reference/target-supportive zones ({pct}%)'
+                f' markers within reference interval ({pct}%)'
                 f'</div>'
                 f'</div>'
             )
@@ -144,7 +156,7 @@ with tab_log:
                 value=None,
                 step=0.1,
                 key=f"bm_{defn['id']}",
-                help=defn.get("clinical_note", ""),
+                help=_sanitize_lab_note(defn.get("clinical_note")),
             )
             values[defn["id"]] = val
 
@@ -185,22 +197,15 @@ with tab_trends:
 
             fig = go.Figure()
 
-            # Target zone shading
-            if defn.get("optimal_low") is not None and defn.get("optimal_high") is not None:
-                fig.add_hrect(
-                    y0=defn["optimal_low"], y1=defn["optimal_high"],
-                    fillcolor="#30D158", opacity=0.1,
-                    line_width=0, annotation_text="Target",
-                    annotation_position="top left",
-                    annotation=dict(font_color="#30D158", font_size=10),
-                )
-
-            # Standard zone shading
+            # Reference zone shading
             if defn.get("standard_low") is not None and defn.get("standard_high") is not None:
                 fig.add_hrect(
                     y0=defn["standard_low"], y1=defn["standard_high"],
-                    fillcolor="#64D2FF", opacity=0.05,
+                    fillcolor="#64D2FF", opacity=0.08,
                     line_width=0,
+                    annotation_text="Reference interval",
+                    annotation_position="top left",
+                    annotation=dict(font_color="#0A84FF", font_size=10),
                 )
 
             # Value line
@@ -230,7 +235,8 @@ with tab_trends:
             st.plotly_chart(fig, use_container_width=True)
 
             # Show clinical note
-            if defn.get("clinical_note"):
+            note_text = _sanitize_lab_note(defn.get("clinical_note"))
+            if note_text:
                 note_html = (
                     f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
                     f'border-radius:{A["radius_md"]};padding:12px;margin-top:8px">'
@@ -238,7 +244,7 @@ with tab_trends:
                     f'letter-spacing:0.06em;color:{A["label_tertiary"]};margin-bottom:4px">'
                     f'Clinical Note</div>'
                     f'<div style="font-size:13px;color:{A["label_secondary"]}">'
-                    f'{defn["clinical_note"]}</div>'
+                    f'{note_text}</div>'
                     f'</div>'
                 )
                 st.markdown(note_html, unsafe_allow_html=True)
