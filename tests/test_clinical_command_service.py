@@ -118,7 +118,7 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     assert snap["wearable"]["overall_score_10"] == 6.9
 
 
-def test_evidence_trace_keeps_only_validated_q_or_guideline_sources():
+def test_evidence_trace_keeps_validated_scores_with_q_or_org_guideline_sources():
     trace = ccs._build_evidence_trace(
         [
             {
@@ -136,6 +136,14 @@ def test_evidence_trace_keeps_only_validated_q_or_guideline_sources():
                 "tier": "validated",
                 "citation_pmid": "12345",
                 "citation_text": "Some study [Q2]",
+            },
+            {
+                "code": "aha_score",
+                "name": "ApoB Risk Category",
+                "organ_system": "cardiovascular",
+                "tier": "validated",
+                "citation_pmid": "30586774",
+                "citation_text": "ACC/AHA Cholesterol Guideline statement.",
             },
             {
                 "code": "derived_item",
@@ -156,10 +164,10 @@ def test_evidence_trace_keeps_only_validated_q_or_guideline_sources():
         ]
     )
 
-    assert trace["counts"]["allowed"] == 2
+    assert trace["counts"]["allowed"] == 3
     assert trace["counts"]["excluded"] == 2
     allowed_codes = {row["code"] for row in trace["allowed_sources"]}
-    assert allowed_codes == {"fib4", "q2_item"}
+    assert allowed_codes == {"fib4", "q2_item", "aha_score"}
 
 
 def test_organ_domain_categories_include_requested_five_domains():

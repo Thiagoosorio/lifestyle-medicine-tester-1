@@ -66,6 +66,7 @@ _EVIDENCE_ORG_TERMS = (
     "who",
     "cdc",
     "nih",
+    "nhlbi",
     "aha",
     "acc",
     "ada",
@@ -76,6 +77,24 @@ _EVIDENCE_ORG_TERMS = (
     "aasld",
     "easl",
     "acg",
+    "eha",
+    "nla",
+    "idf",
+    "asn",
+    "isn",
+    "aasm",
+    "iof",
+    "iscd",
+)
+
+_EVIDENCE_GUIDELINE_TERMS = (
+    "guideline",
+    "guidelines",
+    "consensus",
+    "position statement",
+    "practice statement",
+    "recommendation",
+    "task force",
 )
 
 _DOMAIN_META = {
@@ -145,9 +164,18 @@ def _tokenize(text: str | None) -> set[str]:
     }
 
 
+def _contains_any_whole_term(text: str, terms: tuple[str, ...]) -> bool:
+    for term in terms:
+        if re.search(rf"\b{re.escape(term)}\b", text):
+            return True
+    return False
+
+
 def _classify_source_class(citation_text: str | None) -> str:
     text = (citation_text or "").lower()
-    if any(term in text for term in _EVIDENCE_ORG_TERMS):
+    if _contains_any_whole_term(text, _EVIDENCE_ORG_TERMS):
+        return "Guideline / National Organization"
+    if any(term in text for term in _EVIDENCE_GUIDELINE_TERMS):
         return "Guideline / National Organization"
     if "q1" in text:
         return "Q1 Journal"
@@ -167,7 +195,7 @@ def _classify_source_rank(source_class: str) -> int:
 
 
 def _build_evidence_trace(organ_scores: list[dict]) -> dict:
-    """Build evidence trace constrained to validated + Q1/Q2 + guideline orgs."""
+    """Build evidence trace constrained to validated + PMID + Q1/Q2 or org/guideline support."""
     allowed: list[dict] = []
     excluded: list[dict] = []
     seen_codes: set[str] = set()
@@ -207,7 +235,7 @@ def _build_evidence_trace(organ_scores: list[dict]) -> dict:
             elif not pmid:
                 reason = "Excluded: missing PMID"
             else:
-                reason = "Excluded: source not tagged Q1/Q2 or guideline organization"
+                reason = "Excluded: source not tagged Q1/Q2 or major-organization/guideline support"
             excluded.append(
                 {
                     "code": code,
@@ -226,7 +254,7 @@ def _build_evidence_trace(organ_scores: list[dict]) -> dict:
     )
 
     return {
-        "policy": "Only validated scores with PMID and Q1/Q2 or guideline-organization source tags are surfaced.",
+        "policy": "Only validated scores with PMID and either Q1/Q2 tags or major-organization/guideline source signals are surfaced.",
         "allowed_sources": allowed,
         "excluded_sources": excluded,
         "counts": {
