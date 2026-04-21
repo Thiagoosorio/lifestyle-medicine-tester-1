@@ -893,6 +893,10 @@ def build_clinical_snapshot(user_id: int) -> dict:
             dexa_summary_parts.append(f"T-score {latest_dexa.get('t_score')}")
         if latest_dexa.get("z_score") is not None:
             dexa_summary_parts.append(f"Z-score {latest_dexa.get('z_score')}")
+        if latest_dexa.get("femoral_neck_bmd_g_cm2") is not None:
+            dexa_summary_parts.append(f"Femoral-neck BMD {latest_dexa.get('femoral_neck_bmd_g_cm2')}")
+        if latest_dexa.get("femoral_neck_t_score") is not None:
+            dexa_summary_parts.append(f"Femoral-neck T-score {latest_dexa.get('femoral_neck_t_score')}")
         if latest_dexa.get("alm_h2") is not None:
             dexa_summary_parts.append(f"ALM/ht² {latest_dexa.get('alm_h2')}")
         key_tests.append(

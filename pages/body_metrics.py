@@ -18,6 +18,7 @@ from services.body_metrics_service import (
     extract_dexa_from_pdf,
 )
 from components.custom_theme import render_section_header
+from components.organ_health_display import render_frax_workflow_panel
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -816,7 +817,17 @@ with tab_dexa:
             st.metric("A/G Ratio", f"{v:.2f}" if v else "--",
                        help="Android/Gynoid fat ratio")
 
+        fr_cols = st.columns(2)
+        with fr_cols[0]:
+            v = latest_dexa.get("femoral_neck_bmd_g_cm2")
+            st.metric("Femoral-Neck BMD", f"{v:.3f}" if v is not None else "--")
+        with fr_cols[1]:
+            v = latest_dexa.get("femoral_neck_t_score")
+            st.metric("Femoral-Neck T-score", f"{v:.2f}" if v is not None else "--")
+
     # ── Upload DEXA PDF ──────────────────────────────────────────────────
+    st.divider()
+    render_frax_workflow_panel(user_id, show_body_metrics_link=False)
     st.divider()
     st.markdown("### Upload DEXA Report")
 
@@ -879,6 +890,27 @@ with tab_dexa:
         with r3[4]:
             dexa_gynoid = st.number_input("Gynoid Fat %", value=ex.get("gynoid_fat_pct"), format="%.1f", key="dexa_gyn")
 
+        with st.expander(
+            "FRAX femoral-neck fields (site-specific)",
+            expanded=bool(ex.get("femoral_neck_bmd_g_cm2") or ex.get("femoral_neck_t_score")),
+        ):
+            st.caption("FRAX should use femoral-neck values, not a generic or lumbar-spine T-score.")
+            fn_cols = st.columns(2)
+            with fn_cols[0]:
+                dexa_fn_bmd = st.number_input(
+                    "Femoral-neck BMD (g/cm2)",
+                    value=ex.get("femoral_neck_bmd_g_cm2"),
+                    format="%.3f",
+                    key="dexa_fn_bmd",
+                )
+            with fn_cols[1]:
+                dexa_fn_t = st.number_input(
+                    "Femoral-neck T-score",
+                    value=ex.get("femoral_neck_t_score"),
+                    format="%.1f",
+                    key="dexa_fn_t",
+                )
+
         with st.expander("Advanced lean-mass fields (for FNIH / EWGSOP2)", expanded=bool(
             ex.get("alm_kg") or ex.get("alm_h2") or ex.get("left_arm_lean_g") or ex.get("left_leg_lean_g")
         )):
@@ -914,6 +946,8 @@ with tab_dexa:
                     lean_mass_g=dexa_lean, bone_mass_g=dexa_bone,
                     bmi=ex.get("bmi"), bmd_g_cm2=dexa_bmd,
                     t_score=dexa_ts, z_score=dexa_zs,
+                    femoral_neck_bmd_g_cm2=dexa_fn_bmd,
+                    femoral_neck_t_score=dexa_fn_t,
                     vat_mass_g=ex.get("vat_mass_g"),
                     vat_volume_cm3=ex.get("vat_volume_cm3"),
                     vat_area_cm2=ex.get("vat_area_cm2"),
@@ -976,6 +1010,24 @@ with tab_dexa:
             with mr3[4]:
                 m_gynoid = st.number_input("Gynoid Fat %", value=None, format="%.1f", key="dexa_m_gyn")
 
+            with st.expander("FRAX femoral-neck fields (site-specific)", expanded=False):
+                st.caption("Use the femoral-neck site if you want FRAX to use BMD-enhanced inputs.")
+                m_fn_cols = st.columns(2)
+                with m_fn_cols[0]:
+                    m_fn_bmd = st.number_input(
+                        "Femoral-neck BMD (g/cm2)",
+                        value=None,
+                        format="%.3f",
+                        key="dexa_m_fn_bmd",
+                    )
+                with m_fn_cols[1]:
+                    m_fn_t = st.number_input(
+                        "Femoral-neck T-score",
+                        value=None,
+                        format="%.1f",
+                        key="dexa_m_fn_t",
+                    )
+
             with st.expander("Advanced lean-mass fields (for FNIH / EWGSOP2)", expanded=False):
                 st.caption("Add direct ALM values or limb lean masses when available. ALM/h2 is derived automatically if height is already stored.")
                 m_adv1 = st.columns(3)
@@ -1005,6 +1057,7 @@ with tab_dexa:
                     value is None
                     for value in (
                         m_weight, m_fat, m_lean, m_bone, m_bmd, m_ts, m_zs,
+                        m_fn_bmd, m_fn_t,
                         m_alm_kg, m_alm_h2, m_ffmi, m_left_arm_lean, m_right_arm_lean,
                         m_trunk_lean, m_left_leg_lean, m_right_leg_lean,
                     )
@@ -1017,6 +1070,8 @@ with tab_dexa:
                         weight_kg=m_weight, total_fat_pct=m_fat,
                         lean_mass_g=m_lean, bone_mass_g=m_bone,
                         bmd_g_cm2=m_bmd, t_score=m_ts, z_score=m_zs,
+                        femoral_neck_bmd_g_cm2=m_fn_bmd,
+                        femoral_neck_t_score=m_fn_t,
                         android_fat_pct=m_android, gynoid_fat_pct=m_gynoid,
                         left_arm_lean_g=m_left_arm_lean,
                         right_arm_lean_g=m_right_arm_lean,
@@ -1154,6 +1209,12 @@ with tab_dexa:
                 z_score_val = scan.get("z_score")
                 if z_score_val is not None:
                     parts.append(f"Z-score: {z_score_val:.2f}")
+                femoral_neck_bmd = scan.get("femoral_neck_bmd_g_cm2")
+                if femoral_neck_bmd is not None:
+                    parts.append(f"FN BMD: {femoral_neck_bmd:.3f}")
+                femoral_neck_t = scan.get("femoral_neck_t_score")
+                if femoral_neck_t is not None:
+                    parts.append(f"FN T-score: {femoral_neck_t:.2f}")
                 alm_kg_val = scan.get("alm_kg")
                 if alm_kg_val is not None:
                     parts.append(f"ALM: {alm_kg_val:.2f} kg")

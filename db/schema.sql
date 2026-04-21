@@ -972,6 +972,7 @@ CREATE TABLE IF NOT EXISTS user_clinical_profile (
     chair_stand_time_s REAL,
     gait_speed_m_per_s REAL,
     prior_fragility_fracture INTEGER DEFAULT 0,
+    parent_hip_fracture INTEGER DEFAULT 0,
     family_history_osteoporosis INTEGER DEFAULT 0,
     falls_last_year INTEGER DEFAULT 0,
     alcohol_intake_level TEXT DEFAULT 'none'

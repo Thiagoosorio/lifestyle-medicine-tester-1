@@ -206,6 +206,7 @@ _DEXA_FIELDS = [
     "weight_kg", "total_fat_pct", "total_fat_g",
     "lean_mass_g", "bone_mass_g", "bmi",
     "bmd_g_cm2", "t_score", "z_score",
+    "femoral_neck_bmd_g_cm2", "femoral_neck_t_score",
     "vat_mass_g", "vat_volume_cm3", "vat_area_cm2",
     "android_fat_pct", "gynoid_fat_pct", "ag_ratio",
     "left_arm_fat_pct", "right_arm_fat_pct", "trunk_fat_pct",
@@ -326,6 +327,7 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
         '  "weight_kg": number, "total_fat_pct": number, "total_fat_g": number,\n'
         '  "lean_mass_g": number, "bone_mass_g": number, "bmi": number,\n'
         '  "bmd_g_cm2": number, "t_score": number, "z_score": number,\n'
+        '  "femoral_neck_bmd_g_cm2": number, "femoral_neck_t_score": number,\n'
         '  "alm_kg": number, "alm_h2": number, "ffmi": number,\n'
         '  "vat_mass_g": number, "vat_volume_cm3": number, "vat_area_cm2": number,\n'
         '  "android_fat_pct": number, "gynoid_fat_pct": number, "ag_ratio": number,\n'
@@ -340,6 +342,8 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
         "- Convert all masses to grams EXCEPT weight_kg\n"
         "- Percentages as plain numbers (9.5 not '9.5%')\n"
         "- Commas may be decimal separators (European format)\n"
+        "- If femoral neck BMD or femoral neck T-score is explicitly reported, capture it in the femoral_neck_* fields\n"
+        "- Do NOT copy lumbar spine or total hip values into the femoral-neck fields\n"
         "- If appendicular lean mass (ALM) or ALM/height^2 is explicitly reported, capture it directly\n"
         "- If arms are reported combined, split evenly for left/right\n"
         "- BMC = bone_mass_g, BMD = bmd_g_cm2\n"

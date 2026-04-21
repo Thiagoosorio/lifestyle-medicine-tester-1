@@ -19,6 +19,7 @@ from components.organ_health_display import (
     render_organ_score_card, render_missing_score_card,
     render_organ_section_header, render_score_trend_chart,
     render_clinical_profile_form, render_clinical_profile_summary,
+    render_frax_workflow_panel,
 )
 
 def _build_organ_action_plan(existing_scores: list[dict], comp_data: dict) -> list[str]:
@@ -182,6 +183,9 @@ with tab_dashboard:
             st.switch_page("pages/biomarkers.py")
     with q2:
         st.caption("Need profile fields? Use the **Clinical Profile** tab above to complete them.")
+    st.divider()
+
+    render_frax_workflow_panel(user_id, show_body_metrics_link=True)
     st.divider()
 
     # Complete score map — every definition, with computed value or missing-data flag.

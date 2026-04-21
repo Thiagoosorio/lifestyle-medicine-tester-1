@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from datetime import date
 from models.clinical_profile import get_profile, get_age, get_bmi
+from services.fracture_risk_service import build_frax_workflow_context
 
 SEVERITY_COLORS = {
     "optimal": "#30D158",
@@ -211,6 +212,7 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
                 "advanced_ckd_stage45": "Advanced CKD (Stage 4-5)",
                 "family_history_osteoporosis": "Family History of Osteoporosis / Hip Fracture",
                 "diabetes_type": "Diabetes Type",
+                "parent_hip_fracture": "Parent Hip Fracture",
             }
             named = [labels.get(c, c) for c in missing_clinical]
             missing_items.append(f"**Clinical data needed:** {', '.join(named)}")
@@ -652,6 +654,11 @@ def render_clinical_profile_form(user_id: int):
                     "Prior fragility fracture",
                     value=bool(profile.get("prior_fragility_fracture", 0)),
                 )
+                parent_hip_fracture = st.checkbox(
+                    "Parent fractured hip",
+                    value=bool(profile.get("parent_hip_fracture", 0)),
+                    help="FRAX uses parent hip-fracture history specifically, not general family osteoporosis history.",
+                )
                 family_history_osteoporosis = st.checkbox(
                     "Family history of osteoporosis / hip fracture",
                     value=bool(profile.get("family_history_osteoporosis", 0)),
@@ -759,6 +766,7 @@ def render_clinical_profile_form(user_id: int):
                 "chair_stand_time_s": chair_stand_time if chair_stand_time > 0 else None,
                 "gait_speed_m_per_s": gait_speed if gait_speed > 0 else None,
                 "prior_fragility_fracture": 1 if prior_fragility_fracture else 0,
+                "parent_hip_fracture": 1 if parent_hip_fracture else 0,
                 "family_history_osteoporosis": 1 if family_history_osteoporosis else 0,
                 "falls_last_year": 1 if falls_last_year else 0,
                 "alcohol_intake_level": alcohol_intake_level,
@@ -816,3 +824,65 @@ def render_clinical_profile_summary(user_id: int):
         advanced_parts.append(f"Neck {profile['neck_circumference_cm']} cm")
     if advanced_parts:
         st.caption("Advanced inputs: " + " | ".join(advanced_parts))
+
+
+def render_frax_workflow_panel(user_id: int, *, show_body_metrics_link: bool = False):
+    """Render a UAE-oriented FRAX workflow panel."""
+    context = build_frax_workflow_context(user_id)
+
+    with st.container(border=True):
+        st.markdown("### Official FRAX Workflow")
+        st.caption(
+            "For UAE use, the recommended FRAX model is Abu Dhabi. This app prepares the inputs "
+            "and links to the official FRAX calculator; it does not calculate FRAX locally."
+        )
+
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Recommended Model", context["model_label"])
+        m2.metric("Status", context["status_label"])
+        m3.metric("Age Rule", context["age_status"])
+
+        if context["missing_core"]:
+            st.warning("Missing core FRAX inputs: " + ", ".join(context["missing_core"]))
+
+        if context["generic_dexa_without_femoral_neck"]:
+            st.info(
+                "A generic DXA T-score/BMD is on file, but FRAX should use a femoral-neck BMD "
+                "or femoral-neck T-score if you want the BMD-enhanced calculation."
+            )
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("**Prepared clinical inputs**")
+            for label, value in context["prepared_inputs"]:
+                st.markdown(f"- {label}: {value}")
+        with col2:
+            st.markdown("**Bone-specific inputs**")
+            for label, value in context["bone_inputs"]:
+                st.markdown(f"- {label}: {value}")
+            if context["secondary_reasons"]:
+                st.caption(
+                    "Secondary osteoporosis inferred from: "
+                    + ", ".join(context["secondary_reasons"])
+                )
+
+        if show_body_metrics_link:
+            btn1, btn2 = st.columns(2)
+            with btn1:
+                st.link_button(
+                    "Open Official FRAX Calculator",
+                    context["calculator_url"],
+                    use_container_width=True,
+                )
+            with btn2:
+                st.page_link(
+                    "pages/body_metrics.py",
+                    label="Add Femoral-Neck DXA",
+                    icon=":material/monitor_weight:",
+                )
+        else:
+            st.link_button(
+                "Open Official FRAX Calculator",
+                context["calculator_url"],
+                use_container_width=True,
+            )
