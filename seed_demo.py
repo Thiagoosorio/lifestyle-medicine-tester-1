@@ -105,6 +105,42 @@ MARIA_ORGAN_SCORE_BODY_METRICS = {
     "hip_cm": 103.0,
     "body_fat_pct": 31.0,
 }
+# Realistic DEXA values for a 43-year-old overweight woman. T-score -1.3 lands
+# in the osteopenia band so the DXA WHO/ISCD score surfaces a "low bone mass /
+# osteopenia" card -- clinically consistent with Maria's other metabolic-risk
+# profile and gives the demo something actionable to discuss on Reveal Day.
+MARIA_DEXA_SCAN = {
+    "scan_date": "2026-02-15",
+    "lab_name": "Demo Imaging Center",
+    "scanner_model": "Hologic Horizon W (demo)",
+    "weight_kg": 78.0,
+    "total_fat_pct": 36.0,
+    "total_fat_g": 28080.0,
+    "lean_mass_g": 47500.0,
+    "bone_mass_g": 2420.0,
+    "bmi": 27.9,
+    "bmd_g_cm2": 0.98,
+    "t_score": -1.3,
+    "z_score": -0.5,
+    "vat_mass_g": 850.0,
+    "vat_volume_cm3": 900.0,
+    "vat_area_cm2": 120.0,
+    "android_fat_pct": 42.0,
+    "gynoid_fat_pct": 38.0,
+    "ag_ratio": 1.10,
+    "left_arm_fat_pct": 34.0,
+    "right_arm_fat_pct": 34.5,
+    "trunk_fat_pct": 39.5,
+    "left_leg_fat_pct": 35.0,
+    "right_leg_fat_pct": 35.2,
+    "left_arm_lean_g": 2400.0,
+    "right_arm_lean_g": 2500.0,
+    "trunk_lean_g": 22000.0,
+    "left_leg_lean_g": 7800.0,
+    "right_leg_lean_g": 7900.0,
+    "source": "demo",
+    "notes": "Seeded demo DEXA scan for organ-score dashboard.",
+}
 MARIA_WEARABLE_METRICS = {
     # Heart & Metabolism
     "resting_heart_rate_bpm": 67.0,
@@ -525,6 +561,26 @@ def ensure_demo_organ_score_prereqs(
                 ),
             )
             inserted_body_metrics = 1
+
+        # DEXA scan — inserted fresh, or refreshed when force_profile is set,
+        # so the DXA osteoporosis / fragility-fracture score has real inputs.
+        # Older or isolated test databases may not yet have the dexa_scans
+        # table, so silently skip in that case.
+        dexa_table_present = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='dexa_scans'"
+        ).fetchone()
+        if dexa_table_present:
+            existing_dexa = conn.execute(
+                "SELECT 1 FROM dexa_scans WHERE user_id = ? LIMIT 1",
+                (user_id,),
+            ).fetchone()
+            if force_profile or not existing_dexa:
+                # save_dexa_scan opens its own connection so we must flush ours
+                # first to avoid "database is locked" on SQLite.
+                conn.commit()
+                from services.body_metrics_service import save_dexa_scan
+                dexa_payload = {k: v for k, v in MARIA_DEXA_SCAN.items() if k != "scan_date"}
+                save_dexa_scan(user_id, MARIA_DEXA_SCAN["scan_date"], **dexa_payload)
 
         # Check if wearable data exists with recent dates (last 7 days)
         from config.wearable_wheel_data import WEARABLE_METRIC_SPECS as _WMS
@@ -2467,6 +2523,16 @@ def main():
     print(f"  - {_wearable_count} wearable measurements (30 days, Whoop + Oura + manual)")
 
     conn.close()
+
+    # Seed a realistic DEXA scan so the DXA osteoporosis / fragility-fracture
+    # score renders with real data on the organ-health dashboard.
+    try:
+        from services.body_metrics_service import save_dexa_scan
+        dexa_payload = {k: v for k, v in MARIA_DEXA_SCAN.items() if k != "scan_date"}
+        save_dexa_scan(user_id, MARIA_DEXA_SCAN["scan_date"], **dexa_payload)
+        print(f"  - 1 DEXA scan (T-score {MARIA_DEXA_SCAN['t_score']}, osteopenia band)")
+    except Exception as exc:
+        print(f"  - DEXA scan seed skipped: {exc}")
 
     print("")
     print("=" * 60)
