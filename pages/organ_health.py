@@ -184,6 +184,50 @@ with tab_dashboard:
         st.caption("Need profile fields? Use the **Clinical Profile** tab above to complete them.")
     st.divider()
 
+    # Complete score map — every definition, with computed value or missing-data flag.
+    # Gives the clinician a bird's-eye inventory without having to hunt through organ sections.
+    with st.expander("Complete score inventory (all formulas, computed or missing)", expanded=False):
+        st.caption(
+            "Every defined organ score with its current status. Missing scores are flagged as "
+            "data-gaps and are NOT counted as zero in the composite — they only lower coverage."
+        )
+        inventory_rows = []
+        scores_by_code = {s.get("code"): s for s in existing_scores}
+        missing_by_code = {m["definition"]["code"]: m for m in comp_data.get("missing", [])}
+        for defn in sorted(
+            get_all_score_definitions(),
+            key=lambda d: (
+                ORGAN_SYSTEMS.get(d.get("organ_system"), {}).get("sort_order", 999),
+                d.get("sort_order", 0),
+            ),
+        ):
+            code = defn["code"]
+            organ_meta = ORGAN_SYSTEMS.get(defn.get("organ_system"), {})
+            if code in scores_by_code:
+                s = scores_by_code[code]
+                status = f"Computed ({s.get('label', '')})"
+                value_str = str(s.get("value", ""))
+                severity = s.get("severity", "")
+            elif code in missing_by_code:
+                m = missing_by_code[code]
+                gaps = ", ".join(list(m.get("missing_biomarkers", [])) + list(m.get("missing_clinical", [])))
+                status = f"Missing data: {gaps or 'required inputs'}"
+                value_str = "—"
+                severity = ""
+            else:
+                status = "Not applicable for this patient"
+                value_str = "—"
+                severity = ""
+            inventory_rows.append({
+                "Organ": organ_meta.get("name", defn.get("organ_system", "")),
+                "Score": defn.get("name"),
+                "Tier": defn.get("tier"),
+                "Value": value_str,
+                "Severity": severity,
+                "Status": status,
+            })
+        st.dataframe(inventory_rows, use_container_width=True, hide_index=True)
+
     if not existing_scores and not comp_data["computable"]:
         st.info(
             "No organ scores can be computed yet. Please:\n"
@@ -205,6 +249,15 @@ with tab_dashboard:
             organ = m["definition"]["organ_system"]
             missing_by_organ.setdefault(organ, []).append(m)
 
+        # Organs with at least one core definition get a section even if every
+        # score for that organ is missing data, so the clinician always sees
+        # (for example) the Musculoskeletal section with a DXA missing-card.
+        core_def_organs = {
+            d["organ_system"]
+            for d in get_all_score_definitions()
+            if d.get("code") not in OPTIONAL_ADVANCED_SCORE_CODES
+        }
+
         for organ_code in sorted(
             ORGAN_SYSTEMS.keys(),
             key=lambda o: ORGAN_SYSTEMS[o]["sort_order"]
@@ -213,7 +266,7 @@ with tab_dashboard:
             organ_scores = scores_by_organ.get(organ_code, [])
             organ_missing = missing_by_organ.get(organ_code, [])
 
-            if not organ_scores and not organ_missing:
+            if not organ_scores and not organ_missing and organ_code not in core_def_organs:
                 continue
 
             render_organ_section_header(
