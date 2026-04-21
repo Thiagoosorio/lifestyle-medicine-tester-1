@@ -105,11 +105,18 @@ with tab_dashboard:
             st.warning("No scores could be computed. Check that you have lab results and a clinical profile.")
 
     existing_scores = get_latest_computed_scores(user_id)
-    if not existing_scores and not recalculate:
-        computed = compute_all_scores(user_id)
-        existing_scores = get_latest_computed_scores(user_id)
-
     comp_data = get_computable_scores(user_id)
+
+    existing_codes = {s.get("code") for s in existing_scores}
+    computable_codes = {defn["code"] for defn in comp_data.get("computable", [])}
+    stale_or_missing = (
+        not existing_scores
+        or bool(computable_codes - existing_codes)
+    )
+    if stale_or_missing and not recalculate:
+        compute_all_scores(user_id)
+        existing_scores = get_latest_computed_scores(user_id)
+        comp_data = get_computable_scores(user_id)
     core_missing, optional_missing = _split_missing_scores(comp_data.get("missing", []))
     core_comp_data = dict(comp_data)
     core_comp_data["missing"] = core_missing
