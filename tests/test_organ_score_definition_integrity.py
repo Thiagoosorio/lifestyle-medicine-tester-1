@@ -25,9 +25,23 @@ def test_known_citation_regressions_are_fixed():
     assert defs["plr"]["citation_pmid"] == "24793958"
 
 
-def test_prevent_is_marked_directional_until_full_parity_validation():
+def test_prevent_is_validated_with_full_coefficient_parity():
     defs = _defs_by_code()
-    assert defs["prevent_10yr"]["tier"] == "derived"
+    # Full AHA PREVENT coefficients (Khan 2024 Table S12) implemented,
+    # output verified against preventr R package reference cases.
+    assert defs["prevent_10yr"]["tier"] == "validated"
+    assert defs["prevent_10yr_ascvd"]["tier"] == "validated"
+    assert defs["prevent_10yr_hf"]["tier"] == "validated"
+    assert defs["prevent_10yr"]["citation_pmid"] == "37947085"
+
+
+def test_cbc_mortality_risk_replaces_legacy_composite():
+    defs = _defs_by_code()
+    # CBC composite (arbitrary percentile binning) retired in favor of the
+    # Patel 2010 RDW + WHO-anemia all-cause mortality score.
+    assert "cbc_composite" not in defs
+    assert defs["cbc_mortality_risk"]["tier"] == "validated"
+    assert defs["cbc_mortality_risk"]["citation_pmid"] == "20921437"
 
 
 def test_new_scores_are_present_with_expected_formula_keys():

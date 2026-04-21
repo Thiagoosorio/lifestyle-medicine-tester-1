@@ -4,8 +4,53 @@ Standard ranges = typical lab reference ranges.
 Target bands = evidence-based decision thresholds or pragmatic goal bands.
 Sources: AHA/ACC, ADA, AACE, Endocrine Society, clinical literature.
 
+Biomarkers that genuinely differ by sex or age (hemoglobin, hematocrit, ferritin,
+creatinine, testosterone) carry an optional "variants" list. Each variant may
+scope by ``sex`` ("female"/"male") and/or ``age_min``/``age_max`` and overlays
+its non-null range fields onto the defaults. Use ``resolve_reference_range()``
+to get the effective range for a given patient.
+
 Categories: lipids, metabolic, inflammation, vitamins, thyroid, liver, kidney, blood_count, minerals
 """
+
+
+_RANGE_KEYS = (
+    "standard_low", "standard_high",
+    "optimal_low", "optimal_high",
+    "critical_low", "critical_high",
+)
+
+
+def resolve_reference_range(biomarker_def: dict,
+                            age: float | None = None,
+                            sex: str | None = None) -> dict:
+    """Return the effective reference range for a biomarker given age/sex.
+
+    Starts from the biomarker's default range fields, then overlays the first
+    matching entry from its optional ``variants`` list. Variants are matched in
+    order; ``sex`` is compared by first-letter (f/m) and ``age_min``/``age_max``
+    are inclusive/exclusive bounds respectively. Missing fields on the variant
+    leave the base value in place.
+    """
+    resolved = {key: biomarker_def.get(key) for key in _RANGE_KEYS}
+    sex_letter = str(sex).lower()[:1] if sex else None
+    for variant in biomarker_def.get("variants") or ():
+        v_sex = variant.get("sex")
+        if v_sex and sex_letter and v_sex[:1].lower() != sex_letter:
+            continue
+        if v_sex and not sex_letter:
+            continue
+        if age is not None:
+            if variant.get("age_min") is not None and age < variant["age_min"]:
+                continue
+            if variant.get("age_max") is not None and age >= variant["age_max"]:
+                continue
+        for key in _RANGE_KEYS:
+            if variant.get(key) is not None:
+                resolved[key] = variant[key]
+        return resolved
+    return resolved
+
 
 BIOMARKER_DEFINITIONS = [
     # ═══════════════════════════════════════════════════════════════════════
@@ -160,8 +205,16 @@ BIOMARKER_DEFINITIONS = [
         "optimal_low": 40, "optimal_high": 150,
         "critical_low": 10, "critical_high": 1000,
         "description": "Iron storage protein; also an acute phase reactant (rises with inflammation).",
-        "clinical_note": "Low = iron deficiency. Very high = hemochromatosis or inflammation. Optimal 40-150.",
+        "clinical_note": "Low = iron deficiency. Very high = hemochromatosis or inflammation. Sex and age adjust the healthy window (menstruating women run lower, postmenopausal closer to male range).",
         "pillar_id": 1, "sort_order": 23,
+        "variants": [
+            {"sex": "female", "age_max": 50, "standard_low": 15, "standard_high": 150,
+             "optimal_low": 30, "optimal_high": 100, "critical_low": 10, "critical_high": 500},
+            {"sex": "female", "age_min": 50, "standard_low": 20, "standard_high": 300,
+             "optimal_low": 40, "optimal_high": 150, "critical_low": 10, "critical_high": 1000},
+            {"sex": "male", "standard_low": 30, "standard_high": 400,
+             "optimal_low": 50, "optimal_high": 150, "critical_low": 15, "critical_high": 1000},
+        ],
     },
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -271,8 +324,16 @@ BIOMARKER_DEFINITIONS = [
         "optimal_low": 500, "optimal_high": 800,
         "critical_low": 200, "critical_high": None,
         "description": "Primary male sex hormone (also important in women at lower levels).",
-        "clinical_note": "Ranges shown for adult males. Exercise, sleep quality, and stress management all influence levels.",
+        "clinical_note": "Endocrine Society reference ranges are sex- and age-specific. Exercise, sleep quality, and stress management all influence levels.",
         "pillar_id": 2, "sort_order": 52,
+        "variants": [
+            {"sex": "female", "standard_low": 15, "standard_high": 70,
+             "optimal_low": 25, "optimal_high": 60, "critical_low": 10, "critical_high": 150},
+            {"sex": "male", "age_max": 50, "standard_low": 400, "standard_high": 1000,
+             "optimal_low": 600, "optimal_high": 900, "critical_low": 250, "critical_high": None},
+            {"sex": "male", "age_min": 50, "standard_low": 300, "standard_high": 900,
+             "optimal_low": 500, "optimal_high": 800, "critical_low": 200, "critical_high": None},
+        ],
     },
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -324,8 +385,14 @@ BIOMARKER_DEFINITIONS = [
         "optimal_low": 0.7, "optimal_high": 1.0,
         "critical_low": None, "critical_high": 4.0,
         "description": "Waste product from muscle metabolism filtered by kidneys.",
-        "clinical_note": "Varies by muscle mass. Interpret with eGFR for kidney function assessment.",
+        "clinical_note": "Varies by muscle mass and sex. Interpret with eGFR (CKD-EPI 2021) for kidney function assessment.",
         "pillar_id": None, "sort_order": 71,
+        "variants": [
+            {"sex": "female", "standard_low": 0.5, "standard_high": 1.0,
+             "optimal_low": 0.6, "optimal_high": 0.9, "critical_high": 3.5},
+            {"sex": "male", "standard_low": 0.7, "standard_high": 1.3,
+             "optimal_low": 0.8, "optimal_high": 1.1, "critical_high": 4.0},
+        ],
     },
     {
         "code": "bun", "name": "BUN", "category": "kidney",
@@ -355,8 +422,14 @@ BIOMARKER_DEFINITIONS = [
         "optimal_low": 13.5, "optimal_high": 16.0,
         "critical_low": 7.0, "critical_high": 20.0,
         "description": "Oxygen-carrying protein in red blood cells.",
-        "clinical_note": "Ranges differ by sex. Low = anemia. Common deficiency in plant-based diets without iron attention.",
+        "clinical_note": "Ranges differ by sex (WHO 2011). Low = anemia. Common deficiency in plant-based diets without iron attention.",
         "pillar_id": 1, "sort_order": 81,
+        "variants": [
+            {"sex": "female", "standard_low": 12.0, "standard_high": 15.5,
+             "optimal_low": 12.5, "optimal_high": 14.5, "critical_low": 7.0, "critical_high": 18.0},
+            {"sex": "male", "standard_low": 13.5, "standard_high": 17.5,
+             "optimal_low": 14.0, "optimal_high": 16.5, "critical_low": 7.0, "critical_high": 20.0},
+        ],
     },
     {
         "code": "hematocrit", "name": "Hematocrit", "category": "blood_count",
@@ -364,8 +437,14 @@ BIOMARKER_DEFINITIONS = [
         "optimal_low": 40, "optimal_high": 48,
         "critical_low": 25, "critical_high": 60,
         "description": "Percentage of blood volume occupied by red blood cells.",
-        "clinical_note": "Interpret alongside hemoglobin. Dehydration falsely elevates hematocrit.",
+        "clinical_note": "Interpret alongside hemoglobin. Dehydration falsely elevates hematocrit. Sex-specific reference ranges.",
         "pillar_id": None, "sort_order": 82,
+        "variants": [
+            {"sex": "female", "standard_low": 36, "standard_high": 46,
+             "optimal_low": 38, "optimal_high": 44, "critical_low": 25, "critical_high": 55},
+            {"sex": "male", "standard_low": 40, "standard_high": 52,
+             "optimal_low": 42, "optimal_high": 48, "critical_low": 28, "critical_high": 60},
+        ],
     },
     {
         "code": "platelets", "name": "Platelets", "category": "blood_count",

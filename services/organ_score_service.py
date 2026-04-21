@@ -307,57 +307,156 @@ def calc_ascvd_pce(age: float, sex: str, total_chol: float, hdl: float,
     return round(max(0, min(risk * 100, 100)), 1)
 
 
+_MGDL_TO_MMOL_CHOL = 1.0 / 38.67  # cholesterol mg/dL -> mmol/L
+
+
+def _prevent_prep_terms(age: float, total_chol: float, hdl: float,
+                        systolic_bp: float, on_bp_med: bool, smoking: bool,
+                        diabetes: bool, statin: bool, egfr: float, bmi: float,
+                        hba1c: float | None, uacr: float | None) -> dict[str, float]:
+    """Transform inputs into centered/spline predictors per Khan 2024 supplement.
+
+    Matches preventr::prep_terms() in R. All cholesterol inputs are mg/dL and
+    converted to mmol/L internally.
+    """
+    age_c = (age - 55) / 10.0
+    non_hdl_mmol = (total_chol - hdl) * _MGDL_TO_MMOL_CHOL
+    hdl_mmol = hdl * _MGDL_TO_MMOL_CHOL
+
+    non_hdl_c = non_hdl_mmol - 3.5
+    hdl_c = (hdl_mmol - 1.3) / 0.3
+
+    sbp_lt_110 = (min(systolic_bp, 110.0) - 110.0) / 20.0
+    sbp_gte_110 = (max(systolic_bp, 110.0) - 130.0) / 20.0
+    bmi_lt_30 = (min(bmi, 30.0) - 25.0) / 5.0
+    bmi_gte_30 = (max(bmi, 30.0) - 30.0) / 5.0
+    egfr_lt_60 = (min(egfr, 60.0) - 60.0) / -15.0
+    egfr_gte_60 = (max(egfr, 60.0) - 90.0) / -15.0
+
+    dm = 1.0 if diabetes else 0.0
+    smk = 1.0 if smoking else 0.0
+    bp_tx = 1.0 if on_bp_med else 0.0
+    stat = 1.0 if statin else 0.0
+
+    terms: dict[str, float] = {
+        "age": age_c,
+        "non_hdl_c": non_hdl_c,
+        "hdl_c": hdl_c,
+        "sbp_lt_110": sbp_lt_110,
+        "sbp_gte_110": sbp_gte_110,
+        "dm": dm,
+        "smoking": smk,
+        "bmi_lt_30": bmi_lt_30,
+        "bmi_gte_30": bmi_gte_30,
+        "egfr_lt_60": egfr_lt_60,
+        "egfr_gte_60": egfr_gte_60,
+        "bp_tx": bp_tx,
+        "statin": stat,
+        "bp_tx_sbp_gte_110": bp_tx * sbp_gte_110,
+        "statin_non_hdl_c": stat * non_hdl_c,
+        "age_non_hdl_c": age_c * non_hdl_c,
+        "age_hdl_c": age_c * hdl_c,
+        "age_sbp_gte_110": age_c * sbp_gte_110,
+        "age_dm": age_c * dm,
+        "age_smoking": age_c * smk,
+        "age_bmi_gte_30": age_c * bmi_gte_30,
+        "age_egfr_lt_60": age_c * egfr_lt_60,
+        "constant": 1.0,
+    }
+
+    if hba1c is not None:
+        terms["hba1c_dm"] = (hba1c - 5.3) if diabetes else 0.0
+        terms["hba1c_no_dm"] = 0.0 if diabetes else (hba1c - 5.3)
+        terms["missing_hba1c"] = 0.0
+    else:
+        terms["hba1c_dm"] = 0.0
+        terms["hba1c_no_dm"] = 0.0
+        terms["missing_hba1c"] = 1.0
+
+    if uacr is not None and uacr > 0:
+        terms["ln_uacr"] = math.log(uacr)
+        terms["missing_uacr"] = 0.0
+    else:
+        terms["ln_uacr"] = 0.0
+        terms["missing_uacr"] = 1.0
+
+    # SDI (social deprivation index) not collected by this app -> treat as missing.
+    terms["sdi_4_to_6"] = 0.0
+    terms["sdi_7_to_10"] = 0.0
+    terms["missing_sdi"] = 1.0
+
+    return terms
+
+
 def calc_prevent_10yr(age: float, sex: str, total_chol: float, hdl: float,
                       systolic_bp: float, on_bp_med: bool, smoking: bool,
-                      diabetes: bool, egfr: float, bmi: float) -> float | None:
-    """AHA PREVENT Equations — 10-year total CVD risk %.
+                      diabetes: bool, egfr: float, bmi: float,
+                      statin: bool = False, hba1c: float | None = None,
+                      uacr: float | None = None,
+                      outcome: str = "total_cvd") -> float | None:
+    """AHA PREVENT Equations -- 10-year risk % for the requested outcome.
 
-    Race-free, adds eGFR and BMI as predictors. Ages 30-79.
-    Simplified implementation using published coefficient estimates.
-
-    PMID: 37947085 — Khan SS et al. Circulation 2024.
+    Race-free, validated ages 30-79, SBP 90-180, BMI 18.5-39.9, eGFR 15-140.
+    Implements the official coefficients from Khan SS et al. Circulation
+    2024;149(6):430-449 (PMID 37947085), Table S12. Model selected automatically:
+    base (default), hba1c (if hba1c provided), uacr (if uacr provided), or full
+    (both). Outcome one of: total_cvd, ascvd, heart_failure, chd, stroke.
     """
-    if age < 30 or age > 79:
+    from config.prevent_coefficients import PREVENT_MODELS
+
+    if age is None or age < 30 or age > 79:
+        return None
+    if None in (total_chol, hdl, systolic_bp, egfr, bmi):
         return None
     if total_chol <= 0 or hdl <= 0 or systolic_bp <= 0 or egfr <= 0 or bmi <= 0:
         return None
+    sex_key = "female" if str(sex).lower().startswith("f") else "male"
 
-    ln_age = math.log(age)
-    ln_tc = math.log(total_chol)
-    ln_hdl = math.log(hdl)
-    ln_sbp = math.log(systolic_bp)
-    ln_egfr = math.log(max(egfr, 15))
-    ln_bmi = math.log(bmi)
-
-    if sex == "female":
-        coeff_sum = (
-            0.5638 * (ln_age - math.log(55))
-            + 0.3190 * (ln_tc - math.log(200))
-            + -0.4702 * (ln_hdl - math.log(50))
-            + 0.4524 * (ln_sbp - math.log(130))
-            + -0.1665 * (ln_egfr - math.log(90))
-            + 0.1368 * (ln_bmi - math.log(28))
-            + 0.3373 * (1.0 if smoking else 0.0)
-            + 0.5204 * (1.0 if diabetes else 0.0)
-            + 0.1205 * (1.0 if on_bp_med else 0.0)
-        )
-        baseline_10yr = 0.025
+    has_hba1c = hba1c is not None and hba1c > 0
+    has_uacr = uacr is not None and uacr > 0
+    if has_hba1c and has_uacr:
+        model_key = "full"
+    elif has_hba1c:
+        model_key = "hba1c"
+    elif has_uacr:
+        model_key = "uacr"
     else:
-        coeff_sum = (
-            0.5638 * (ln_age - math.log(55))
-            + 0.2478 * (ln_tc - math.log(200))
-            + -0.3653 * (ln_hdl - math.log(50))
-            + 0.4199 * (ln_sbp - math.log(130))
-            + -0.1921 * (ln_egfr - math.log(90))
-            + 0.1091 * (ln_bmi - math.log(28))
-            + 0.3648 * (1.0 if smoking else 0.0)
-            + 0.4632 * (1.0 if diabetes else 0.0)
-            + 0.1392 * (1.0 if on_bp_med else 0.0)
-        )
-        baseline_10yr = 0.055
+        model_key = "base"
 
-    risk = baseline_10yr * math.exp(coeff_sum)
-    return round(max(0, min(risk * 100, 100)), 1)
+    coeffs = PREVENT_MODELS[model_key][sex_key].get(outcome)
+    if coeffs is None:
+        return None
+
+    terms = _prevent_prep_terms(
+        age=float(age), total_chol=float(total_chol), hdl=float(hdl),
+        systolic_bp=float(systolic_bp), on_bp_med=bool(on_bp_med),
+        smoking=bool(smoking), diabetes=bool(diabetes), statin=bool(statin),
+        egfr=float(egfr), bmi=float(bmi),
+        hba1c=float(hba1c) if has_hba1c else None,
+        uacr=float(uacr) if has_uacr else None,
+    )
+
+    log_odds = sum(coeffs[k] * terms.get(k, 0.0) for k in coeffs)
+    risk = 1.0 / (1.0 + math.exp(-log_odds))
+    return round(max(0.0, min(risk * 100.0, 100.0)), 1)
+
+
+def calc_prevent_10yr_ascvd(age, sex, total_chol, hdl, systolic_bp, on_bp_med,
+                            smoking, diabetes, egfr, bmi, statin=False,
+                            hba1c=None, uacr=None):
+    """10-year ASCVD (MI + stroke) risk % via AHA PREVENT."""
+    return calc_prevent_10yr(age, sex, total_chol, hdl, systolic_bp, on_bp_med,
+                             smoking, diabetes, egfr, bmi, statin, hba1c, uacr,
+                             outcome="ascvd")
+
+
+def calc_prevent_10yr_hf(age, sex, total_chol, hdl, systolic_bp, on_bp_med,
+                         smoking, diabetes, egfr, bmi, statin=False,
+                         hba1c=None, uacr=None):
+    """10-year heart failure risk % via AHA PREVENT."""
+    return calc_prevent_10yr(age, sex, total_chol, hdl, systolic_bp, on_bp_med,
+                             smoking, diabetes, egfr, bmi, statin, hba1c, uacr,
+                             outcome="heart_failure")
 
 
 def calc_homa_ir(fasting_insulin: float, fasting_glucose_mgdl: float) -> float | None:
@@ -1482,85 +1581,54 @@ def calc_iron_status_composite(ferritin: float, serum_iron: float,
     return round(sum(scores) / len(scores), 0)
 
 
-def calc_cbc_composite(hemoglobin: float, mcv: float, rdw: float,
-                       wbc: float, platelets: float) -> float | None:
-    """CBC Health Composite — Derived percentile-rank score (0-100).
+def calc_cbc_mortality_risk(hemoglobin: float, rdw: float,
+                            sex: str = "male") -> float | None:
+    """Hemoglobin + RDW all-cause mortality risk score (0-100, higher = healthier).
 
-    Uses NHANES 2017-2020 reference distributions.
+    Evidence base (both Q1 journals, independent-of-diagnosis mortality signal):
+      * Patel KV et al. Circulation 2010;122(15):1530-1537 (PMID 20921437).
+        RDW quintile-stratified all-cause mortality in NHANES-III: Q1 (<12.5%)
+        reference, Q5 (>=14.5%) hazard ratio ~1.78.
+      * Felker GM et al. J Am Coll Cardiol 2007;50(1):40-47 (PMID 17601544).
+        Each 1% RDW increase associated with HR 1.17 for mortality.
+      * WHO 2011 criteria for anemia: Hb <12.0 g/dL (non-pregnant women),
+        Hb <13.0 g/dL (men).
+
+    Score combines (i) RDW quintile band inverted to a 0-100 scale and
+    (ii) WHO anemia severity, averaged equally.
     """
-    scores = []
-
-    if hemoglobin is not None and hemoglobin > 0:
-        if hemoglobin < 7:
-            scores.append(5)
-        elif hemoglobin < 10:
-            scores.append(20)
-        elif hemoglobin < 12:
-            scores.append(40)
-        elif hemoglobin < 13:
-            scores.append(55)
-        elif hemoglobin < 16:
-            scores.append(80)
-        elif hemoglobin < 18:
-            scores.append(60)
-        else:
-            scores.append(30)
-
-    if mcv is not None and mcv > 0:
-        if mcv < 70:
-            scores.append(15)
-        elif mcv < 80:
-            scores.append(35)
-        elif mcv < 82:
-            scores.append(55)
-        elif mcv < 95:
-            scores.append(80)
-        elif mcv < 100:
-            scores.append(55)
-        else:
-            scores.append(25)
-
-    if rdw is not None and rdw > 0:
-        if rdw <= 13.5:
-            scores.append(80)
-        elif rdw <= 14.5:
-            scores.append(60)
-        elif rdw <= 16:
-            scores.append(35)
-        else:
-            scores.append(15)
-
-    if wbc is not None and wbc > 0:
-        if wbc < 2:
-            scores.append(10)
-        elif wbc < 3.5:
-            scores.append(30)
-        elif wbc < 4:
-            scores.append(55)
-        elif wbc < 8:
-            scores.append(80)
-        elif wbc < 10.5:
-            scores.append(55)
-        else:
-            scores.append(25)
-
-    if platelets is not None and platelets > 0:
-        if platelets < 50:
-            scores.append(10)
-        elif platelets < 150:
-            scores.append(35)
-        elif platelets < 175:
-            scores.append(55)
-        elif platelets < 350:
-            scores.append(80)
-        elif platelets < 400:
-            scores.append(55)
-        else:
-            scores.append(25)
-
-    if not scores:
+    if hemoglobin is None or hemoglobin <= 0 or rdw is None or rdw <= 0:
         return None
-    return round(sum(scores) / len(scores), 0)
+
+    # RDW component — Patel 2010 quintiles inverted to health score.
+    if rdw < 12.5:
+        rdw_score = 90
+    elif rdw < 13.0:
+        rdw_score = 75
+    elif rdw < 13.5:
+        rdw_score = 60
+    elif rdw < 14.5:
+        rdw_score = 40
+    else:
+        rdw_score = 20
+
+    # Anemia / Hb component — WHO 2011 cutoffs, sex-specific.
+    lower_normal = 12.0 if str(sex).lower().startswith("f") else 13.0
+    if hemoglobin >= lower_normal:
+        hb_score = 90
+    elif hemoglobin >= 10.0:
+        hb_score = 55  # mild anemia
+    elif hemoglobin >= 8.0:
+        hb_score = 30  # moderate
+    else:
+        hb_score = 10  # severe
+
+    # Polycythemia penalty (Hb well above upper-normal suggests secondary causes).
+    upper_normal = 15.5 if str(sex).lower().startswith("f") else 17.5
+    if hemoglobin > upper_normal + 2.0:
+        hb_score = min(hb_score, 40)
+
+    return round((rdw_score + hb_score) / 2)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1736,6 +1804,8 @@ def _build_ascvd_args(bio, clin):
 
 def _build_prevent_args(bio, clin):
     egfr = calc_ckd_epi_2021(bio.get("creatinine", 0), clin.get("age", 0), clin.get("sex", "male"))
+    hba1c = bio.get("hba1c")
+    uacr = bio.get("uacr") or bio.get("urine_acr")
     return {
         "age": clin.get("age"), "sex": clin.get("sex"),
         "total_chol": bio.get("total_cholesterol"), "hdl": bio.get("hdl_cholesterol"),
@@ -1744,6 +1814,9 @@ def _build_prevent_args(bio, clin):
         "smoking": clin.get("smoking_status") == "current",
         "diabetes": bool(clin.get("diabetes_status")),
         "egfr": egfr, "bmi": clin.get("bmi"),
+        "statin": bool(clin.get("on_statin")),
+        "hba1c": hba1c if (hba1c and hba1c > 0) else None,
+        "uacr": uacr if (uacr and uacr > 0) else None,
     }
 
 def _build_homa_ir_args(bio, clin):
@@ -1810,8 +1883,9 @@ def _build_spina_gd_args(bio, clin):
 def _build_iron_composite_args(bio, clin):
     return {"ferritin": bio.get("ferritin"), "serum_iron": bio.get("iron"), "tibc": bio.get("tibc"), "tsat": bio.get("transferrin_sat")}
 
-def _build_cbc_composite_args(bio, clin):
-    return {"hemoglobin": bio.get("hemoglobin"), "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": bio.get("wbc"), "platelets": bio.get("platelets")}
+def _build_cbc_mortality_args(bio, clin):
+    return {"hemoglobin": bio.get("hemoglobin"), "rdw": bio.get("rdw"),
+            "sex": clin.get("sex", "male")}
 
 def _build_qrisk3_args(bio, clin):
     # Map ethnicity string to QRISK3 integer code
@@ -2021,6 +2095,8 @@ FORMULA_DISPATCH = {
     "calc_kdigo_risk": (calc_kdigo_risk, _build_kdigo_args),
     "calc_ascvd_pce": (calc_ascvd_pce, _build_ascvd_args),
     "calc_prevent_10yr": (calc_prevent_10yr, _build_prevent_args),
+    "calc_prevent_10yr_ascvd": (calc_prevent_10yr_ascvd, _build_prevent_args),
+    "calc_prevent_10yr_hf": (calc_prevent_10yr_hf, _build_prevent_args),
     "calc_homa_ir": (calc_homa_ir, _build_homa_ir_args),
     "calc_homa_b": (calc_homa_b, _build_homa_b_args),
     "calc_tyg_index": (calc_tyg_index, _build_tyg_args),
@@ -2036,7 +2112,7 @@ FORMULA_DISPATCH = {
     "calc_spina_gt": (calc_spina_gt, _build_spina_gt_args),
     "calc_spina_gd": (calc_spina_gd, _build_spina_gd_args),
     "calc_iron_status_composite": (calc_iron_status_composite, _build_iron_composite_args),
-    "calc_cbc_composite": (calc_cbc_composite, _build_cbc_composite_args),
+    "calc_cbc_mortality_risk": (calc_cbc_mortality_risk, _build_cbc_mortality_args),
     "calc_qrisk3": (calc_qrisk3, _build_qrisk3_args),
     "calc_framingham_cvd": (calc_framingham_cvd, _build_framingham_cvd_args),
     "calc_framingham_vascular_age_gap": (calc_framingham_vascular_age_gap, _build_framingham_vascular_age_gap_args),

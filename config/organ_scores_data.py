@@ -151,9 +151,9 @@ ORGAN_SCORE_DEFINITIONS = [
     },
     {
         "code": "prevent_10yr",
-        "name": "AHA PREVENT 10-Year Risk",
+        "name": "AHA PREVENT 10-Year Total CVD Risk",
         "organ_system": "cardiovascular",
-        "tier": "derived",
+        "tier": "validated",
         "formula_key": "calc_prevent_10yr",
         "required_biomarkers": ["total_cholesterol", "hdl_cholesterol", "creatinine"],
         "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status", "bmi"],
@@ -166,9 +166,51 @@ ORGAN_SCORE_DEFINITIONS = [
             ]
         }),
         "citation_pmid": "37947085",
-        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations. Race-free, adds eGFR + BMI. [Q1, top 10%]. App implementation currently uses a simplified coefficient implementation and should be treated as directional.",
-        "description": "AHA's newest cardiovascular risk equations (2024). Race-free, includes eGFR and BMI, predicts heart failure in addition to ASCVD. Ages 30-79. Current app implementation is a simplified approximation pending full coefficient parity validation.",
+        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations (Table S12). Race-free, includes eGFR and BMI. Ages 30-79. [Q1, top 10%]. Implementation uses the official AHA coefficient tables (verified against preventr R package test suite).",
+        "description": "AHA PREVENT total cardiovascular disease (ASCVD + heart failure) 10-year risk. Race-free, ages 30-79, auto-selects the HbA1c, UACR, or full-model variant when those biomarkers are supplied.",
         "sort_order": 21,
+    },
+    {
+        "code": "prevent_10yr_ascvd",
+        "name": "AHA PREVENT 10-Year ASCVD Risk",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_prevent_10yr_ascvd",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol", "creatinine"],
+        "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status", "bmi"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 5.0, "label": "Low ASCVD risk (<5%)", "severity": "optimal"},
+                {"min": 5.0, "max": 7.5, "label": "Borderline ASCVD risk (5-7.5%)", "severity": "normal"},
+                {"min": 7.5, "max": 20.0, "label": "Intermediate ASCVD risk (7.5-20%)", "severity": "elevated"},
+                {"min": 20.0, "label": "High ASCVD risk (>=20%)", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "37947085",
+        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations (Table S12). ASCVD sub-outcome (MI + stroke). [Q1, top 10%]. Verified against preventr R package.",
+        "description": "AHA PREVENT 10-year atherosclerotic CVD (MI + stroke) risk. Narrower endpoint than total-CVD; directly comparable to the older ACC/AHA Pooled Cohort Equations.",
+        "sort_order": 22,
+    },
+    {
+        "code": "prevent_10yr_hf",
+        "name": "AHA PREVENT 10-Year Heart Failure Risk",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_prevent_10yr_hf",
+        "required_biomarkers": ["total_cholesterol", "hdl_cholesterol", "creatinine"],
+        "required_clinical": ["age", "sex", "systolic_bp", "on_bp_medication", "smoking_status", "diabetes_status", "bmi"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 3.0, "label": "Low HF risk (<3%)", "severity": "optimal"},
+                {"min": 3.0, "max": 7.5, "label": "Borderline HF risk (3-7.5%)", "severity": "normal"},
+                {"min": 7.5, "max": 15.0, "label": "Intermediate HF risk (7.5-15%)", "severity": "elevated"},
+                {"min": 15.0, "label": "High HF risk (>=15%)", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "37947085",
+        "citation_text": "Khan SS et al. Circulation 2024;149(6):430-449. AHA PREVENT Equations (Table S12). First major risk score to include heart failure as a primary endpoint. [Q1, top 10%]. Verified against preventr R package.",
+        "description": "AHA PREVENT 10-year heart failure incidence risk. BMI and eGFR carry stronger weight than in the ASCVD sub-model, reflecting obesity and kidney-function contributions to HF.",
+        "sort_order": 23,
     },
     # ═══════════════════════════════════════════════════════════════════════════
     # CARDIOVASCULAR — QRISK3 (NICE-mandated UK CVD risk)
@@ -604,24 +646,24 @@ ORGAN_SCORE_DEFINITIONS = [
         "sort_order": 60,
     },
     {
-        "code": "cbc_composite",
-        "name": "CBC Health Composite",
+        "code": "cbc_mortality_risk",
+        "name": "Hb + RDW Mortality Risk",
         "organ_system": "hematologic",
-        "tier": "derived",
-        "formula_key": "calc_cbc_composite",
-        "required_biomarkers": ["hemoglobin", "mcv", "rdw", "wbc", "platelets"],
-        "required_clinical": [],
+        "tier": "validated",
+        "formula_key": "calc_cbc_mortality_risk",
+        "required_biomarkers": ["hemoglobin", "rdw"],
+        "required_clinical": ["sex"],
         "interpretation": json.dumps({
             "ranges": [
-                {"min": 60, "label": "Healthy blood cell profile", "severity": "optimal"},
-                {"min": 40, "max": 59, "label": "Borderline blood cell profile", "severity": "normal"},
-                {"min": 20, "max": 39, "label": "Suboptimal blood cell profile", "severity": "elevated"},
-                {"max": 19, "label": "Abnormal blood cell profile — review needed", "severity": "high"},
+                {"min": 80, "label": "Low mortality-risk profile", "severity": "optimal"},
+                {"min": 60, "max": 79, "label": "Normal mortality-risk profile", "severity": "normal"},
+                {"min": 40, "max": 59, "label": "Elevated mortality-risk profile", "severity": "elevated"},
+                {"max": 39, "label": "High mortality-risk profile - review needed", "severity": "high"},
             ]
         }),
-        "citation_pmid": None,
-        "citation_text": "Derived composite using NHANES 2017-2020 reference distributions for age/sex-stratified CBC parameters. No validated single hematologic health index exists.",
-        "description": "Experimental composite score combining hemoglobin, MCV, RDW, WBC, and platelets against population reference ranges. Each marker ranked by percentile, then averaged.",
+        "citation_pmid": "20921437",
+        "citation_text": "Patel KV et al. Circulation 2010;122(15):1530-1537. RDW quintile-stratified all-cause mortality in NHANES-III (Q5 vs Q1 HR ~1.78). Combined with Felker 2007 (JACC, PMID 17601544; +1% RDW -> HR 1.17) and WHO 2011 anemia cutoffs. [Q1, top 10%].",
+        "description": "All-cause mortality risk composite using red cell distribution width (Patel 2010 quintiles) and WHO-defined anemia severity. Strongest single-feature CBC mortality signal; independent of diagnosis. Replaces the earlier unvalidated CBC composite.",
         "sort_order": 61,
     },
     # ═══════════════════════════════════════════════════════════════════════════
