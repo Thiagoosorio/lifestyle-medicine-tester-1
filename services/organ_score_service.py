@@ -39,6 +39,30 @@ def _get_latest_biomarkers_with_dates(user_id: int) -> dict:
     }
 
 
+def _get_latest_dexa_inputs_with_dates(user_id: int) -> dict:
+    """Get latest DEXA values in biomarker-like shape {code: {value, lab_date}}."""
+    try:
+        from services.body_metrics_service import get_latest_dexa
+    except Exception:
+        return {}
+
+    dexa = get_latest_dexa(user_id) or {}
+    if not dexa:
+        return {}
+
+    scan_date = dexa.get("scan_date") or "unknown"
+    mapped = {
+        "dexa_t_score": dexa.get("t_score"),
+        "dexa_z_score": dexa.get("z_score"),
+        "dexa_bmd_g_cm2": dexa.get("bmd_g_cm2"),
+    }
+    return {
+        code: {"value": value, "lab_date": scan_date}
+        for code, value in mapped.items()
+        if value is not None
+    }
+
+
 def _most_recent_iso_lab_date(lab_dates: list[str]) -> str:
     """Return most recent ISO lab date from a candidate list.
 
@@ -1475,9 +1499,73 @@ def calc_caide(age: float, sex: str, education_years: int,
     return score
 
 
+def calc_dxa_osteoporosis_who(dexa_t_score: float) -> float | None:
+    """WHO/ISCD DXA T-score class mapped to ordinal fragility-fracture signal.
+
+    Output scale (higher = higher risk signal):
+    0 = normal (T-score >= -1.0)
+    1 = low bone mass / osteopenia (-2.5 < T-score < -1.0)
+    2 = osteoporosis (T-score <= -2.5)
+    3 = very low BMD / severe osteoporosis signal (T-score <= -3.0)
+    """
+    if dexa_t_score is None:
+        return None
+    if dexa_t_score < -10 or dexa_t_score > 10:
+        return None
+
+    if dexa_t_score <= -3.0:
+        return 3.0
+    if dexa_t_score <= -2.5:
+        return 2.0
+    if dexa_t_score < -1.0:
+        return 1.0
+    return 0.0
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # TIER 2: DERIVED / EXPERIMENTAL FORMULAS
 # ══════════════════════════════════════════════════════════════════════════════
+
+def calc_thyroid_guideline_pattern(tsh: float, free_t4_ngdl: float) -> float | None:
+    """Guideline-aligned thyroid dysfunction pattern score (0-4, higher=worse).
+
+    Uses routine clinical interpretation of TSH + FT4:
+    - overt primary dysfunction (discordant TSH/FT4) highest concern
+    - low/normal TSH + low FT4 flagged for possible central dysfunction
+    - subclinical patterns (abnormal TSH with normal FT4) intermediate concern
+    - euthyroid pattern lowest concern
+    """
+    if tsh is None or free_t4_ngdl is None:
+        return None
+    if tsh <= 0 or free_t4_ngdl <= 0:
+        return None
+
+    tsh_low = 0.4
+    tsh_high = 4.0
+    ft4_low = 0.8
+    ft4_high = 1.8
+
+    if free_t4_ngdl < ft4_low:
+        if tsh > tsh_high:
+            return 4.0  # Overt primary hypothyroid pattern
+        return 3.0  # Possible central hypothyroid pattern
+
+    if free_t4_ngdl > ft4_high:
+        if tsh < tsh_low:
+            return 4.0  # Overt primary hyperthyroid pattern
+        return 3.0  # Inappropriately normal/high TSH with high FT4
+
+    # FT4 in reference range: treat TSH excursions as subclinical gradients.
+    if tsh >= 10.0:
+        return 3.0
+    if tsh > tsh_high:
+        return 2.0
+    if tsh < 0.1:
+        return 3.0
+    if tsh < tsh_low:
+        return 2.0
+    return 0.0
+
 
 def calc_jostel_tsh_index(tsh: float, free_t4_ngdl: float) -> float | None:
     """Jostel's TSH Index = ln(TSH [mIU/L]) + 0.1345 x FT4 [pmol/L]
@@ -1891,6 +1979,12 @@ def _build_sii_args(bio, clin):
 def _build_nlr_args(bio, clin):
     return {"neutrophils": bio.get("neutrophils_abs"), "lymphocytes": bio.get("lymphocytes_abs")}
 
+def _build_dxa_osteoporosis_args(bio, clin):
+    return {"dexa_t_score": bio.get("dexa_t_score")}
+
+def _build_thyroid_guideline_args(bio, clin):
+    return {"tsh": bio.get("tsh"), "free_t4_ngdl": bio.get("free_t4")}
+
 def _build_jostel_args(bio, clin):
     return {"tsh": bio.get("tsh"), "free_t4_ngdl": bio.get("free_t4")}
 
@@ -2128,6 +2222,8 @@ FORMULA_DISPATCH = {
     "calc_glasgow_prognostic": (calc_glasgow_prognostic, _build_glasgow_args),
     "calc_sii": (calc_sii, _build_sii_args),
     "calc_nlr": (calc_nlr, _build_nlr_args),
+    "calc_dxa_osteoporosis_who": (calc_dxa_osteoporosis_who, _build_dxa_osteoporosis_args),
+    "calc_thyroid_guideline_pattern": (calc_thyroid_guideline_pattern, _build_thyroid_guideline_args),
     "calc_jostel_tsh_index": (calc_jostel_tsh_index, _build_jostel_args),
     "calc_spina_gt": (calc_spina_gt, _build_spina_gt_args),
     "calc_spina_gd": (calc_spina_gd, _build_spina_gd_args),
@@ -2226,6 +2322,9 @@ def get_computable_scores(user_id: int) -> dict:
     """
     definitions = get_all_score_definitions()
     biomarkers = _get_latest_biomarkers_as_dict(user_id)
+    dexa_with_dates = _get_latest_dexa_inputs_with_dates(user_id)
+    for code, payload in dexa_with_dates.items():
+        biomarkers[code] = payload["value"]
     clinical = _get_clinical_data(user_id)
 
     computable = []
@@ -2258,6 +2357,10 @@ def compute_all_scores(user_id: int) -> list:
     definitions = get_all_score_definitions()
     biomarkers = _get_latest_biomarkers_as_dict(user_id)
     bio_with_dates = _get_latest_biomarkers_with_dates(user_id)
+    dexa_with_dates = _get_latest_dexa_inputs_with_dates(user_id)
+    for code, payload in dexa_with_dates.items():
+        biomarkers[code] = payload["value"]
+        bio_with_dates[code] = payload
     clinical = _get_clinical_data(user_id)
 
     results = []

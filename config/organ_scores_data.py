@@ -559,8 +559,54 @@ ORGAN_SCORE_DEFINITIONS = [
         "sort_order": 42,
     },
     # ═══════════════════════════════════════════════════════════════════════════
+    # MUSCULOSKELETAL — Tier 1
+    # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "dxa_osteoporosis_who",
+        "name": "DXA Osteoporosis Classification (WHO/ISCD)",
+        "organ_system": "musculoskeletal",
+        "tier": "validated",
+        "formula_key": "calc_dxa_osteoporosis_who",
+        "required_biomarkers": ["dexa_t_score"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.49, "label": "Normal bone-density range (T-score >= -1.0)", "severity": "optimal"},
+                {"min": 0.5, "max": 1.49, "label": "Low bone mass / osteopenia range (T-score -1.0 to -2.49)", "severity": "elevated"},
+                {"min": 1.5, "max": 2.49, "label": "Osteoporosis range (T-score <= -2.5)", "severity": "high"},
+                {"min": 2.5, "label": "Very low BMD / severe osteoporosis signal", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "18180210",
+        "citation_text": "Kanis JA et al. Bone 2008;42(3):467-475. WHO reference-standard update for DXA-based osteoporosis description (femoral-neck T-score threshold <= -2.5). ISCD 2023 official positions continue WHO/ISCD T-score diagnostic framework.",
+        "description": "WHO/ISCD DXA T-score category mapped to an ordinal fragility-fracture risk signal. Diagnostic thresholds are most validated for postmenopausal women and men aged 50+.",
+        "sort_order": 46,
+    },
+    # ═══════════════════════════════════════════════════════════════════════════
     # THYROID — Tier 2 (Derived/Experimental)
     # ═══════════════════════════════════════════════════════════════════════════
+    {
+        "code": "thyroid_guideline_pattern",
+        "name": "Thyroid Guideline Pattern (TSH + FT4)",
+        "organ_system": "thyroid",
+        "tier": "validated",
+        "formula_key": "calc_thyroid_guideline_pattern",
+        "required_biomarkers": ["tsh", "free_t4"],
+        "required_clinical": [],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.49, "label": "Euthyroid biochemical pattern", "severity": "optimal"},
+                {"min": 0.5, "max": 1.49, "label": "Borderline pattern - repeat trend-based monitoring", "severity": "normal"},
+                {"min": 1.5, "max": 2.49, "label": "Subclinical thyroid dysfunction pattern", "severity": "elevated"},
+                {"min": 2.5, "max": 3.49, "label": "Marked thyroid-axis abnormal pattern - evaluate central/secondary causes", "severity": "high"},
+                {"min": 3.5, "label": "Overt thyroid dysfunction biochemical pattern - urgent clinical review", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "30374425",
+        "citation_text": "Persani L et al. Eur Thyroid J 2018;7(5):225-237 (ETA guideline, PMID: 30374425). NICE NG145 thyroid dysfunction pathway (updated 2023, reviewed 2025) supports TSH/FT4 cascade for routine practice.",
+        "description": "Guideline-aligned thyroid-pattern classifier built from TSH and free T4 to separate euthyroid, subclinical, overt, and potential central dysfunction patterns.",
+        "sort_order": 49,
+    },
     {
         "code": "jostel_tsh_index",
         "name": "Jostel's TSH Index",
@@ -1114,6 +1160,7 @@ ORGAN_SYSTEMS = {
     "cardiovascular": {"name": "Cardiovascular Risk", "icon": "&#128147;", "color": "#DC143C", "sort_order": 3},
     "metabolic": {"name": "Metabolic Health", "icon": "&#9889;", "color": "#FF8C00", "sort_order": 4},
     "inflammatory": {"name": "Inflammatory Status", "icon": "&#128293;", "color": "#FF4500", "sort_order": 5},
+    "musculoskeletal": {"name": "Musculoskeletal / Bone Health", "icon": "&#129460;", "color": "#6D4C41", "sort_order": 10},
     "thyroid": {"name": "Thyroid Function", "icon": "&#129507;", "color": "#9370DB", "sort_order": 6},
     "hematologic": {"name": "Hematologic & Iron", "icon": "&#129656;", "color": "#B22222", "sort_order": 7},
     "biological_age": {"name": "Biological Age", "icon": "&#9200;", "color": "#6750A4", "sort_order": 8},
@@ -1126,5 +1173,8 @@ OPTIONAL_ADVANCED_SCORE_CODES = {
     "fli",
     "apob_risk",
     "homocysteine_neurovascular",
+    "jostel_tsh_index",
+    "spina_gt",
+    "spina_gd",
+    "tfqi",
 }
-

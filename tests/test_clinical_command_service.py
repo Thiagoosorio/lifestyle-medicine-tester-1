@@ -308,6 +308,7 @@ def test_organ_domain_categories_include_requested_five_domains():
         "organ_breakdown": [
             {"organ_system": "cardiovascular", "name": "Cardio", "score_10": 7.5, "confidence_0_1": 0.8, "elevated_or_worse": 1},
             {"organ_system": "metabolic", "name": "Metabolic", "score_10": 6.5, "confidence_0_1": 0.7, "elevated_or_worse": 2},
+            {"organ_system": "musculoskeletal", "name": "Musculoskeletal / Bone Health", "score_10": 6.0, "confidence_0_1": 0.75, "elevated_or_worse": 1},
             {"organ_system": "liver", "name": "Liver", "score_10": 8.0, "confidence_0_1": 0.9, "elevated_or_worse": 0},
             {"organ_system": "neurological", "name": "Neuro", "score_10": 7.0, "confidence_0_1": 0.6, "elevated_or_worse": 1},
             {"organ_system": "thyroid", "name": "Thyroid", "score_10": 5.5, "confidence_0_1": 0.5, "elevated_or_worse": 1},
@@ -321,5 +322,6 @@ def test_organ_domain_categories_include_requested_five_domains():
     assert by_code["heart_metabolism"]["score_10"] == 7.0
     assert by_code["gut_digestion"]["score_10"] == 8.0
     assert by_code["brain_health"]["score_10"] == 7.0
-    assert by_code["muscle_bones"]["score_10"] is None
-    assert "DEXA present" in by_code["muscle_bones"]["note"]
+    assert by_code["muscle_bones"]["score_10"] == 6.0
+    assert by_code["muscle_bones"]["coverage_pct"] == 100
+    assert "validated DXA T-score" in by_code["muscle_bones"]["note"]

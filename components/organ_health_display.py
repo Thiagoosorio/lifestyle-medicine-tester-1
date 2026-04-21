@@ -169,7 +169,13 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
 
         missing_items = []
         if missing_biomarkers:
-            missing_items.append(f"**Lab results needed:** {', '.join(missing_biomarkers)}")
+            biomarker_labels = {
+                "dexa_t_score": "DEXA T-score",
+                "dexa_z_score": "DEXA Z-score",
+                "dexa_bmd_g_cm2": "DEXA BMD (g/cm²)",
+            }
+            named_biomarkers = [biomarker_labels.get(code, code) for code in missing_biomarkers]
+            missing_items.append(f"**Inputs needed:** {', '.join(named_biomarkers)}")
         if missing_clinical:
             labels = {
                 "age": "Date of Birth", "sex": "Sex", "bmi": "Height & Weight",

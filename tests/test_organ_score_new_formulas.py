@@ -76,6 +76,7 @@ def test_compute_all_scores_prefers_valid_iso_lab_date_when_some_inputs_unknown(
             "platelets": {"value": 200.0, "lab_date": "2026-01-05"},
         },
     )
+    monkeypatch.setattr(oss, "_get_latest_dexa_inputs_with_dates", lambda _uid: {})
     monkeypatch.setattr(oss, "_get_clinical_data", lambda _uid: {})
     monkeypatch.setattr(
         oss,
@@ -129,6 +130,67 @@ def test_apob_and_homocysteine_passthrough_scores():
     assert oss.calc_homocysteine_neurovascular_risk(homocysteine_umol=11.2) == 11.2
 
 
+def test_dxa_osteoporosis_who_thresholds():
+    assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-0.8) == 0.0
+    assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-1.8) == 1.0
+    assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-2.5) == 2.0
+    assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-3.1) == 3.0
+
+
+def test_compute_all_scores_uses_dexa_t_score_inputs(monkeypatch):
+    definitions = [
+        {
+            "id": 1,
+            "code": "dxa_osteoporosis_who",
+            "name": "DXA Osteoporosis Classification (WHO/ISCD)",
+            "organ_system": "musculoskeletal",
+            "tier": "validated",
+            "formula_key": "calc_dxa_osteoporosis_who",
+            "required_biomarkers": ["dexa_t_score"],
+            "required_clinical": [],
+            "interpretation": {
+                "ranges": [
+                    {"max": 0.49, "label": "Normal", "severity": "optimal"},
+                    {"min": 0.5, "max": 1.49, "label": "Osteopenia", "severity": "elevated"},
+                    {"min": 1.5, "max": 2.49, "label": "Osteoporosis", "severity": "high"},
+                    {"min": 2.5, "label": "Severe", "severity": "critical"},
+                ]
+            },
+            "citation_pmid": "18180210",
+        }
+    ]
+    saved = {}
+
+    monkeypatch.setattr(oss, "get_all_score_definitions", lambda: definitions)
+    monkeypatch.setattr(oss, "_get_latest_biomarkers_as_dict", lambda _uid: {})
+    monkeypatch.setattr(oss, "_get_latest_biomarkers_with_dates", lambda _uid: {})
+    monkeypatch.setattr(
+        oss,
+        "_get_latest_dexa_inputs_with_dates",
+        lambda _uid: {"dexa_t_score": {"value": -2.7, "lab_date": "2026-02-20"}},
+    )
+    monkeypatch.setattr(oss, "_get_clinical_data", lambda _uid: {})
+    monkeypatch.setattr(oss, "save_score_result", lambda **kwargs: saved.update(kwargs))
+
+    out = oss.compute_all_scores(42)
+    assert out and out[0]["code"] == "dxa_osteoporosis_who"
+    assert out[0]["value"] == 2.0
+    assert out[0]["severity"] == "high"
+    assert out[0]["lab_date"] == "2026-02-20"
+    assert saved["lab_date"] == "2026-02-20"
+    assert saved["input_snapshot"]["dexa_t_score"] == -2.7
+
+
+def test_thyroid_guideline_pattern_covers_key_clinical_states():
+    assert oss.calc_thyroid_guideline_pattern(tsh=2.0, free_t4_ngdl=1.2) == 0.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=6.2, free_t4_ngdl=1.1) == 2.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=12.0, free_t4_ngdl=1.1) == 3.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=9.0, free_t4_ngdl=0.7) == 4.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=1.2, free_t4_ngdl=0.7) == 3.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=0.02, free_t4_ngdl=1.1) == 3.0
+    assert oss.calc_thyroid_guideline_pattern(tsh=0.03, free_t4_ngdl=2.1) == 4.0
+
+
 def test_framingham_vascular_age_gap_basics():
     baseline_gap = oss.calc_framingham_vascular_age_gap(
         age=55,
@@ -157,6 +219,8 @@ def test_framingham_vascular_age_gap_basics():
 
 def test_new_formula_dispatch_entries_exist():
     for key in (
+        "calc_dxa_osteoporosis_who",
+        "calc_thyroid_guideline_pattern",
         "calc_albi_score",
         "calc_fli",
         "calc_bard_score",
@@ -214,6 +278,7 @@ def test_new_scores_compute_for_backfilled_demo_user(db_conn, monkeypatch):
     codes = {row["code"] for row in computed}
 
     assert {
+        "thyroid_guideline_pattern",
         "albi_score",
         "fli",
         "bard_score",

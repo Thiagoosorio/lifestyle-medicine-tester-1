@@ -46,6 +46,13 @@ def test_cbc_mortality_risk_replaces_legacy_composite():
 
 def test_new_scores_are_present_with_expected_formula_keys():
     defs = _defs_by_code()
+    assert defs["dxa_osteoporosis_who"]["formula_key"] == "calc_dxa_osteoporosis_who"
+    assert defs["dxa_osteoporosis_who"]["tier"] == "validated"
+    assert defs["dxa_osteoporosis_who"]["citation_pmid"] == "18180210"
+    assert defs["dxa_osteoporosis_who"]["organ_system"] == "musculoskeletal"
+    assert defs["thyroid_guideline_pattern"]["formula_key"] == "calc_thyroid_guideline_pattern"
+    assert defs["thyroid_guideline_pattern"]["tier"] == "validated"
+    assert defs["thyroid_guideline_pattern"]["citation_pmid"] == "30374425"
     assert defs["albi_score"]["formula_key"] == "calc_albi_score"
     assert defs["fli"]["formula_key"] == "calc_fli"
     assert defs["bard_score"]["formula_key"] == "calc_bard_score"

@@ -107,8 +107,8 @@ _DOMAIN_META = {
     },
     "muscle_bones": {
         "name": "Muscle & Bones",
-        "description": "Body composition and bone-health signals",
-        "expected_organs": (),
+        "description": "Body composition and validated DXA bone-risk signal",
+        "expected_organs": ("musculoskeletal",),
     },
     "gut_digestion": {
         "name": "Gut & Digestion",
@@ -294,10 +294,12 @@ def _build_organ_domain_categories(overall_organ: dict | None, latest_dexa: dict
 
         note = ""
         if code == "muscle_bones":
-            if latest_dexa:
-                note = "DEXA present; no validated organ-formula composite is mapped yet."
+            if covered:
+                note = "Includes validated DXA T-score osteoporosis classification."
+            elif latest_dexa:
+                note = "DEXA present, but T-score is missing for validated bone-risk classification."
             else:
-                note = "Add DEXA/body-composition data to enrich this domain."
+                note = "Add DEXA data (including T-score) to enrich this domain."
         elif not covered:
             note = "No mapped validated formulas computed yet."
 

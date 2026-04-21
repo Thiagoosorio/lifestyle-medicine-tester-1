@@ -38,10 +38,18 @@ def _build_organ_action_plan(existing_scores: list[dict], comp_data: dict) -> li
         )
 
     missing_items = comp_data.get("missing", [])
-    missing_biomarkers = sum(len(m.get("missing_biomarkers", [])) for m in missing_items)
+    missing_biomarkers = [
+        b
+        for m in missing_items
+        for b in m.get("missing_biomarkers", [])
+    ]
+    missing_dexa = [b for b in missing_biomarkers if str(b).startswith("dexa_")]
+    missing_labs = [b for b in missing_biomarkers if not str(b).startswith("dexa_")]
     missing_clinical = sum(len(m.get("missing_clinical", [])) for m in missing_items)
-    if missing_biomarkers:
+    if missing_labs:
         actions.append("Log missing lab biomarkers to unlock additional validated scores.")
+    if missing_dexa:
+        actions.append("Add a DEXA scan with T-score to unlock validated bone-health scoring.")
     if missing_clinical:
         actions.append("Complete your Clinical Profile to improve score completeness and confidence.")
 
@@ -306,10 +314,15 @@ with tab_missing:
             defn = m["definition"]
             with st.expander(f"{defn['name']} ({defn['organ_system'].title()})"):
                 if m["missing_biomarkers"]:
-                    st.markdown("**Missing lab results:**")
+                    missing_dexa = [b for b in m["missing_biomarkers"] if str(b).startswith("dexa_")]
+                    missing_labs = [b for b in m["missing_biomarkers"] if not str(b).startswith("dexa_")]
+                    st.markdown("**Missing inputs:**")
                     for b in m["missing_biomarkers"]:
                         st.markdown(f"- `{b}`")
-                    st.page_link("pages/biomarkers.py", label="Go to Biomarkers", icon=":material/bloodtype:")
+                    if missing_labs:
+                        st.page_link("pages/biomarkers.py", label="Go to Biomarkers", icon=":material/bloodtype:")
+                    if missing_dexa:
+                        st.page_link("pages/body_metrics.py", label="Go to Body Metrics (DEXA)", icon=":material/monitor_weight:")
 
                 if m["missing_clinical"]:
                     labels = {
