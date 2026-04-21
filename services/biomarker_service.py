@@ -6,7 +6,30 @@ from db.database import get_connection
 from datetime import date
 from dotenv import load_dotenv
 
+from config.biomarkers_data import BIOMARKERS_BY_CODE, resolve_reference_range
+
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+
+def _effective_range(definition, age=None, sex=None):
+    """Return the age/sex-resolved reference range for a biomarker.
+
+    Falls back to the base ``standard_*`` / ``critical_*`` fields when neither
+    ``age`` nor ``sex`` is provided. DB-sourced rows do not carry the
+    ``variants`` list, so we look the full static definition up by ``code``.
+    """
+    if age is None and sex is None:
+        return {
+            "standard_low": definition.get("standard_low"),
+            "standard_high": definition.get("standard_high"),
+            "optimal_low": definition.get("optimal_low"),
+            "optimal_high": definition.get("optimal_high"),
+            "critical_low": definition.get("critical_low"),
+            "critical_high": definition.get("critical_high"),
+        }
+    lookup = BIOMARKERS_BY_CODE.get(definition.get("code")) if definition.get("code") else None
+    source = lookup if (lookup and lookup.get("variants")) else definition
+    return resolve_reference_range(source, age=age, sex=sex)
 
 
 def _attach_target_evidence(defn: dict) -> dict:
@@ -133,7 +156,7 @@ def get_results_for_biomarker(user_id, biomarker_id):
     return [_attach_target_evidence(dict(r)) for r in rows]
 
 
-def classify_result(value, definition):
+def classify_result(value, definition, age=None, sex=None):
     """Classify a result value against lab reference and critical thresholds.
 
     Clinical buckets:
@@ -142,15 +165,21 @@ def classify_result(value, definition):
     - Above reference interval -> 'high'
     - Beyond critical threshold -> 'critical_low' / 'critical_high'
 
+    When ``age`` and/or ``sex`` are provided, sex/age-specific reference ranges
+    are resolved via ``resolve_reference_range`` so biomarkers with variants
+    (hemoglobin, ferritin, creatinine, testosterone, etc.) are graded against
+    the patient's applicable band.
+
     Returns: 'critical_low', 'low', 'in_range', 'high', 'critical_high', 'unknown'
     """
     if value is None:
         return "unknown"
 
-    crit_low = definition.get("critical_low")
-    crit_high = definition.get("critical_high")
-    std_low = definition.get("standard_low")
-    std_high = definition.get("standard_high")
+    ranges = _effective_range(definition, age=age, sex=sex)
+    crit_low = ranges["critical_low"]
+    crit_high = ranges["critical_high"]
+    std_low = ranges["standard_low"]
+    std_high = ranges["standard_high"]
 
     # Critical checks first
     if crit_low is not None and value < crit_low:
@@ -309,10 +338,11 @@ def _format_range(low, high, unit: str) -> str:
     return "N/A"
 
 
-def _deviation_str(value: float, definition: dict) -> str:
+def _deviation_str(value: float, definition: dict, age=None, sex=None) -> str:
     """Return a +/-% deviation string vs the standard range boundary, or empty."""
-    std_low = definition.get("standard_low")
-    std_high = definition.get("standard_high")
+    ranges = _effective_range(definition, age=age, sex=sex)
+    std_low = ranges["standard_low"]
+    std_high = ranges["standard_high"]
     if std_low is not None and value < std_low and std_low != 0:
         pct = (std_low - value) / std_low * 100
         return f"-{pct:.0f}% below std"

@@ -79,7 +79,9 @@ def test_get_labs_requiring_attention_groups_by_severity(monkeypatch):
     }
 
     monkeypatch.setattr(ccs, "get_latest_results", lambda _uid: sample)
-    monkeypatch.setattr(ccs, "classify_result", lambda _v, row: class_map[row["code"]])
+    monkeypatch.setattr(ccs, "classify_result", lambda _v, row, **_kw: class_map[row["code"]])
+    monkeypatch.setattr(ccs, "get_profile", lambda _uid: {"sex": "female"})
+    monkeypatch.setattr(ccs, "get_age", lambda _uid: 45)
 
     out = ccs.get_labs_requiring_attention(1)
     assert len(out["critical"]) == 1
@@ -100,7 +102,7 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     monkeypatch.setattr(ccs, "get_saved_program", lambda _uid: None)
     monkeypatch.setattr(ccs, "get_cycling_profile", lambda _uid: None)
     monkeypatch.setattr(ccs, "get_active_plan", lambda _uid: None)
-    monkeypatch.setattr(ccs, "get_labs_requiring_attention", lambda _uid: {"critical": [], "abnormal": [{"code": "ldl"}], "all": [{"code": "ldl"}]})
+    monkeypatch.setattr(ccs, "get_labs_requiring_attention", lambda _uid, age=None, sex=None: {"critical": [], "abnormal": [{"code": "ldl"}], "all": [{"code": "ldl"}]})
     monkeypatch.setattr(ccs, "list_test_results", lambda _uid, confirmed_only=True, limit=50: [{"test_type": "CPET", "test_date": "2026-03-10", "summary": "Moderate impairment", "risk_flag": "moderate"}])
     monkeypatch.setattr(ccs, "get_latest_computed_scores", lambda _uid: [{"severity": "high"}, {"severity": "normal"}])
     monkeypatch.setattr(ccs, "compute_overall_organ_score", lambda _uid: {"overall_score_10": 6.3, "overall_label": "Watchlist", "overall_confidence_pct": 78, "score_coverage_pct": 82})
@@ -168,6 +170,73 @@ def test_evidence_trace_keeps_validated_scores_with_q_or_org_guideline_sources()
     assert trace["counts"]["excluded"] == 2
     allowed_codes = {row["code"] for row in trace["allowed_sources"]}
     assert allowed_codes == {"fib4", "q2_item", "aha_score"}
+
+
+def test_labs_requiring_attention_uses_sex_specific_ranges_when_available(monkeypatch):
+    # Hemoglobin 12.8 g/dL is in-range for a female (standard 12.0-15.5) but low for a male (13.5-17.5).
+    sample = [{
+        "code": "hemoglobin", "name": "Hemoglobin", "value": 12.8, "unit": "g/dL",
+        "lab_date": "2026-03-01",
+        "standard_low": 12.0, "standard_high": 17.5,
+        "optimal_low": 13.5, "optimal_high": 16.0,
+        "critical_low": 7.0, "critical_high": 20.0,
+    }]
+    monkeypatch.setattr(ccs, "get_latest_results", lambda _uid: sample)
+    monkeypatch.setattr(ccs, "get_profile", lambda _uid: {"sex": "female"})
+    monkeypatch.setattr(ccs, "get_age", lambda _uid: 35)
+
+    female = ccs.get_labs_requiring_attention(1, age=35, sex="female")
+    male = ccs.get_labs_requiring_attention(1, age=35, sex="male")
+    assert female["all"] == []  # in range for a 35yo woman
+    assert len(male["all"]) == 1
+    assert male["all"][0]["classification"] == "low"
+
+
+def test_priority_list_surfaces_prevent_intermediate_risk_with_specific_action():
+    scores = [
+        {"code": "prevent_10yr_ascvd", "name": "AHA PREVENT 10-Year ASCVD Risk",
+         "label": "Intermediate ASCVD risk (7.5-20%)", "severity": "elevated"},
+        {"code": "prevent_10yr_hf", "name": "AHA PREVENT 10-Year Heart Failure Risk",
+         "label": "High HF risk (>=15%)", "severity": "high"},
+    ]
+    high_risk = [s for s in scores if s["severity"] == "high"]
+
+    items = ccs._build_priority_problem_list(
+        diagnoses_active=[], interventions_active=[],
+        labs_attention={"critical": [], "abnormal": []},
+        organ_high_risk_scores=high_risk,
+        evidence_trace={"allowed_sources": []},
+        all_organ_scores=scores,
+    )
+    problem_types = {row["problem_type"] for row in items}
+    assert "Cardiovascular Risk (PREVENT 2024)" in problem_types
+
+    ascvd_row = next(r for r in items if r["problem"].startswith("AHA PREVENT 10-Year ASCVD"))
+    hf_row = next(r for r in items if r["problem"].startswith("AHA PREVENT 10-Year Heart Failure"))
+    # Elevated (intermediate) ASCVD surfaced as moderate with 30-day window
+    assert ascvd_row["severity"] == "moderate"
+    assert ascvd_row["due_in_days"] == 30
+    assert "statin" in ascvd_row["recommended_action"].lower()
+    # High HF gets 14-day window and HF-specific guidance
+    assert hf_row["severity"] == "high"
+    assert hf_row["due_in_days"] == 14
+    assert "sglt2" in hf_row["recommended_action"].lower()
+
+
+def test_priority_list_does_not_double_count_prevent_when_already_high(monkeypatch):
+    scores = [
+        {"code": "prevent_10yr", "name": "AHA PREVENT 10-Year Total CVD Risk",
+         "label": "High risk (>=20%)", "severity": "high"},
+    ]
+    items = ccs._build_priority_problem_list(
+        diagnoses_active=[], interventions_active=[],
+        labs_attention={"critical": [], "abnormal": []},
+        organ_high_risk_scores=scores,
+        evidence_trace={"allowed_sources": []},
+        all_organ_scores=scores,
+    )
+    prevent_rows = [r for r in items if "PREVENT" in r["problem_type"]]
+    assert len(prevent_rows) == 1
 
 
 def test_organ_domain_categories_include_requested_five_domains():

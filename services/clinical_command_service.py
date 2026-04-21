@@ -25,6 +25,7 @@ from models.clinical_registry import (
     list_test_results,
 )
 from services.biomarker_service import (
+    _effective_range,
     classify_result,
     get_lab_dates,
     get_latest_results,
@@ -345,8 +346,14 @@ def _build_priority_problem_list(
     labs_attention: dict,
     organ_high_risk_scores: list[dict],
     evidence_trace: dict,
+    all_organ_scores: list[dict] | None = None,
 ) -> list[dict]:
-    """Create sorted prevention-first priority list with action windows."""
+    """Create sorted prevention-first priority list with action windows.
+
+    ``all_organ_scores`` allows intermediate-risk PREVENT scores (7.5-20%) to
+    appear in the list even though their severity band is ``elevated`` rather
+    than ``high``; intermediate CVD risk is clinically actionable.
+    """
     items: list[dict] = []
     today = date.today()
     evidence_by_code = {
@@ -382,10 +389,32 @@ def _build_priority_problem_list(
             }
         )
 
+    _PREVENT_ACTION_BY_CODE = {
+        "prevent_10yr": "Use AHA PREVENT 2024 total-CVD risk to prioritize prevention: "
+                        "lipid optimization, blood pressure, glycemic control, lifestyle intensification.",
+        "prevent_10yr_ascvd": "Address AHA PREVENT 2024 10-yr ASCVD risk: reassess statin indication, "
+                              "LDL / ApoB targets, blood-pressure control, smoking cessation.",
+        "prevent_10yr_hf": "Address AHA PREVENT 2024 10-yr heart-failure risk: weight/BMI, eGFR trajectory, "
+                           "glycemic control, blood-pressure optimization; consider SGLT2i review if diabetic.",
+    }
+
+    prevent_scores_by_code: dict[str, dict] = {}
+    for score in (all_organ_scores or []):
+        code = score.get("code")
+        if code in _PREVENT_ACTION_BY_CODE and score.get("severity") in {"elevated", "high", "critical"}:
+            prevent_scores_by_code[code] = score
+
+    high_risk_codes = {s.get("code") for s in organ_high_risk_scores}
+    prevent_only_elevated = [
+        score for code, score in prevent_scores_by_code.items() if code not in high_risk_codes
+    ]
+
     for score in organ_high_risk_scores:
+        code = score.get("code")
+        is_prevent = code in _PREVENT_ACTION_BY_CODE
         severity = "critical" if score.get("severity") == "critical" else "high"
         due_days = 7 if severity == "critical" else 14
-        src = evidence_by_code.get(score.get("code"))
+        src = evidence_by_code.get(code)
         src_label = (
             f"{src.get('source_class')} (PMID {src.get('pmid')})"
             if src
@@ -393,12 +422,35 @@ def _build_priority_problem_list(
         )
         items.append(
             {
-                "problem_type": "Organ Score Risk",
+                "problem_type": "Cardiovascular Risk (PREVENT 2024)" if is_prevent else "Organ Score Risk",
                 "problem": f"{score.get('name')}: {score.get('label')}",
                 "severity": severity,
-                "recommended_action": "Review contributing biomarkers and update prevention plan.",
+                "recommended_action": _PREVENT_ACTION_BY_CODE.get(
+                    code,
+                    "Review contributing biomarkers and update prevention plan.",
+                ),
                 "due_in_days": due_days,
                 "target_date": (today + timedelta(days=due_days)).isoformat(),
+                "evidence_source": src_label,
+            }
+        )
+
+    for score in prevent_only_elevated:
+        code = score.get("code")
+        src = evidence_by_code.get(code)
+        src_label = (
+            f"{src.get('source_class')} (PMID {src.get('pmid')})"
+            if src
+            else "Validated score source not yet classified"
+        )
+        items.append(
+            {
+                "problem_type": "Cardiovascular Risk (PREVENT 2024)",
+                "problem": f"{score.get('name')}: {score.get('label')}",
+                "severity": "moderate",
+                "recommended_action": _PREVENT_ACTION_BY_CODE[code],
+                "due_in_days": 30,
+                "target_date": (today + timedelta(days=30)).isoformat(),
                 "evidence_source": src_label,
             }
         )
@@ -442,6 +494,8 @@ def _build_clinical_timeline(
     interventions_all: list[dict],
     tests_all: list[dict],
     organ_scores: list[dict],
+    age: int | float | None = None,
+    sex: str | None = None,
 ) -> list[dict]:
     """Build a unified timeline for clinical reasoning and follow-up."""
     events: list[dict] = []
@@ -516,7 +570,7 @@ def _build_clinical_timeline(
         flagged = [
             row
             for row in panel
-            if classify_result(row.get("value"), row) not in {"in_range", "unknown"}
+            if classify_result(row.get("value"), row, age=age, sex=sex) not in {"in_range", "unknown"}
         ]
         add_event(
             lab_date,
@@ -562,15 +616,28 @@ def _build_clinical_timeline(
     return events[:150]
 
 
-def get_labs_requiring_attention(user_id: int) -> dict:
-    """Return latest lab markers that are outside lab reference ranges."""
+def get_labs_requiring_attention(user_id: int,
+                                 age: int | float | None = None,
+                                 sex: str | None = None) -> dict:
+    """Return latest lab markers outside the patient-applicable lab reference range.
+
+    When ``age`` and ``sex`` are provided, biomarkers with variant ranges
+    (hemoglobin, ferritin, creatinine, testosterone) are graded against the
+    patient's band rather than the generic defaults.
+    """
+    if age is None or sex is None:
+        profile = get_profile(user_id) or {}
+        age = age if age is not None else get_age(user_id)
+        sex = sex if sex is not None else profile.get("sex")
+
     latest = get_latest_results(user_id)
     flagged = []
     for row in latest:
         value = row.get("value")
-        cls = classify_result(value, row)
+        cls = classify_result(value, row, age=age, sex=sex)
         if cls in {"in_range", "unknown"}:
             continue
+        effective = _effective_range(row, age=age, sex=sex)
         flagged.append(
             {
                 "code": row.get("code"),
@@ -579,9 +646,9 @@ def get_labs_requiring_attention(user_id: int) -> dict:
                 "unit": row.get("unit"),
                 "classification": cls,
                 "lab_date": row.get("lab_date"),
-                "standard_range": _fmt_range(row.get("standard_low"), row.get("standard_high"), row.get("unit")),
-                "critical_low": row.get("critical_low"),
-                "critical_high": row.get("critical_high"),
+                "standard_range": _fmt_range(effective["standard_low"], effective["standard_high"], row.get("unit")),
+                "critical_low": effective["critical_low"],
+                "critical_high": effective["critical_high"],
             }
         )
 
@@ -677,11 +744,12 @@ def build_clinical_snapshot(user_id: int) -> dict:
     latest_body = get_latest_metrics(user_id)
     latest_dexa = get_latest_dexa(user_id)
 
+    sex = profile.get("sex")
     diagnoses_active = list_diagnoses(user_id, active_only=True)
     diagnoses_all = list_diagnoses(user_id, active_only=False)
     interventions_active = _build_intervention_rollup(user_id)
     interventions_all = list_interventions(user_id, active_only=False)
-    lab_attention = get_labs_requiring_attention(user_id)
+    lab_attention = get_labs_requiring_attention(user_id, age=age, sex=sex)
     test_results = list_test_results(user_id, confirmed_only=False, limit=120)
     organ_scores = get_latest_computed_scores(user_id)
     high_risk_organs = [
@@ -755,6 +823,7 @@ def build_clinical_snapshot(user_id: int) -> dict:
         labs_attention=lab_attention,
         organ_high_risk_scores=high_risk_organs,
         evidence_trace=evidence_trace,
+        all_organ_scores=organ_scores,
     )
     timeline = _build_clinical_timeline(
         user_id=user_id,
@@ -762,6 +831,8 @@ def build_clinical_snapshot(user_id: int) -> dict:
         interventions_all=interventions_all,
         tests_all=test_results,
         organ_scores=organ_scores,
+        age=age,
+        sex=sex,
     )
 
     return {

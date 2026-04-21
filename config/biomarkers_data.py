@@ -841,3 +841,6 @@ TARGET_EVIDENCE_BY_CODE = {
     "vitamin_d": "Mixed evidence; context dependent",
 }
 TARGET_EVIDENCE_DEFAULT = "Context-dependent target; interpret clinically"
+
+
+BIOMARKERS_BY_CODE = {b["code"]: b for b in BIOMARKER_DEFINITIONS}

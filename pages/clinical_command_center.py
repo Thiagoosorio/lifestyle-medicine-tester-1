@@ -252,11 +252,21 @@ def _render_five_domain_cards(snapshot: dict) -> None:
             with cols[idx]:
                 with st.container(border=True):
                     value = f"{row.get('score_10')}/10" if row.get("score_10") is not None else "N/A"
-                    st.metric(row.get("domain_name"), value)
+                    st.metric(
+                        row.get("domain_name"),
+                        value,
+                        help="Domain composite on a 0-10 scale (higher = healthier). "
+                             "Derived from validated organ-score formulas mapped to this domain.",
+                    )
                     st.caption(
                         f"Coverage: {row.get('coverage_pct', 0)}% | "
-                        f"Confidence: {row.get('confidence_pct', 0)}% | "
+                        f"Data completeness: {row.get('confidence_pct', 0)}% | "
                         f"Elevated+: {row.get('elevated_or_worse', 0)}"
+                    )
+                    st.caption(
+                        ":gray[Coverage = % of expected scores with enough inputs to compute. "
+                        "Data completeness = average share of required biomarkers actually on file "
+                        "(not statistical confidence in the score itself).]"
                     )
                     covered = row.get("systems_covered") or []
                     if covered:
@@ -593,11 +603,19 @@ with tab_summary:
     with col_o:
         render_section_header("Organ Composite", "Risk summary from validated organ formulas")
         if organ_overall:
-            st.metric("Overall Organ Score", f"{organ_overall['overall_score_10']}/10")
+            st.metric(
+                "Overall Organ Score",
+                f"{organ_overall['overall_score_10']}/10",
+                help="Weighted composite of all validated organ-system scores (0-10, higher = healthier).",
+            )
             st.caption(
                 f"Status: {organ_overall['overall_label']} | "
-                f"Confidence: {organ_overall['overall_confidence_pct']}% | "
+                f"Data completeness: {organ_overall['overall_confidence_pct']}% | "
                 f"Coverage: {organ_overall['score_coverage_pct']}%"
+            )
+            st.caption(
+                ":gray[Data completeness = average share of expected biomarkers actually on file. "
+                "Coverage = % of organ systems with at least one computed score.]"
             )
         else:
             st.info("No organ composite available yet.")
