@@ -80,7 +80,15 @@ def render_organ_score_card(score_result: dict, score_def: dict):
         col_val, col_interp = st.columns([1, 2])
         with col_val:
             if isinstance(value, float):
-                display_val = f"{value:.2f}" if value < 100 else f"{value:.1f}"
+                # Integer-valued ordinal scores (e.g. DXA risk class 0/1/2/3)
+                # render without trailing ".00" so clinicians don't misread the
+                # value as a decimal measurement.
+                if value == int(value) and abs(value) < 100:
+                    display_val = str(int(value))
+                elif value < 100:
+                    display_val = f"{value:.2f}"
+                else:
+                    display_val = f"{value:.1f}"
             else:
                 display_val = str(value)
             st.markdown(
@@ -189,6 +197,20 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
 
         for item in missing_items:
             st.markdown(item)
+
+        # Surface the same Details & Citation context shown on computed cards
+        # so the clinician can review clinical provenance before any data is on
+        # file (useful for Reveal Day prep, patient-facing explanations, etc.).
+        citation_pmid = score_def.get("citation_pmid", "")
+        citation_text = score_def.get("citation_text", "")
+        if score_def.get("description") or citation_text or citation_pmid:
+            with st.expander("Details & Citation"):
+                if score_def.get("description"):
+                    st.markdown(score_def["description"])
+                if citation_text:
+                    st.markdown(f"**Citation:** {citation_text}")
+                elif citation_pmid:
+                    st.markdown(f"**PMID:** {citation_pmid}")
 
 
 def render_organ_section_header(organ_system: str, name: str, icon: str, color: str):

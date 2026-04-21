@@ -225,6 +225,8 @@ with tab_dashboard:
                 "Value": value_str,
                 "Severity": severity,
                 "Status": status,
+                "PMID": defn.get("citation_pmid") or "",
+                "Source": defn.get("citation_text") or "",
             })
         st.dataframe(inventory_rows, use_container_width=True, hide_index=True)
 

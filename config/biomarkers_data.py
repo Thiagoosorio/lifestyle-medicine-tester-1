@@ -797,6 +797,37 @@ BIOMARKER_DEFINITIONS = [
         "clinical_note": "High copper competes with zinc absorption. Elevated in inflammation (acute-phase reactant). Wilson's disease: toxic accumulation.",
         "pillar_id": 1, "sort_order": 99,
     },
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # DEXA-DERIVED INPUTS (sourced from dexa_scans table, not a blood panel)
+    # ═══════════════════════════════════════════════════════════════════════
+    {
+        "code": "dexa_t_score", "name": "DEXA T-score", "category": "bone",
+        "unit": "SD", "standard_low": -1.0, "standard_high": None,
+        "optimal_low": 0.0, "optimal_high": None,
+        "critical_low": -3.0, "critical_high": None,
+        "description": "Standard-deviation comparison of bone mineral density to a healthy young-adult reference (ages 20-29). Most validated at femoral neck and total hip for postmenopausal women and men aged 50+.",
+        "clinical_note": "WHO/ISCD 2008: T-score >= -1.0 normal, -2.5 < T < -1.0 osteopenia, T <= -2.5 osteoporosis. Sourced from DEXA scan, not a blood panel.",
+        "pillar_id": None, "sort_order": 110,
+    },
+    {
+        "code": "dexa_z_score", "name": "DEXA Z-score", "category": "bone",
+        "unit": "SD", "standard_low": -2.0, "standard_high": None,
+        "optimal_low": 0.0, "optimal_high": None,
+        "critical_low": -2.0, "critical_high": None,
+        "description": "Standard-deviation comparison of bone mineral density to an age- and sex-matched reference population.",
+        "clinical_note": "ISCD: Z-score <= -2.0 in premenopausal women, children, or men <50 flags secondary osteoporosis workup.",
+        "pillar_id": None, "sort_order": 111,
+    },
+    {
+        "code": "dexa_bmd_g_cm2", "name": "DEXA Bone Mineral Density", "category": "bone",
+        "unit": "g/cm^2", "standard_low": 0.95, "standard_high": None,
+        "optimal_low": 1.00, "optimal_high": None,
+        "critical_low": 0.70, "critical_high": None,
+        "description": "Absolute areal bone mineral density at femoral neck, total hip, or lumbar spine.",
+        "clinical_note": "Always interpret alongside T-score and Z-score. Absolute BMD cutoffs vary by site and scanner.",
+        "pillar_id": None, "sort_order": 112,
+    },
 ]
 
 # Category display order and labels
@@ -811,6 +842,7 @@ BIOMARKER_CATEGORIES = {
     "kidney": {"label": "Kidney Function", "sort_order": 8, "icon": "&#128167;"},
     "blood_count": {"label": "Blood Count", "sort_order": 9, "icon": "&#129656;"},
     "minerals": {"label": "Minerals", "sort_order": 10, "icon": "&#128142;"},
+    "bone": {"label": "Bone & DEXA", "sort_order": 11, "icon": "&#129460;"},
 }
 
 # Category weights for composite biomarker score calculation
@@ -825,6 +857,7 @@ CATEGORY_WEIGHTS = {
     "kidney": 1.0,
     "blood_count": 1.0,
     "minerals": 1.0,
+    "bone": 1.0,
 }
 
 # Evidence confidence label for target bands shown in the UI.
