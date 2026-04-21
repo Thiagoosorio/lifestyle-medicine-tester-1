@@ -11,6 +11,7 @@ import math
 import json
 from datetime import date
 from config.organ_scores_data import ORGAN_SYSTEMS, OPTIONAL_ADVANCED_SCORE_CODES
+from config.who_cvd_charts import WHO_NA_ME_LAB_CHART, WHO_NA_ME_NONLAB_CHART
 from db.database import get_connection
 from models.organ_score import (
     get_all_score_definitions, save_score_result, get_latest_scores,
@@ -427,6 +428,118 @@ def calc_ascvd_pce(age: float, sex: str, total_chol: float, hdl: float,
 
 
 _MGDL_TO_MMOL_CHOL = 1.0 / 38.67  # cholesterol mg/dL -> mmol/L
+
+
+def _who_chart_age_band(age: float) -> str | None:
+    if age is None or age < 40 or age > 74:
+        return None
+    if age < 45:
+        return "40-44"
+    if age < 50:
+        return "45-49"
+    if age < 55:
+        return "50-54"
+    if age < 60:
+        return "55-59"
+    if age < 65:
+        return "60-64"
+    if age < 70:
+        return "65-69"
+    return "70-74"
+
+
+def _who_chart_sbp_band(systolic_bp: float) -> str | None:
+    if systolic_bp is None or systolic_bp <= 0:
+        return None
+    if systolic_bp >= 180:
+        return ">=180"
+    if systolic_bp >= 160:
+        return "160-179"
+    if systolic_bp >= 140:
+        return "140-159"
+    if systolic_bp >= 120:
+        return "120-139"
+    return "<120"
+
+
+def _who_chart_chol_index(total_chol_mgdl: float) -> int | None:
+    if total_chol_mgdl is None or total_chol_mgdl <= 0:
+        return None
+    total_chol_mmol = _mgdl_to_mmol_chol(total_chol_mgdl)
+    if total_chol_mmol < 4.0:
+        return 0
+    if total_chol_mmol < 5.0:
+        return 1
+    if total_chol_mmol < 6.0:
+        return 2
+    if total_chol_mmol < 7.0:
+        return 3
+    return 4
+
+
+def _who_chart_bmi_index(bmi: float) -> int | None:
+    if bmi is None or bmi <= 0:
+        return None
+    if bmi < 20.0:
+        return 0
+    if bmi < 25.0:
+        return 1
+    if bmi < 30.0:
+        return 2
+    if bmi < 35.0:
+        return 3
+    return 4
+
+
+def _who_chart_panel_offset(sex: str, smoking: bool) -> int | None:
+    sex_norm = (sex or "").strip().lower()
+    if sex_norm not in {"male", "female"}:
+        return None
+    base = 0 if sex_norm == "male" else 10
+    if smoking:
+        base += 5
+    return base
+
+
+def calc_who_na_me_cvd_lab(age: float, sex: str, total_chol: float,
+                           systolic_bp: float, smoking: bool,
+                           diabetes: bool) -> float | None:
+    """WHO 2019 lab-based North Africa/Middle East 10-year CVD risk.
+
+    Region includes the United Arab Emirates. This implementation maps directly
+    to the official WHO chart cell for the appropriate age, SBP, smoking, sex,
+    diabetes, and total-cholesterol bin.
+    """
+    age_band = _who_chart_age_band(age)
+    sbp_band = _who_chart_sbp_band(systolic_bp)
+    chol_idx = _who_chart_chol_index(total_chol)
+    offset = _who_chart_panel_offset(sex, smoking)
+    if None in {age_band, sbp_band, chol_idx, offset}:
+        return None
+    chart = WHO_NA_ME_LAB_CHART["with_diabetes" if diabetes else "without_diabetes"]
+    row = chart.get(age_band, {}).get(sbp_band)
+    if row is None:
+        return None
+    return float(row[offset + chol_idx])
+
+
+def calc_who_na_me_cvd_nonlab(age: float, sex: str, bmi: float,
+                              systolic_bp: float, smoking: bool) -> float | None:
+    """WHO 2019 non-lab North Africa/Middle East 10-year CVD risk.
+
+    Region includes the United Arab Emirates. This chart-based version uses age,
+    sex, BMI, systolic blood pressure, and current smoking without cholesterol.
+    """
+    age_band = _who_chart_age_band(age)
+    sbp_band = _who_chart_sbp_band(systolic_bp)
+    bmi_idx = _who_chart_bmi_index(bmi)
+    offset = _who_chart_panel_offset(sex, smoking)
+    if None in {age_band, sbp_band, bmi_idx, offset}:
+        return None
+    row = WHO_NA_ME_NONLAB_CHART.get(age_band, {}).get(sbp_band)
+    if row is None:
+        return None
+    return float(row[offset + bmi_idx])
 
 
 def _prevent_prep_terms(age: float, total_chol: float, hdl: float,
@@ -2447,6 +2560,27 @@ def _build_ascvd_args(bio, clin):
         "diabetes": bool(clin.get("diabetes_status")),
     }
 
+def _build_who_na_me_lab_args(bio, clin):
+    return {
+        "age": clin.get("age"),
+        "sex": clin.get("sex"),
+        "total_chol": bio.get("total_cholesterol"),
+        "systolic_bp": clin.get("systolic_bp"),
+        "smoking": clin.get("smoking_status") == "current",
+        "diabetes": bool(clin.get("diabetes_status")),
+    }
+
+
+def _build_who_na_me_nonlab_args(bio, clin):
+    return {
+        "age": clin.get("age"),
+        "sex": clin.get("sex"),
+        "bmi": clin.get("bmi"),
+        "systolic_bp": clin.get("systolic_bp"),
+        "smoking": clin.get("smoking_status") == "current",
+    }
+
+
 def _build_prevent_args(bio, clin):
     egfr = calc_ckd_epi_2021(bio.get("creatinine", 0), clin.get("age", 0), clin.get("sex", "male"))
     hba1c = bio.get("hba1c")
@@ -2851,6 +2985,8 @@ FORMULA_DISPATCH = {
     "calc_ckd_epi_2021": (calc_ckd_epi_2021, _build_ckd_epi_args),
     "calc_kdigo_risk": (calc_kdigo_risk, _build_kdigo_args),
     "calc_ascvd_pce": (calc_ascvd_pce, _build_ascvd_args),
+    "calc_who_na_me_cvd_lab": (calc_who_na_me_cvd_lab, _build_who_na_me_lab_args),
+    "calc_who_na_me_cvd_nonlab": (calc_who_na_me_cvd_nonlab, _build_who_na_me_nonlab_args),
     "calc_prevent_10yr": (calc_prevent_10yr, _build_prevent_args),
     "calc_prevent_10yr_ascvd": (calc_prevent_10yr_ascvd, _build_prevent_args),
     "calc_prevent_10yr_hf": (calc_prevent_10yr_hf, _build_prevent_args),

@@ -129,6 +129,50 @@ ORGAN_SCORE_DEFINITIONS = [
     # CARDIOVASCULAR — Tier 1
     # ═══════════════════════════════════════════════════════════════════════════
     {
+        "code": "who_na_me_cvd_lab",
+        "name": "WHO UAE Region 10-Year CVD Risk (Lab)",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_who_na_me_cvd_lab",
+        "required_biomarkers": ["total_cholesterol"],
+        "required_clinical": ["age", "sex", "systolic_bp", "smoking_status", "diabetes_status"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 5.0, "label": "Low 10-year CVD risk (<5%)", "severity": "optimal"},
+                {"min": 5.0, "max": 10.0, "label": "Mild 10-year CVD risk (5-<10%)", "severity": "normal"},
+                {"min": 10.0, "max": 20.0, "label": "Moderate 10-year CVD risk (10-<20%)", "severity": "elevated"},
+                {"min": 20.0, "max": 30.0, "label": "High 10-year CVD risk (20-<30%)", "severity": "high"},
+                {"min": 30.0, "label": "Very high 10-year CVD risk (>=30%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "31488387",
+        "citation_text": "WHO CVD Risk Chart Working Group. Lancet Glob Health 2019;7(10):e1332-e1345. Official WHO North Africa and Middle East laboratory-based chart includes the United Arab Emirates. Chart-cell lookup mirrors the published WHO regional PDF.",
+        "description": "Official WHO 10-year fatal/non-fatal cardiovascular disease risk chart for the North Africa and Middle East region, which includes the UAE. Uses age 40-74, sex, systolic blood pressure, smoking, diabetes, and total cholesterol. This implementation returns the exact published chart-cell value for the matching bin.",
+        "sort_order": 17,
+    },
+    {
+        "code": "who_na_me_cvd_nonlab",
+        "name": "WHO UAE Region 10-Year CVD Risk (Non-Lab)",
+        "organ_system": "cardiovascular",
+        "tier": "validated",
+        "formula_key": "calc_who_na_me_cvd_nonlab",
+        "required_biomarkers": [],
+        "required_clinical": ["age", "sex", "systolic_bp", "smoking_status", "bmi"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 5.0, "label": "Low 10-year CVD risk (<5%)", "severity": "optimal"},
+                {"min": 5.0, "max": 10.0, "label": "Mild 10-year CVD risk (5-<10%)", "severity": "normal"},
+                {"min": 10.0, "max": 20.0, "label": "Moderate 10-year CVD risk (10-<20%)", "severity": "elevated"},
+                {"min": 20.0, "max": 30.0, "label": "High 10-year CVD risk (20-<30%)", "severity": "high"},
+                {"min": 30.0, "label": "Very high 10-year CVD risk (>=30%)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "31488387",
+        "citation_text": "WHO CVD Risk Chart Working Group. Lancet Glob Health 2019;7(10):e1332-e1345. Official WHO North Africa and Middle East non-laboratory chart includes the United Arab Emirates. Chart-cell lookup mirrors the published WHO regional PDF.",
+        "description": "Official WHO non-laboratory 10-year cardiovascular disease risk chart for the North Africa and Middle East region, including the UAE. Uses age 40-74, sex, BMI, systolic blood pressure, and smoking when cholesterol is unavailable. This implementation returns the exact published chart-cell value for the matching bin.",
+        "sort_order": 18,
+    },
+    {
         "code": "ascvd_pce",
         "name": "ASCVD 10-Year Risk (PCE)",
         "organ_system": "cardiovascular",
