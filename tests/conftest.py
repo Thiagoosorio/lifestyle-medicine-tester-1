@@ -40,11 +40,25 @@ def db_conn(tmp_path, monkeypatch):
     monkeypatch.setattr(db_mod, "get_connection", _get_test_connection)
 
     # Modules that do `from db.database import get_connection` hold a local copy
-    # — must patch those too.
+    # — must patch those too. Keep this list tight (per-test explicit patches
+    # for anything not listed); broad auto-patching causes test-ordering drift
+    # in modules that also seed per-call state (e.g. microhabit_service).
     import models.habit
     monkeypatch.setattr(models.habit, "get_connection", _get_test_connection)
     import services.microhabit_service
     monkeypatch.setattr(services.microhabit_service, "get_connection", _get_test_connection)
+    import models.clinical_profile
+    monkeypatch.setattr(models.clinical_profile, "get_connection", _get_test_connection)
+    import services.body_metrics_service
+    monkeypatch.setattr(services.body_metrics_service, "get_connection", _get_test_connection)
+    import services.fracture_risk_service
+    monkeypatch.setattr(services.fracture_risk_service, "get_connection", _get_test_connection, raising=False)
+    import services.organ_score_service
+    monkeypatch.setattr(services.organ_score_service, "get_connection", _get_test_connection, raising=False)
+    import models.organ_score
+    monkeypatch.setattr(models.organ_score, "get_connection", _get_test_connection, raising=False)
+    import seed_demo
+    monkeypatch.setattr(seed_demo, "get_connection", _get_test_connection, raising=False)
 
     yield _get_test_connection
 
