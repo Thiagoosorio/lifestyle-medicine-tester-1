@@ -136,7 +136,8 @@ with tab_dashboard:
         o3.metric("Confidence", f"{overall['overall_confidence_pct']}%")
         o4.metric("Organs Covered", f"{overall['organs_covered']}/{overall['total_organs']}")
 
-        st.progress(float(overall["organ_coverage_0_1"]))
+        coverage_value = float(overall.get("organ_coverage_0_1") or 0.0)
+        st.progress(max(0.0, min(1.0, coverage_value)))
         st.caption(
             f"Formula coverage: {overall['computed_scores']}/{overall['total_definitions']} "
             f"({overall['score_coverage_pct']}%). "

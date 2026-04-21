@@ -2634,7 +2634,13 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
         return None
 
     overall_score_100 = sum(o["score_100"] for o in organ_breakdown) / len(organ_breakdown)
+    # Organs whose only definitions are optional-advanced will still appear in
+    # ``scores_by_organ`` when the patient happens to compute one of those scores,
+    # but they are excluded from ``all_organs`` (which counts only *core* defs).
+    # Clamp the ratio to [0, 1] so downstream UI never receives a value outside
+    # the range Streamlit's st.progress accepts.
     overall_organ_coverage = (len(organ_breakdown) / len(all_organs)) if all_organs else 1.0
+    overall_organ_coverage = max(0.0, min(1.0, overall_organ_coverage))
     core_definition_count = sum(total_core_defs_by_organ.values())
     overall_score_coverage = (total_core_scores_used / core_definition_count) if core_definition_count else 1.0
     validated_share = (total_core_validated_used / total_core_scores_used) if total_core_scores_used else 0.0
