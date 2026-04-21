@@ -40,6 +40,12 @@ from services.critical_lab_policy_service import build_critical_communication_pl
 from services.clinical_narrative_service import detect_cross_domain_patterns
 
 try:
+    from services.organ_score_service import compute_all_scores, get_computable_scores
+except Exception:  # pragma: no cover - backward-compatible for older deploys
+    compute_all_scores = None
+    get_computable_scores = None
+
+try:
     from services.organ_score_service import compute_overall_organ_score
 except Exception:  # pragma: no cover - backward-compatible for older deploys
     compute_overall_organ_score = None
@@ -319,6 +325,27 @@ def _build_organ_domain_categories(overall_organ: dict | None, latest_dexa: dict
         )
 
     return categories
+
+
+def _refresh_organ_scores_if_stale(user_id: int, current_scores: list[dict]) -> list[dict]:
+    """Recompute organ scores when new computable formulas are missing from latest results."""
+    if not compute_all_scores or not get_computable_scores:
+        return current_scores
+
+    try:
+        computable_defs = get_computable_scores(user_id).get("computable", [])
+        computable_codes = {d.get("code") for d in computable_defs if d.get("code")}
+        existing_codes = {s.get("code") for s in current_scores if s.get("code")}
+        stale_or_missing = (not current_scores) or bool(computable_codes - existing_codes)
+        if not stale_or_missing:
+            return current_scores
+
+        compute_all_scores(user_id)
+        refreshed = get_latest_computed_scores(user_id)
+        return refreshed if refreshed is not None else current_scores
+    except Exception:
+        # Snapshot generation should never fail if scoring refresh fails.
+        return current_scores
 
 
 def _diagnosis_has_intervention_link(diagnosis_name: str, interventions_active: list[dict]) -> bool:
@@ -818,6 +845,7 @@ def build_clinical_snapshot(user_id: int) -> dict:
     lab_attention = get_labs_requiring_attention(user_id, age=age, sex=sex)
     test_results = list_test_results(user_id, confirmed_only=False, limit=120)
     organ_scores = get_latest_computed_scores(user_id)
+    organ_scores = _refresh_organ_scores_if_stale(user_id, organ_scores)
     high_risk_organs = [
         score for score in organ_scores if score.get("severity") in {"high", "critical"}
     ]

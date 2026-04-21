@@ -105,6 +105,8 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     monkeypatch.setattr(ccs, "get_labs_requiring_attention", lambda _uid, age=None, sex=None: {"critical": [], "abnormal": [{"code": "ldl"}], "all": [{"code": "ldl"}]})
     monkeypatch.setattr(ccs, "list_test_results", lambda _uid, confirmed_only=True, limit=50: [{"test_type": "CPET", "test_date": "2026-03-10", "summary": "Moderate impairment", "risk_flag": "moderate"}])
     monkeypatch.setattr(ccs, "get_latest_computed_scores", lambda _uid: [{"severity": "high"}, {"severity": "normal"}])
+    monkeypatch.setattr(ccs, "get_computable_scores", lambda _uid: {"computable": [], "missing": []})
+    monkeypatch.setattr(ccs, "compute_all_scores", lambda _uid: [])
     monkeypatch.setattr(ccs, "compute_overall_organ_score", lambda _uid: {"overall_score_10": 6.3, "overall_label": "Watchlist", "overall_confidence_pct": 78, "score_coverage_pct": 82})
     monkeypatch.setattr(ccs, "compute_wearable_wheel", lambda _uid: {"overall_score_10": 6.9, "overall_readiness_10": 7.2, "overall_resilience_10": 6.6})
     monkeypatch.setattr(ccs, "get_lab_dates", lambda _uid: [])
@@ -121,6 +123,30 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     assert "cross_domain_patterns" in snap
     assert snap["cross_domain_patterns"] == []
     assert snap["wearable"]["overall_score_10"] == 6.9
+
+
+def test_refresh_organ_scores_if_stale_recomputes_when_new_code_is_computable(monkeypatch):
+    call_counter = {"compute": 0}
+
+    monkeypatch.setattr(
+        ccs,
+        "get_computable_scores",
+        lambda _uid: {"computable": [{"code": "dxa_osteoporosis_who"}], "missing": []},
+    )
+    monkeypatch.setattr(
+        ccs,
+        "compute_all_scores",
+        lambda _uid: call_counter.__setitem__("compute", call_counter["compute"] + 1),
+    )
+    monkeypatch.setattr(
+        ccs,
+        "get_latest_computed_scores",
+        lambda _uid: [{"code": "dxa_osteoporosis_who", "severity": "elevated"}],
+    )
+
+    refreshed = ccs._refresh_organ_scores_if_stale(9, [{"code": "fib4", "severity": "normal"}])
+    assert call_counter["compute"] == 1
+    assert refreshed[0]["code"] == "dxa_osteoporosis_who"
 
 
 def test_evidence_trace_keeps_validated_scores_with_q_or_org_guideline_sources():

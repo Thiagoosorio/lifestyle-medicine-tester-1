@@ -135,6 +135,28 @@ def test_dxa_osteoporosis_who_thresholds():
     assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-1.8) == 1.0
     assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-2.5) == 2.0
     assert oss.calc_dxa_osteoporosis_who(dexa_t_score=-3.1) == 3.0
+    assert oss.calc_dxa_osteoporosis_who(dexa_t_score="-2,6") == 2.0
+
+
+def test_get_latest_dexa_inputs_with_dates_coerces_numeric_text(monkeypatch):
+    import services.body_metrics_service as body_metrics_service
+
+    monkeypatch.setattr(
+        body_metrics_service,
+        "get_latest_dexa",
+        lambda _uid: {
+            "scan_date": "2026-03-01",
+            "t_score": "-2,6",
+            "z_score": "-1.3",
+            "bmd_g_cm2": "0,912",
+        },
+    )
+
+    out = oss._get_latest_dexa_inputs_with_dates(1)
+    assert out["dexa_t_score"]["value"] == -2.6
+    assert out["dexa_z_score"]["value"] == -1.3
+    assert out["dexa_bmd_g_cm2"]["value"] == 0.912
+    assert out["dexa_t_score"]["lab_date"] == "2026-03-01"
 
 
 def test_compute_all_scores_uses_dexa_t_score_inputs(monkeypatch):

@@ -57,9 +57,9 @@ def _get_latest_dexa_inputs_with_dates(user_id: int) -> dict:
 
     scan_date = dexa.get("scan_date") or "unknown"
     mapped = {
-        "dexa_t_score": dexa.get("t_score"),
-        "dexa_z_score": dexa.get("z_score"),
-        "dexa_bmd_g_cm2": dexa.get("bmd_g_cm2"),
+        "dexa_t_score": _coerce_float(dexa.get("t_score")),
+        "dexa_z_score": _coerce_float(dexa.get("z_score")),
+        "dexa_bmd_g_cm2": _coerce_float(dexa.get("bmd_g_cm2")),
     }
     return {
         code: {"value": value, "lab_date": scan_date}
@@ -132,9 +132,35 @@ def seed_organ_score_definitions():
         conn.close()
 
 
+def _ensure_score_definitions_seeded() -> None:
+    """Best-effort sync of score definitions from config into DB."""
+    try:
+        seed_organ_score_definitions()
+    except Exception:
+        # Keep scoring resilient if seeding is temporarily unavailable.
+        pass
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # UNIT CONVERSION HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
+
+def _coerce_float(value) -> float | None:
+    """Convert numeric-like values (including comma decimals) to float."""
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        normalized = value.strip().replace(",", ".")
+        if not normalized:
+            return None
+        try:
+            return float(normalized)
+        except ValueError:
+            return None
+    return None
+
 
 def _mgdl_to_mmol_glucose(mg: float) -> float:
     """Convert glucose mg/dL to mmol/L."""
@@ -1513,6 +1539,7 @@ def calc_dxa_osteoporosis_who(dexa_t_score: float) -> float | None:
     2 = osteoporosis (T-score <= -2.5)
     3 = very low BMD / severe osteoporosis signal (T-score <= -3.0)
     """
+    dexa_t_score = _coerce_float(dexa_t_score)
     if dexa_t_score is None:
         return None
     if dexa_t_score < -10 or dexa_t_score > 10:
@@ -2325,6 +2352,7 @@ def get_computable_scores(user_id: int) -> dict:
 
     Returns {"computable": [...], "missing": [{"definition": ..., "missing_inputs": [...]}]}
     """
+    _ensure_score_definitions_seeded()
     definitions = get_all_score_definitions()
     biomarkers = _get_latest_biomarkers_as_dict(user_id)
     dexa_with_dates = _get_latest_dexa_inputs_with_dates(user_id)
@@ -2359,6 +2387,7 @@ def compute_all_scores(user_id: int) -> list:
 
     Returns list of computed result dicts.
     """
+    _ensure_score_definitions_seeded()
     definitions = get_all_score_definitions()
     biomarkers = _get_latest_biomarkers_as_dict(user_id)
     bio_with_dates = _get_latest_biomarkers_with_dates(user_id)
