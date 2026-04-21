@@ -10,6 +10,7 @@ Physician-style first page that summarizes:
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import streamlit as st
 
@@ -112,6 +113,38 @@ def _as_rows(items: list[dict], columns: list[str]) -> list[dict]:
         row = {}
         for col in columns:
             row[col] = item.get(col)
+        rows.append(row)
+    return rows
+
+
+def _priority_deadline_status(item: dict) -> str:
+    if item.get("problem_type") != "Lab Critical":
+        return ""
+
+    notify_by_iso = item.get("notify_by_iso")
+    if not notify_by_iso:
+        return "PENDING"
+
+    try:
+        notify_by_dt = datetime.fromisoformat(str(notify_by_iso))
+        if notify_by_dt.tzinfo is None:
+            notify_by_dt = notify_by_dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return "PENDING"
+
+    now_utc = datetime.now(timezone.utc)
+    if notify_by_dt < now_utc:
+        return "OVERDUE"
+    if notify_by_dt.date() == now_utc.date():
+        return "TODAY"
+    return "UPCOMING"
+
+
+def _priority_rows(items: list[dict]) -> list[dict]:
+    rows: list[dict] = []
+    for item in items:
+        row = dict(item)
+        row["deadline_status"] = _priority_deadline_status(item)
         rows.append(row)
     return rows
 
@@ -724,21 +757,25 @@ with tab_summary:
 with tab_priority:
     render_section_header(
         "Priority Problem List",
-        "Prevention-first ordering with recommended action windows.",
+        "Prevention-first ordering with recommended action windows and critical-lab notify deadlines.",
     )
     problems = snapshot.get("priority_problem_list", [])
     if problems:
         st.dataframe(
             _as_rows(
-                problems,
+                _priority_rows(problems),
                 [
                     "priority_rank",
                     "problem_type",
                     "problem",
                     "severity",
                     "recommended_action",
+                    "deadline_status",
                     "due_in_days",
                     "target_date",
+                    "urgency_level",
+                    "notify_by_iso",
+                    "escalate_by_iso",
                     "evidence_source",
                 ],
             ),

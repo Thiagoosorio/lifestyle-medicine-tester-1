@@ -348,6 +348,7 @@ def _build_priority_problem_list(
     organ_high_risk_scores: list[dict],
     evidence_trace: dict,
     all_organ_scores: list[dict] | None = None,
+    critical_lab_communication: dict | None = None,
 ) -> list[dict]:
     """Create sorted prevention-first priority list with action windows.
 
@@ -361,18 +362,80 @@ def _build_priority_problem_list(
         row["code"]: row
         for row in evidence_trace.get("allowed_sources", [])
     }
+    critical_alerts = (critical_lab_communication or {}).get("alerts", [])
+    alerts_by_code = {
+        str(row.get("code")).strip().lower(): row
+        for row in critical_alerts
+        if str(row.get("code") or "").strip()
+    }
+    alerts_by_name = {
+        str(row.get("name")).strip().lower(): row
+        for row in critical_alerts
+        if str(row.get("name") or "").strip()
+    }
+
+    def _alert_for_critical_row(row: dict) -> dict | None:
+        code = str(row.get("code") or "").strip().lower()
+        if code and code in alerts_by_code:
+            return alerts_by_code[code]
+        name = str(row.get("name") or "").strip().lower()
+        if name and name in alerts_by_name:
+            return alerts_by_name[name]
+        return None
+
+    def _due_window_from_alert(alert: dict) -> tuple[int, str]:
+        due_days: int | None = None
+        notify_by_iso = alert.get("notify_by_iso")
+
+        try:
+            minutes_until_notify = int(alert.get("minutes_until_notify"))
+            # 0 means action is due today (or already overdue), 1+ means full days left.
+            due_days = max(0, minutes_until_notify // (24 * 60))
+        except (TypeError, ValueError):
+            due_days = None
+
+        notify_dt = _parse_date_like(notify_by_iso)
+        if notify_dt and due_days is None:
+            due_days = max(0, (notify_dt.date() - today).days)
+
+        if due_days is None:
+            due_days = 7
+
+        target_date = (
+            notify_dt.date().isoformat()
+            if notify_dt
+            else (today + timedelta(days=due_days)).isoformat()
+        )
+        return due_days, target_date
 
     for row in labs_attention.get("critical", []):
         due_days = 7
+        target_date = (today + timedelta(days=due_days)).isoformat()
+        recommended_action = "Repeat/confirm test and review urgent clinical context."
+        evidence_source = "Lab reference threshold"
+        alert = _alert_for_critical_row(row)
+        urgency_level = None
+        notify_by_iso = None
+        escalate_by_iso = None
+        if alert:
+            due_days, target_date = _due_window_from_alert(alert)
+            recommended_action = alert.get("recommended_action") or recommended_action
+            urgency_level = alert.get("urgency_level")
+            notify_by_iso = alert.get("notify_by_iso")
+            escalate_by_iso = alert.get("escalate_by_iso")
+            evidence_source = "Critical communication policy + lab reference threshold"
         items.append(
             {
                 "problem_type": "Lab Critical",
                 "problem": f"{row.get('name')}: {row.get('classification')}",
                 "severity": "critical",
-                "recommended_action": "Repeat/confirm test and review urgent clinical context.",
+                "recommended_action": recommended_action,
                 "due_in_days": due_days,
-                "target_date": (today + timedelta(days=due_days)).isoformat(),
-                "evidence_source": "Lab reference threshold",
+                "target_date": target_date,
+                "urgency_level": urgency_level,
+                "notify_by_iso": notify_by_iso,
+                "escalate_by_iso": escalate_by_iso,
+                "evidence_source": evidence_source,
             }
         )
 
@@ -823,6 +886,7 @@ def build_clinical_snapshot(user_id: int) -> dict:
         diagnoses_active=diagnoses_active,
         interventions_active=interventions_active,
         labs_attention=lab_attention,
+        critical_lab_communication=critical_lab_communication,
         organ_high_risk_scores=high_risk_organs,
         evidence_trace=evidence_trace,
         all_organ_scores=organ_scores,

@@ -242,6 +242,67 @@ def test_priority_list_does_not_double_count_prevent_when_already_high(monkeypat
     assert len(prevent_rows) == 1
 
 
+def test_priority_list_uses_policy_alert_deadline_for_critical_labs():
+    items = ccs._build_priority_problem_list(
+        diagnoses_active=[],
+        interventions_active=[],
+        labs_attention={
+            "critical": [
+                {"code": "potassium", "name": "Potassium", "classification": "critical_high"},
+            ],
+            "abnormal": [],
+        },
+        organ_high_risk_scores=[],
+        evidence_trace={"allowed_sources": []},
+        critical_lab_communication={
+            "alerts": [
+                {
+                    "code": "potassium",
+                    "name": "Potassium",
+                    "urgency_level": "immediate",
+                    "minutes_until_notify": 20,
+                    "notify_by_iso": "2026-04-21T10:00:00+00:00",
+                    "escalate_by_iso": "2026-04-21T10:15:00+00:00",
+                    "recommended_action": "Call clinician and repeat sample immediately.",
+                }
+            ]
+        },
+    )
+
+    row = next(r for r in items if r["problem_type"] == "Lab Critical")
+    assert row["due_in_days"] == 0
+    assert row["target_date"] == "2026-04-21"
+    assert row["urgency_level"] == "immediate"
+    assert row["notify_by_iso"] == "2026-04-21T10:00:00+00:00"
+    assert row["escalate_by_iso"] == "2026-04-21T10:15:00+00:00"
+    assert "repeat sample" in row["recommended_action"].lower()
+    assert "Critical communication policy" in row["evidence_source"]
+
+
+def test_priority_list_keeps_legacy_deadline_when_policy_alert_missing():
+    items = ccs._build_priority_problem_list(
+        diagnoses_active=[],
+        interventions_active=[],
+        labs_attention={
+            "critical": [
+                {"code": "custom_marker", "name": "Custom Marker", "classification": "critical_high"},
+            ],
+            "abnormal": [],
+        },
+        organ_high_risk_scores=[],
+        evidence_trace={"allowed_sources": []},
+        critical_lab_communication={"alerts": []},
+    )
+
+    row = next(r for r in items if r["problem_type"] == "Lab Critical")
+    assert row["due_in_days"] == 7
+    assert row["urgency_level"] is None
+    assert row["notify_by_iso"] is None
+    assert row["escalate_by_iso"] is None
+    assert row["recommended_action"].startswith("Repeat/confirm test")
+    assert row["evidence_source"] == "Lab reference threshold"
+
+
 def test_organ_domain_categories_include_requested_five_domains():
     overall = {
         "organ_breakdown": [
