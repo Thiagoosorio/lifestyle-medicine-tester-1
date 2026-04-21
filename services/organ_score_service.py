@@ -40,13 +40,18 @@ def _get_latest_biomarkers_with_dates(user_id: int) -> dict:
 
 
 def _get_latest_dexa_inputs_with_dates(user_id: int) -> dict:
-    """Get latest DEXA values in biomarker-like shape {code: {value, lab_date}}."""
+    """Get latest DEXA values in biomarker-like shape {code: {value, lab_date}}.
+
+    Wraps both the import and the DB call in a try/except so deployments
+    without the dexa_scans table (older schemas, isolated test databases)
+    simply report no DEXA inputs rather than crashing score computation.
+    """
     try:
         from services.body_metrics_service import get_latest_dexa
+        dexa = get_latest_dexa(user_id) or {}
     except Exception:
         return {}
 
-    dexa = get_latest_dexa(user_id) or {}
     if not dexa:
         return {}
 
