@@ -73,7 +73,10 @@ inject_custom_css()
 
 # ── Authentication gate ─────────────────────────────────────────────────────
 if "user_id" not in st.session_state:
-    pg = st.navigation([st.Page("pages/login.py", title="Login", icon=":material/login:")])
+    pg = st.navigation(
+        [st.Page("pages/login.py", title="Login", icon=":material/login:", default=True)],
+        position="hidden",
+    )
 else:
     pg = st.navigation(
         {

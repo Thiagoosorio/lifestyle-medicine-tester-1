@@ -103,37 +103,16 @@ header[data-testid="stHeader"] { background:rgba(247,247,250,0.92) !important; b
     background-color: var(--bg-primary) !important;
     font-family: var(--font-text) !important;
     -webkit-font-smoothing: antialiased;
-    position: relative;
-}
-.stApp::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
-        radial-gradient(900px 500px at -10% -15%, rgba(103,80,164,0.11), transparent 60%),
-        radial-gradient(800px 500px at 110% 0%, rgba(26,115,232,0.10), transparent 62%),
-        radial-gradient(700px 450px at 100% 100%, rgba(30,142,62,0.08), transparent 65%);
-}
-.stApp::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image:
-        linear-gradient(rgba(255,255,255,0.35) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.35) 1px, transparent 1px);
-    background-size: 24px 24px;
-    opacity: 0.18;
 }
 section.main .block-container {
     padding-top: 32px;
     padding-bottom: 40px;
     max-width: 1200px;
-    position: relative;
-    z-index: 1;
+}
+[data-testid="stAppViewContainer"] .main .block-container {
+    padding-top: 32px;
+    padding-bottom: 40px;
+    max-width: 1200px;
 }
 .main .block-container {
     animation: anim-fade-up 0.4s cubic-bezier(0.4,0,0.2,1) both !important;
