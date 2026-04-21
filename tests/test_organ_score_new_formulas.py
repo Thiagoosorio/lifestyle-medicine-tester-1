@@ -1,6 +1,94 @@
 from services import organ_score_service as oss
 
 
+def test_interpret_score_uses_non_overlapping_threshold_boundaries():
+    definition = {
+        "interpretation": {
+            "ranges": [
+                {"max": 5.0, "label": "Low", "severity": "optimal"},
+                {"min": 5.0, "max": 7.5, "label": "Borderline", "severity": "normal"},
+                {"min": 7.5, "label": "High", "severity": "high"},
+            ]
+        }
+    }
+    assert oss.interpret_score(4.99, definition)["label"] == "Low"
+    assert oss.interpret_score(5.0, definition)["label"] == "Borderline"
+    assert oss.interpret_score(7.5, definition)["label"] == "High"
+
+
+def test_interpret_score_keeps_inclusive_upper_when_no_next_overlap():
+    definition = {
+        "interpretation": {
+            "ranges": [
+                {"max": 0, "label": "Zero", "severity": "optimal"},
+                {"min": 1, "max": 2, "label": "OneToTwo", "severity": "normal"},
+                {"min": 3, "label": "ThreePlus", "severity": "high"},
+            ]
+        }
+    }
+    assert oss.interpret_score(0, definition)["label"] == "Zero"
+    assert oss.interpret_score(1, definition)["label"] == "OneToTwo"
+
+
+def test_most_recent_iso_lab_date_ignores_unknown_and_invalid_entries():
+    assert (
+        oss._most_recent_iso_lab_date(
+            ["unknown", "", "2025-01-15", "not-a-date", "2025-03-20"]
+        )
+        == "2025-03-20"
+    )
+    assert oss._most_recent_iso_lab_date(["unknown", "", "n/a"]) == "unknown"
+
+
+def test_compute_all_scores_prefers_valid_iso_lab_date_when_some_inputs_unknown(monkeypatch):
+    definitions = [
+        {
+            "id": 1,
+            "code": "apri",
+            "name": "APRI",
+            "organ_system": "liver",
+            "tier": "validated",
+            "formula_key": "calc_apri",
+            "required_biomarkers": ["ast", "platelets"],
+            "required_clinical": [],
+            "interpretation": {
+                "ranges": [
+                    {"max": 0.5, "label": "Low", "severity": "optimal"},
+                    {"min": 0.5, "label": "Elevated", "severity": "elevated"},
+                ]
+            },
+        }
+    ]
+
+    saved = {}
+
+    monkeypatch.setattr(oss, "get_all_score_definitions", lambda: definitions)
+    monkeypatch.setattr(
+        oss,
+        "_get_latest_biomarkers_as_dict",
+        lambda _uid: {"ast": 40.0, "platelets": 200.0},
+    )
+    monkeypatch.setattr(
+        oss,
+        "_get_latest_biomarkers_with_dates",
+        lambda _uid: {
+            "ast": {"value": 40.0, "lab_date": "unknown"},
+            "platelets": {"value": 200.0, "lab_date": "2026-01-05"},
+        },
+    )
+    monkeypatch.setattr(oss, "_get_clinical_data", lambda _uid: {})
+    monkeypatch.setattr(
+        oss,
+        "save_score_result",
+        lambda **kwargs: saved.update({"lab_date": kwargs["lab_date"]}),
+    )
+
+    out = oss.compute_all_scores(7)
+    assert out and out[0]["code"] == "apri"
+    assert saved["lab_date"] == "2026-01-05"
+    assert out[0]["lab_date"] == "2026-01-05"
+
+
 def test_albi_score_matches_reference_equation():
     value = oss.calc_albi_score(total_bilirubin_mgdl=0.8, albumin_gdl=4.5)
     assert value == -3.075

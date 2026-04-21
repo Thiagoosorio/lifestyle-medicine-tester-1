@@ -9,6 +9,7 @@ Tier 2 (Derived/Experimental): Emerging indices or percentile-rank composites.
 
 import math
 import json
+from datetime import date
 from config.organ_scores_data import ORGAN_SYSTEMS, OPTIONAL_ADVANCED_SCORE_CODES
 from db.database import get_connection
 from models.organ_score import (
@@ -36,6 +37,25 @@ def _get_latest_biomarkers_with_dates(user_id: int) -> dict:
         r["code"]: {"value": r["value"], "lab_date": r.get("lab_date", "unknown")}
         for r in results if r.get("code") and r.get("value") is not None
     }
+
+
+def _most_recent_iso_lab_date(lab_dates: list[str]) -> str:
+    """Return most recent ISO lab date from a candidate list.
+
+    Ignores empty/non-ISO values (e.g. "unknown"). Returns "unknown" when no
+    valid ISO dates are available.
+    """
+    parsed_dates: list[date] = []
+    for raw in lab_dates:
+        if not raw or not isinstance(raw, str):
+            continue
+        try:
+            parsed_dates.append(date.fromisoformat(raw))
+        except ValueError:
+            continue
+    if not parsed_dates:
+        return "unknown"
+    return max(parsed_dates).isoformat()
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -2153,17 +2173,25 @@ def interpret_score(value: float, definition: dict) -> dict:
     interp = definition.get("interpretation", {})
     ranges = interp.get("ranges", [])
 
-    for r in ranges:
+    for idx, r in enumerate(ranges):
         r_min = r.get("min")
         r_max = r.get("max")
+        # Avoid overlap only when adjacent ranges share an exact boundary
+        # (e.g. max=5.0 then next min=5.0).
+        next_min = None
+        if idx + 1 < len(ranges):
+            next_min = ranges[idx + 1].get("min")
+        upper_inclusive = not (r_max is not None and next_min is not None and r_max == next_min)
         if r_min is not None and r_max is not None:
-            if r_min <= value <= r_max:
+            upper_ok = value <= r_max if upper_inclusive else value < r_max
+            if r_min <= value and upper_ok:
                 return {"label": r["label"], "severity": r["severity"]}
         elif r_min is not None and r_max is None:
             if value >= r_min:
                 return {"label": r["label"], "severity": r["severity"]}
         elif r_max is not None and r_min is None:
-            if value <= r_max:
+            upper_ok = value <= r_max if upper_inclusive else value < r_max
+            if upper_ok:
                 return {"label": r["label"], "severity": r["severity"]}
 
     return {"label": f"Score: {value}", "severity": "normal"}
@@ -2262,7 +2290,7 @@ def compute_all_scores(user_id: int) -> list:
         for bcode in defn["required_biomarkers"]:
             if bcode in bio_with_dates:
                 lab_dates.append(bio_with_dates[bcode]["lab_date"])
-        lab_date = max(lab_dates) if lab_dates else "unknown"
+        lab_date = _most_recent_iso_lab_date(lab_dates)
 
         input_snapshot = {}
         for bcode in defn["required_biomarkers"]:
