@@ -766,7 +766,7 @@ with tab_dexa:
 
     # ── Stats Cards ──────────────────────────────────────────────────────
     if latest_dexa:
-        dc = st.columns(6)
+        dc = st.columns(7)
         with dc[0]:
             v = latest_dexa.get("total_fat_pct")
             st.metric("Body Fat %", f"{v:.1f}%" if v else "--")
@@ -775,12 +775,10 @@ with tab_dexa:
             st.metric("Lean Mass", f"{v / 1000:.1f} kg" if v else "--")
         with dc[2]:
             bmd = latest_dexa.get("bmd_g_cm2")
+            st.metric("BMD (g/cm2)", f"{bmd:.3f}" if bmd is not None else "--")
+        with dc[3]:
             ts = latest_dexa.get("t_score")
-            label = "--"
-            if bmd:
-                label = f"{bmd:.3f}"
-            st.metric("BMD (g/cm2)", label,
-                       help=f"T-score: {ts}" if ts else None)
+            st.metric("T-score", f"{ts:.2f}" if ts is not None else "--")
             if ts is not None:
                 if ts >= -1.0:
                     badge = ("Normal", "#4CAF50")
@@ -793,14 +791,14 @@ with tab_dexa:
                     f"border-radius:12px;font-size:0.8em'>{badge[0]}</span>",
                     unsafe_allow_html=True,
                 )
-        with dc[3]:
+        with dc[4]:
             v = latest_dexa.get("vat_mass_g")
             st.metric("Visceral Fat", f"{v:.0f} g" if v else "--")
-        with dc[4]:
+        with dc[5]:
             v = latest_dexa.get("alm_h2")
             st.metric("ALM/h2", f"{v:.2f}" if v else "--",
                        help="Appendicular lean mass / height^2 (kg/m2)")
-        with dc[5]:
+        with dc[6]:
             v = latest_dexa.get("ag_ratio")
             st.metric("A/G Ratio", f"{v:.2f}" if v else "--",
                        help="Android/Gynoid fat ratio")
@@ -856,14 +854,16 @@ with tab_dexa:
         with r2[3]:
             dexa_bone = st.number_input("Bone Mass (g)", value=ex.get("bone_mass_g"), format="%.0f", key="dexa_bone")
 
-        r3 = st.columns(4)
+        r3 = st.columns(5)
         with r3[0]:
             dexa_bmd = st.number_input("BMD (g/cm2)", value=ex.get("bmd_g_cm2"), format="%.3f", key="dexa_bmd")
         with r3[1]:
             dexa_ts = st.number_input("T-score", value=ex.get("t_score"), format="%.1f", key="dexa_ts")
         with r3[2]:
-            dexa_android = st.number_input("Android Fat %", value=ex.get("android_fat_pct"), format="%.1f", key="dexa_and")
+            dexa_zs = st.number_input("Z-score", value=ex.get("z_score"), format="%.1f", key="dexa_zs")
         with r3[3]:
+            dexa_android = st.number_input("Android Fat %", value=ex.get("android_fat_pct"), format="%.1f", key="dexa_and")
+        with r3[4]:
             dexa_gynoid = st.number_input("Gynoid Fat %", value=ex.get("gynoid_fat_pct"), format="%.1f", key="dexa_gyn")
 
         col_s, col_c = st.columns([3, 1])
@@ -876,7 +876,7 @@ with tab_dexa:
                     total_fat_g=ex.get("total_fat_g"),
                     lean_mass_g=dexa_lean, bone_mass_g=dexa_bone,
                     bmi=ex.get("bmi"), bmd_g_cm2=dexa_bmd,
-                    t_score=dexa_ts, z_score=ex.get("z_score"),
+                    t_score=dexa_ts, z_score=dexa_zs,
                     vat_mass_g=ex.get("vat_mass_g"),
                     vat_volume_cm3=ex.get("vat_volume_cm3"),
                     vat_area_cm2=ex.get("vat_area_cm2"),
@@ -924,28 +924,30 @@ with tab_dexa:
             with mr2[3]:
                 m_bone = st.number_input("Bone Mass (g)", value=None, format="%.0f", key="dexa_m_bone")
 
-            mr3 = st.columns(4)
+            mr3 = st.columns(5)
             with mr3[0]:
                 m_bmd = st.number_input("BMD (g/cm2)", value=None, format="%.3f", key="dexa_m_bmd")
             with mr3[1]:
                 m_ts = st.number_input("T-score", value=None, format="%.1f", key="dexa_m_ts")
             with mr3[2]:
-                m_android = st.number_input("Android Fat %", value=None, format="%.1f", key="dexa_m_and")
+                m_zs = st.number_input("Z-score", value=None, format="%.1f", key="dexa_m_zs")
             with mr3[3]:
+                m_android = st.number_input("Android Fat %", value=None, format="%.1f", key="dexa_m_and")
+            with mr3[4]:
                 m_gynoid = st.number_input("Gynoid Fat %", value=None, format="%.1f", key="dexa_m_gyn")
 
             m_notes = st.text_area("Notes", key="dexa_m_notes", height=68)
 
             if st.form_submit_button("Save DEXA Entry", use_container_width=True, type="primary"):
-                if m_fat is None and m_weight is None:
-                    st.error("Enter at least body fat % or weight.")
+                if m_fat is None and m_weight is None and m_bmd is None and m_ts is None and m_zs is None:
+                    st.error("Enter at least one DEXA metric (e.g., T-score, BMD, body fat %, or weight).")
                 else:
                     save_dexa_scan(
                         user_id, m_date.isoformat(),
                         lab_name=m_lab or None, scanner_model=m_scanner or None,
                         weight_kg=m_weight, total_fat_pct=m_fat,
                         lean_mass_g=m_lean, bone_mass_g=m_bone,
-                        bmd_g_cm2=m_bmd, t_score=m_ts,
+                        bmd_g_cm2=m_bmd, t_score=m_ts, z_score=m_zs,
                         android_fat_pct=m_android, gynoid_fat_pct=m_gynoid,
                         notes=m_notes or None, source="manual",
                     )
@@ -1061,6 +1063,12 @@ with tab_dexa:
                     parts.append(f"Lean: {lean / 1000:.1f} kg")
                 if bmd_val:
                     parts.append(f"BMD: {bmd_val:.3f}")
+                t_score_val = scan.get("t_score")
+                if t_score_val is not None:
+                    parts.append(f"T-score: {t_score_val:.2f}")
+                z_score_val = scan.get("z_score")
+                if z_score_val is not None:
+                    parts.append(f"Z-score: {z_score_val:.2f}")
                 if scan.get("lab_name"):
                     parts.append(scan["lab_name"])
                 sc1, sc2 = st.columns([5, 1])

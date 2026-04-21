@@ -880,15 +880,24 @@ def build_clinical_snapshot(user_id: int) -> dict:
 
     key_tests = []
     if latest_dexa:
+        dexa_summary_parts = []
+        if latest_dexa.get("total_fat_pct") is not None:
+            dexa_summary_parts.append(f"Body fat {latest_dexa.get('total_fat_pct')}%")
+        if latest_dexa.get("lean_mass_g") is not None:
+            dexa_summary_parts.append(
+                f"lean mass {round((latest_dexa.get('lean_mass_g') or 0) / 1000, 1)} kg"
+            )
+        if latest_dexa.get("bmd_g_cm2") is not None:
+            dexa_summary_parts.append(f"BMD {latest_dexa.get('bmd_g_cm2')}")
+        if latest_dexa.get("t_score") is not None:
+            dexa_summary_parts.append(f"T-score {latest_dexa.get('t_score')}")
+        if latest_dexa.get("z_score") is not None:
+            dexa_summary_parts.append(f"Z-score {latest_dexa.get('z_score')}")
         key_tests.append(
             {
                 "test_type": "DEXA",
                 "test_date": latest_dexa.get("scan_date"),
-                "summary": (
-                    f"Body fat {latest_dexa.get('total_fat_pct')}%, "
-                    f"lean mass {round((latest_dexa.get('lean_mass_g') or 0) / 1000, 1)} kg, "
-                    f"BMD {latest_dexa.get('bmd_g_cm2')}"
-                ),
+                "summary": ", ".join(dexa_summary_parts) if dexa_summary_parts else "DEXA data available",
                 "risk_flag": "unknown",
                 "source": "dexa_scans",
             }
