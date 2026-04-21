@@ -180,6 +180,9 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
             biomarker_labels = {
                 "dexa_t_score": "DEXA T-score",
                 "dexa_z_score": "DEXA Z-score",
+                "dexa_alm_kg": "DEXA appendicular lean mass (kg)",
+                "dexa_alm_h2": "DEXA ALM / height² (kg/m²)",
+                "dexa_ffmi": "DEXA fat-free mass index",
                 "dexa_bmd_g_cm2": "DEXA BMD (g/cm²)",
             }
             named_biomarkers = [biomarker_labels.get(code, code) for code in missing_biomarkers]
@@ -191,6 +194,23 @@ def render_missing_score_card(score_def: dict, missing_biomarkers: list,
                 "diabetes_status": "Diabetes Status", "on_bp_medication": "BP Medication",
                 "education_years": "Education Years", "physical_activity_level": "Physical Activity Level",
                 "height_cm": "Height", "weight_kg": "Weight",
+                "grip_strength_kg": "Grip Strength", "chair_stand_time_s": "Chair Stand Time",
+                "gait_speed_m_per_s": "Gait Speed", "waist_cm": "Waist Circumference",
+                "daily_activity_30min": "Daily Physical Activity", "daily_fruit_veg": "Daily Fruit / Vegetable Intake",
+                "history_high_glucose": "History of High Glucose", "family_history_diabetes": "Family History of Diabetes",
+                "neck_circumference_cm": "Neck Circumference", "loud_snoring": "Loud Snoring",
+                "ethnicity": "Ethnicity", "cigarettes_per_day": "Cigarettes per Day",
+                "alcohol_intake_level": "Alcohol Intake Level", "antidepressant_use": "Antidepressant Use",
+                "cancer": "Cancer History", "asthma_copd": "Asthma / COPD",
+                "care_home": "Care Home Status", "prior_stroke_tia": "Prior Stroke / TIA",
+                "vascular_disease": "Vascular Disease", "dementia": "Dementia",
+                "endocrine_bone_disorder": "Endocrine Bone Disorder", "epilepsy": "Epilepsy",
+                "falls_last_year": "Falls in Last Year", "prior_fragility_fracture": "Prior Fragility Fracture",
+                "hrt_estrogen_only": "Estrogen-only HRT", "chronic_liver_disease": "Chronic Liver Disease",
+                "malabsorption": "Malabsorption", "parkinsons": "Parkinson's Disease",
+                "advanced_ckd_stage45": "Advanced CKD (Stage 4-5)",
+                "family_history_osteoporosis": "Family History of Osteoporosis / Hip Fracture",
+                "diabetes_type": "Diabetes Type",
             }
             named = [labels.get(c, c) for c in missing_clinical]
             missing_items.append(f"**Clinical data needed:** {', '.join(named)}")
@@ -527,6 +547,173 @@ def render_clinical_profile_form(user_id: int):
                 help="CAIDE: active (0 pts), inactive (1 pt)",
             )
 
+        st.markdown("#### Musculoskeletal Function (for FNIH / EWGSOP2)")
+        st.caption("Use dynamometer grip strength, five-repetition chair stand time, and usual gait speed alongside DXA lean-mass data.")
+        col_ms1, col_ms2, col_ms3 = st.columns(3)
+        with col_ms1:
+            grip_strength = st.number_input(
+                "Grip strength (kg)",
+                min_value=0.0, max_value=120.0,
+                value=float(profile.get("grip_strength_kg") or 0.0),
+                step=0.5,
+                help="EWGSOP2 low strength cutpoints: <27 kg men, <16 kg women. Leave 0 if not yet measured.",
+            )
+        with col_ms2:
+            chair_stand_time = st.number_input(
+                "Chair stand time (s)",
+                min_value=0.0, max_value=60.0,
+                value=float(profile.get("chair_stand_time_s") or 0.0),
+                step=0.1,
+                help="Time for 5 chair rises. EWGSOP2 low-strength threshold: >15 seconds.",
+            )
+        with col_ms3:
+            gait_speed = st.number_input(
+                "Gait speed (m/s)",
+                min_value=0.0, max_value=3.0,
+                value=float(profile.get("gait_speed_m_per_s") or 0.0),
+                step=0.05,
+                help="Usual gait speed. EWGSOP2 severe-stage threshold: <=0.8 m/s.",
+            )
+
+        st.markdown("#### Diabetes Risk Inputs (for FINDRISC)")
+        col_dr1, col_dr2 = st.columns(2)
+        with col_dr1:
+            family_diabetes_options = ["none", "second_degree", "first_degree"]
+            family_diabetes_labels = [
+                "No known family history",
+                "Second-degree relative (grandparent, aunt/uncle, cousin)",
+                "First-degree relative (parent, sibling, child)",
+            ]
+            current_family_dm = profile.get("family_history_diabetes", "none") or "none"
+            family_dm_idx = family_diabetes_options.index(current_family_dm) if current_family_dm in family_diabetes_options else 0
+            family_history_diabetes = st.selectbox(
+                "Family history of diabetes",
+                options=family_diabetes_options,
+                format_func=lambda x: family_diabetes_labels[family_diabetes_options.index(x)],
+                index=family_dm_idx,
+            )
+            history_high_glucose = st.checkbox(
+                "History of high blood glucose",
+                value=bool(profile.get("history_high_glucose", 0)),
+                help="Includes prior impaired fasting glucose, gestational diabetes, or any previous elevated glucose test.",
+            )
+        with col_dr2:
+            daily_activity_30min = st.checkbox(
+                "At least 30 min physical activity daily",
+                value=bool(profile.get("daily_activity_30min", 0)),
+                help="Specific FINDRISC activity item.",
+            )
+            daily_fruit_veg = st.checkbox(
+                "Eat fruit / vegetables every day",
+                value=bool(profile.get("daily_fruit_veg", 0)),
+                help="Specific FINDRISC diet item.",
+            )
+
+        with st.expander("Advanced Bone & Sleep Risk Inputs (QFracture / NoSAS)", expanded=False):
+            st.markdown("##### Sleep / Recovery")
+            col_sl1, col_sl2 = st.columns(2)
+            with col_sl1:
+                neck_circumference = st.number_input(
+                    "Neck circumference (cm)",
+                    min_value=0.0, max_value=80.0,
+                    value=float(profile.get("neck_circumference_cm") or 0.0),
+                    step=0.5,
+                    help="NoSAS awards 4 points if neck circumference is >40 cm.",
+                )
+            with col_sl2:
+                loud_snoring = st.checkbox(
+                    "Loud / habitual snoring",
+                    value=bool(profile.get("loud_snoring", 0)),
+                )
+
+            st.markdown("##### Fracture & Bone-Risk History")
+            alcohol_options = ["none", "trivial", "light", "moderate", "heavy", "very_heavy"]
+            alcohol_labels = [
+                "None",
+                "Trivial / occasional",
+                "Light",
+                "Moderate",
+                "Heavy",
+                "Very heavy",
+            ]
+            current_alcohol = profile.get("alcohol_intake_level", "none") or "none"
+            alcohol_idx = alcohol_options.index(current_alcohol) if current_alcohol in alcohol_options else 0
+            alcohol_intake_level = st.selectbox(
+                "Alcohol intake level",
+                options=alcohol_options,
+                format_func=lambda x: alcohol_labels[alcohol_options.index(x)],
+                index=alcohol_idx,
+                help="Six-level category used by QFracture.",
+            )
+
+            col_fx1, col_fx2, col_fx3, col_fx4 = st.columns(4)
+            with col_fx1:
+                prior_fragility_fracture = st.checkbox(
+                    "Prior fragility fracture",
+                    value=bool(profile.get("prior_fragility_fracture", 0)),
+                )
+                family_history_osteoporosis = st.checkbox(
+                    "Family history of osteoporosis / hip fracture",
+                    value=bool(profile.get("family_history_osteoporosis", 0)),
+                )
+                falls_last_year = st.checkbox(
+                    "Falls in last year",
+                    value=bool(profile.get("falls_last_year", 0)),
+                )
+                care_home = st.checkbox(
+                    "Care home / institutional living",
+                    value=bool(profile.get("care_home", 0)),
+                )
+            with col_fx2:
+                dementia = st.checkbox(
+                    "Dementia",
+                    value=bool(profile.get("dementia", 0)),
+                )
+                cancer = st.checkbox(
+                    "Cancer history",
+                    value=bool(profile.get("cancer", 0)),
+                )
+                asthma_copd = st.checkbox(
+                    "Asthma / COPD",
+                    value=bool(profile.get("asthma_copd", 0)),
+                )
+                chronic_liver_disease = st.checkbox(
+                    "Chronic liver disease",
+                    value=bool(profile.get("chronic_liver_disease", 0)),
+                )
+            with col_fx3:
+                advanced_ckd_stage45 = st.checkbox(
+                    "Advanced CKD (stage 4-5)",
+                    value=bool(profile.get("advanced_ckd_stage45", 0)),
+                )
+                epilepsy = st.checkbox(
+                    "Epilepsy",
+                    value=bool(profile.get("epilepsy", 0)),
+                )
+                parkinsons = st.checkbox(
+                    "Parkinson's disease",
+                    value=bool(profile.get("parkinsons", 0)),
+                )
+                malabsorption = st.checkbox(
+                    "Malabsorption syndrome",
+                    value=bool(profile.get("malabsorption", 0)),
+                )
+            with col_fx4:
+                endocrine_bone_disorder = st.checkbox(
+                    "Endocrine bone disorder",
+                    value=bool(profile.get("endocrine_bone_disorder", 0)),
+                    help="For example untreated hyperthyroidism, hyperparathyroidism, or related endocrine bone disease.",
+                )
+                antidepressant_use = st.checkbox(
+                    "Antidepressant use",
+                    value=bool(profile.get("antidepressant_use", 0)),
+                )
+                hrt_estrogen_only = st.checkbox(
+                    "Estrogen-only HRT",
+                    value=bool(profile.get("hrt_estrogen_only", 0)),
+                    help="Relevant to the female QFracture model.",
+                )
+
         submitted = st.form_submit_button("Save Clinical Profile", use_container_width=True)
         if submitted:
             from models.clinical_profile import save_profile
@@ -562,6 +749,31 @@ def render_clinical_profile_form(user_id: int):
                 "vascular_disease": 1 if vasc else 0,
                 "education_years": edu_years,
                 "physical_activity_level": phys_activity,
+                "family_history_diabetes": family_history_diabetes,
+                "history_high_glucose": 1 if history_high_glucose else 0,
+                "daily_fruit_veg": 1 if daily_fruit_veg else 0,
+                "daily_activity_30min": 1 if daily_activity_30min else 0,
+                "neck_circumference_cm": neck_circumference if neck_circumference > 0 else None,
+                "loud_snoring": 1 if loud_snoring else 0,
+                "grip_strength_kg": grip_strength if grip_strength > 0 else None,
+                "chair_stand_time_s": chair_stand_time if chair_stand_time > 0 else None,
+                "gait_speed_m_per_s": gait_speed if gait_speed > 0 else None,
+                "prior_fragility_fracture": 1 if prior_fragility_fracture else 0,
+                "family_history_osteoporosis": 1 if family_history_osteoporosis else 0,
+                "falls_last_year": 1 if falls_last_year else 0,
+                "alcohol_intake_level": alcohol_intake_level,
+                "care_home": 1 if care_home else 0,
+                "dementia": 1 if dementia else 0,
+                "cancer": 1 if cancer else 0,
+                "asthma_copd": 1 if asthma_copd else 0,
+                "chronic_liver_disease": 1 if chronic_liver_disease else 0,
+                "advanced_ckd_stage45": 1 if advanced_ckd_stage45 else 0,
+                "epilepsy": 1 if epilepsy else 0,
+                "parkinsons": 1 if parkinsons else 0,
+                "malabsorption": 1 if malabsorption else 0,
+                "endocrine_bone_disorder": 1 if endocrine_bone_disorder else 0,
+                "antidepressant_use": 1 if antidepressant_use else 0,
+                "hrt_estrogen_only": 1 if hrt_estrogen_only else 0,
             }
             save_profile(user_id, data)
             st.success("Clinical profile saved.")
@@ -592,3 +804,15 @@ def render_clinical_profile_summary(user_id: int):
             if profile.get("on_bp_medication"):
                 bp_text += " (Rx)"
         st.metric("Blood Pressure", bp_text)
+
+    advanced_parts = []
+    if profile.get("grip_strength_kg"):
+        advanced_parts.append(f"Grip {profile['grip_strength_kg']} kg")
+    if profile.get("chair_stand_time_s"):
+        advanced_parts.append(f"Chair stand {profile['chair_stand_time_s']} s")
+    if profile.get("gait_speed_m_per_s"):
+        advanced_parts.append(f"Gait {profile['gait_speed_m_per_s']} m/s")
+    if profile.get("neck_circumference_cm"):
+        advanced_parts.append(f"Neck {profile['neck_circumference_cm']} cm")
+    if advanced_parts:
+        st.caption("Advanced inputs: " + " | ".join(advanced_parts))

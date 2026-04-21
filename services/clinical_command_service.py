@@ -113,7 +113,7 @@ _DOMAIN_META = {
     },
     "muscle_bones": {
         "name": "Muscle & Bones",
-        "description": "Body composition and validated DXA bone-risk signal",
+        "description": "Body composition, sarcopenia staging, and validated fracture-risk signals",
         "expected_organs": ("musculoskeletal",),
     },
     "gut_digestion": {
@@ -128,8 +128,8 @@ _DOMAIN_META = {
     },
     "system_wide": {
         "name": "System Wide (incl. Hormone Health)",
-        "description": "Kidney, inflammatory, hematologic, thyroid, biological-age systems",
-        "expected_organs": ("kidney", "inflammatory", "hematologic", "thyroid", "biological_age"),
+        "description": "Kidney, inflammatory, hematologic, thyroid, biological-age, and sleep-recovery systems",
+        "expected_organs": ("kidney", "inflammatory", "hematologic", "thyroid", "biological_age", "sleep_recovery"),
     },
 }
 
@@ -301,11 +301,11 @@ def _build_organ_domain_categories(overall_organ: dict | None, latest_dexa: dict
         note = ""
         if code == "muscle_bones":
             if covered:
-                note = "Includes validated DXA T-score osteoporosis classification."
+                note = "Includes validated DXA T-score osteoporosis classification plus FNIH/EWGSOP2 muscle-risk scoring when inputs are present."
             elif latest_dexa:
-                note = "DEXA present, but T-score is missing for validated bone-risk classification."
+                note = "DEXA present, but T-score and/or lean-mass inputs are missing for validated bone and muscle risk scoring."
             else:
-                note = "Add DEXA data (including T-score) to enrich this domain."
+                note = "Add DEXA data (including T-score and appendicular lean mass) to enrich this domain."
         elif not covered:
             note = "No mapped validated formulas computed yet."
 
@@ -893,6 +893,8 @@ def build_clinical_snapshot(user_id: int) -> dict:
             dexa_summary_parts.append(f"T-score {latest_dexa.get('t_score')}")
         if latest_dexa.get("z_score") is not None:
             dexa_summary_parts.append(f"Z-score {latest_dexa.get('z_score')}")
+        if latest_dexa.get("alm_h2") is not None:
+            dexa_summary_parts.append(f"ALM/ht² {latest_dexa.get('alm_h2')}")
         key_tests.append(
             {
                 "test_type": "DEXA",

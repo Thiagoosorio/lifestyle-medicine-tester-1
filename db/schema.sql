@@ -961,6 +961,33 @@ CREATE TABLE IF NOT EXISTS user_clinical_profile (
     -- CAIDE Dementia Risk fields
     education_years INTEGER,
     physical_activity_level TEXT DEFAULT 'active' CHECK (physical_activity_level IN ('active', 'inactive')),
+    -- FINDRISC / NoSAS / sarcopenia / fracture-risk fields
+    family_history_diabetes TEXT DEFAULT 'none' CHECK (family_history_diabetes IN ('none', 'second_degree', 'first_degree')),
+    history_high_glucose INTEGER DEFAULT 0,
+    daily_fruit_veg INTEGER DEFAULT 0,
+    daily_activity_30min INTEGER DEFAULT 0,
+    neck_circumference_cm REAL,
+    loud_snoring INTEGER DEFAULT 0,
+    grip_strength_kg REAL,
+    chair_stand_time_s REAL,
+    gait_speed_m_per_s REAL,
+    prior_fragility_fracture INTEGER DEFAULT 0,
+    family_history_osteoporosis INTEGER DEFAULT 0,
+    falls_last_year INTEGER DEFAULT 0,
+    alcohol_intake_level TEXT DEFAULT 'none'
+        CHECK (alcohol_intake_level IN ('none', 'trivial', 'light', 'moderate', 'heavy', 'very_heavy')),
+    care_home INTEGER DEFAULT 0,
+    dementia INTEGER DEFAULT 0,
+    cancer INTEGER DEFAULT 0,
+    asthma_copd INTEGER DEFAULT 0,
+    chronic_liver_disease INTEGER DEFAULT 0,
+    advanced_ckd_stage45 INTEGER DEFAULT 0,
+    epilepsy INTEGER DEFAULT 0,
+    parkinsons INTEGER DEFAULT 0,
+    malabsorption INTEGER DEFAULT 0,
+    endocrine_bone_disorder INTEGER DEFAULT 0,
+    antidepressant_use INTEGER DEFAULT 0,
+    hrt_estrogen_only INTEGER DEFAULT 0,
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

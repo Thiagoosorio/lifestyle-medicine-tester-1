@@ -51,6 +51,9 @@ def db_conn(tmp_path, monkeypatch):
 
 def _run_test_migrations(conn, db_mod):
     """Apply table_migrations from database.py to the test DB."""
+    if hasattr(db_mod, "_migrate"):
+        db_mod._migrate(conn)
+        return
     if hasattr(db_mod, "table_migrations"):
         for sql in db_mod.table_migrations:
             try:

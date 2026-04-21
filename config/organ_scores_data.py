@@ -586,6 +586,152 @@ ORGAN_SCORE_DEFINITIONS = [
     # THYROID — Tier 2 (Derived/Experimental)
     # ═══════════════════════════════════════════════════════════════════════════
     {
+        "code": "fnih_low_lean_mass",
+        "name": "FNIH Low Lean Mass (ALM/BMI)",
+        "organ_system": "musculoskeletal",
+        "tier": "validated",
+        "formula_key": "calc_fnih_low_lean_mass",
+        "required_biomarkers": ["dexa_alm_kg"],
+        "required_clinical": ["bmi", "sex"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.49, "label": "FNIH lean-mass criterion not met", "severity": "optimal"},
+                {"min": 0.5, "label": "Low lean mass by FNIH ALM/BMI cutpoint", "severity": "high"},
+            ]
+        }),
+        "citation_pmid": "24737559",
+        "citation_text": "Cawthon PM et al. J Gerontol A Biol Sci Med Sci 2014;69(5):567-75. FNIH Sarcopenia Project identified ALM/BMI cutpoints <0.789 (men) and <0.512 (women). Longitudinal validation: Studenski SA et al. J Gerontol A Biol Sci Med Sci 2014 (PMID: 24737560).",
+        "description": "Foundation for the National Institutes of Health (FNIH) low lean mass criterion using DXA-derived appendicular lean mass indexed to BMI. Best used alongside strength and performance testing.",
+        "sort_order": 47,
+    },
+    {
+        "code": "ewgsop2_sarcopenia",
+        "name": "EWGSOP2 Sarcopenia Stage",
+        "organ_system": "musculoskeletal",
+        "tier": "validated",
+        "formula_key": "calc_ewgsop2_sarcopenia",
+        "required_biomarkers": ["dexa_alm_h2"],
+        "required_clinical": ["sex", "grip_strength_kg", "chair_stand_time_s", "gait_speed_m_per_s"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.49, "label": "No sarcopenia by EWGSOP2", "severity": "optimal"},
+                {"min": 0.5, "max": 1.49, "label": "Probable sarcopenia - low strength", "severity": "elevated"},
+                {"min": 1.5, "max": 2.49, "label": "Confirmed sarcopenia - low strength and low muscle quantity", "severity": "high"},
+                {"min": 2.5, "label": "Severe sarcopenia - performance also impaired", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "30312372",
+        "citation_text": "Cruz-Jentoft AJ et al. Age Ageing 2019;48(1):16-31. EWGSOP2 revised European consensus recommends low muscle strength as entry criterion, DXA ALM/height^2 for confirmation, and gait speed for severity staging.",
+        "description": "Full EWGSOP2 staging using grip strength and/or five-chair-stand time, DXA appendicular lean mass indexed to height squared, and gait speed. This is the current European consensus framework for clinical sarcopenia assessment.",
+        "sort_order": 48,
+    },
+    {
+        "code": "qfracture_major",
+        "name": "QFracture 10-year Major Fracture Risk",
+        "organ_system": "musculoskeletal",
+        "tier": "validated",
+        "formula_key": "calc_qfracture_major",
+        "required_biomarkers": [],
+        "required_clinical": [
+            "age", "sex", "bmi", "ethnicity", "smoking_status", "cigarettes_per_day",
+            "alcohol_intake_level", "antidepressant_use", "cancer", "asthma_copd",
+            "care_home", "corticosteroid_use", "vascular_disease", "prior_stroke_tia",
+            "dementia", "endocrine_bone_disorder", "epilepsy", "falls_last_year",
+            "hrt_estrogen_only", "chronic_liver_disease", "malabsorption",
+            "parkinsons", "rheumatoid_arthritis", "sle", "advanced_ckd_stage45",
+            "diabetes_type", "family_history_osteoporosis"
+        ],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 4.99, "label": "Lower absolute 10-year fracture risk", "severity": "optimal"},
+                {"min": 5.0, "max": 9.99, "label": "Mildly elevated 10-year fracture risk", "severity": "normal"},
+                {"min": 10.0, "max": 19.99, "label": "Clinically important 10-year fracture risk", "severity": "elevated"},
+                {"min": 20.0, "max": 29.99, "label": "High absolute fracture risk", "severity": "high"},
+                {"min": 30.0, "label": "Very high absolute fracture risk", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "22941793",
+        "citation_text": "Collins GS, Mallett S, Altman DG. BMJ 2012;344:e3427. QFracture derivation and validation in UK primary care. Official ClinRisk GPL source coefficients used for implementation.",
+        "description": "Absolute 10-year risk of major osteoporotic fracture using QFracture. This is a validated fracture-risk model; treatment thresholds vary by country and guideline, so interpret alongside local policy.",
+        "sort_order": 49,
+    },
+    {
+        "code": "qfracture_hip",
+        "name": "QFracture 10-year Hip Fracture Risk",
+        "organ_system": "musculoskeletal",
+        "tier": "validated",
+        "formula_key": "calc_qfracture_hip",
+        "required_biomarkers": [],
+        "required_clinical": [
+            "age", "sex", "bmi", "ethnicity", "smoking_status", "cigarettes_per_day",
+            "alcohol_intake_level", "antidepressant_use", "cancer", "asthma_copd",
+            "care_home", "corticosteroid_use", "vascular_disease", "prior_stroke_tia",
+            "dementia", "endocrine_bone_disorder", "epilepsy", "falls_last_year",
+            "prior_fragility_fracture", "hrt_estrogen_only", "chronic_liver_disease",
+            "parkinsons", "rheumatoid_arthritis", "sle", "advanced_ckd_stage45",
+            "diabetes_type", "family_history_osteoporosis"
+        ],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 0.99, "label": "Lower absolute 10-year hip-fracture risk", "severity": "optimal"},
+                {"min": 1.0, "max": 2.99, "label": "Elevated hip-fracture risk signal", "severity": "normal"},
+                {"min": 3.0, "max": 4.99, "label": "High absolute hip-fracture risk", "severity": "high"},
+                {"min": 5.0, "label": "Very high absolute hip-fracture risk", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "22941793",
+        "citation_text": "Collins GS, Mallett S, Altman DG. BMJ 2012;344:e3427. QFracture derivation and validation in UK primary care. Official ClinRisk GPL source coefficients used for implementation.",
+        "description": "Absolute 10-year risk of hip fracture using QFracture. Particularly useful when fragility-fracture history, falls, and bone-active comorbidities are available.",
+        "sort_order": 50,
+    },
+    {
+        "code": "findrisc",
+        "name": "FINDRISC Diabetes Risk",
+        "organ_system": "metabolic",
+        "tier": "validated",
+        "formula_key": "calc_findrisc",
+        "required_biomarkers": [],
+        "required_clinical": [
+            "age", "bmi", "waist_cm", "sex", "daily_activity_30min",
+            "daily_fruit_veg", "on_bp_medication", "history_high_glucose",
+            "family_history_diabetes"
+        ],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 6, "label": "Low 10-year diabetes risk (~1 in 100)", "severity": "optimal"},
+                {"min": 7, "max": 11, "label": "Slightly elevated risk (~1 in 25)", "severity": "normal"},
+                {"min": 12, "max": 14, "label": "Moderate risk (~1 in 6)", "severity": "elevated"},
+                {"min": 15, "max": 20, "label": "High risk (~1 in 3)", "severity": "high"},
+                {"min": 21, "label": "Very high risk (~1 in 2)", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "12610029",
+        "citation_text": "Lindstrom J, Tuomilehto J. Diabetes Care 2003;26(3):725-31. FINDRISC derivation in Finnish adults. Contemporary European validation: Salinero-Fort MA et al. BMJ Open Diabetes Res Care 2021 (PMID: 34302911).",
+        "description": "Eight-item non-lab diabetes risk score using age, adiposity, activity, diet, blood-pressure treatment, prior hyperglycemia, and family history. Useful when insulin or OGTT data are unavailable.",
+        "sort_order": 35,
+    },
+    {
+        "code": "nosas",
+        "name": "NoSAS Sleep Apnea Screen",
+        "organ_system": "sleep_recovery",
+        "tier": "validated",
+        "formula_key": "calc_nosas",
+        "required_biomarkers": [],
+        "required_clinical": ["age", "bmi", "sex", "neck_circumference_cm", "loud_snoring"],
+        "interpretation": json.dumps({
+            "ranges": [
+                {"max": 7, "label": "Lower likelihood of clinically significant sleep-disordered breathing", "severity": "optimal"},
+                {"min": 8, "max": 10, "label": "Positive NoSAS screen - consider sleep testing", "severity": "elevated"},
+                {"min": 11, "max": 13, "label": "High sleep-apnea risk signal", "severity": "high"},
+                {"min": 14, "label": "Very high sleep-apnea risk signal", "severity": "critical"},
+            ]
+        }),
+        "citation_pmid": "27321086",
+        "citation_text": "Marti-Soler H et al. Lancet Respir Med 2016;4(9):742-748. NoSAS derivation and external validation for clinically significant sleep-disordered breathing; threshold >=8 performed better than STOP-Bang and Berlin in the derivation cohorts.",
+        "description": "NoSAS (Neck, Obesity, Snoring, Age, Sex) is a simple validated screen for sleep-disordered breathing. A positive screen is not diagnostic but helps identify who should undergo formal sleep testing.",
+        "sort_order": 81,
+    },
+    {
         "code": "thyroid_guideline_pattern",
         "name": "Thyroid Guideline Pattern (TSH + FT4)",
         "organ_system": "thyroid",
@@ -1165,6 +1311,7 @@ ORGAN_SYSTEMS = {
     "hematologic": {"name": "Hematologic & Iron", "icon": "&#129656;", "color": "#B22222", "sort_order": 7},
     "biological_age": {"name": "Biological Age", "icon": "&#9200;", "color": "#6750A4", "sort_order": 8},
     "neurological": {"name": "Neurological / Dementia Risk", "icon": "&#129504;", "color": "#5C6BC0", "sort_order": 9},
+    "sleep_recovery": {"name": "Sleep / Recovery", "icon": "&#127769;", "color": "#2E5AAC", "sort_order": 11},
 }
 
 # Optional advanced scores are informative when available, but should not block
@@ -1177,4 +1324,7 @@ OPTIONAL_ADVANCED_SCORE_CODES = {
     "spina_gt",
     "spina_gd",
     "tfqi",
+    "qfracture_major",
+    "qfracture_hip",
+    "nosas",
 }

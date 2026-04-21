@@ -4,6 +4,108 @@ from datetime import date, datetime
 from db.database import get_connection
 
 
+PROFILE_FIELDS = [
+    "date_of_birth",
+    "sex",
+    "height_cm",
+    "weight_kg",
+    "smoking_status",
+    "diabetes_status",
+    "systolic_bp",
+    "diastolic_bp",
+    "on_bp_medication",
+    "on_statin",
+    "ethnicity",
+    "diabetes_type",
+    "family_history_chd",
+    "atrial_fibrillation",
+    "rheumatoid_arthritis",
+    "chronic_kidney_disease",
+    "migraine",
+    "sle",
+    "severe_mental_illness",
+    "erectile_dysfunction",
+    "atypical_antipsychotic",
+    "corticosteroid_use",
+    "sbp_variability",
+    "cigarettes_per_day",
+    "congestive_heart_failure",
+    "prior_stroke_tia",
+    "vascular_disease",
+    "education_years",
+    "physical_activity_level",
+    "family_history_diabetes",
+    "history_high_glucose",
+    "daily_fruit_veg",
+    "daily_activity_30min",
+    "neck_circumference_cm",
+    "loud_snoring",
+    "grip_strength_kg",
+    "chair_stand_time_s",
+    "gait_speed_m_per_s",
+    "prior_fragility_fracture",
+    "family_history_osteoporosis",
+    "falls_last_year",
+    "alcohol_intake_level",
+    "care_home",
+    "dementia",
+    "cancer",
+    "asthma_copd",
+    "chronic_liver_disease",
+    "advanced_ckd_stage45",
+    "epilepsy",
+    "parkinsons",
+    "malabsorption",
+    "endocrine_bone_disorder",
+    "antidepressant_use",
+    "hrt_estrogen_only",
+]
+
+PROFILE_DEFAULTS = {
+    "diabetes_status": 0,
+    "on_bp_medication": 0,
+    "on_statin": 0,
+    "ethnicity": "white",
+    "diabetes_type": "none",
+    "family_history_chd": 0,
+    "atrial_fibrillation": 0,
+    "rheumatoid_arthritis": 0,
+    "chronic_kidney_disease": 0,
+    "migraine": 0,
+    "sle": 0,
+    "severe_mental_illness": 0,
+    "erectile_dysfunction": 0,
+    "atypical_antipsychotic": 0,
+    "corticosteroid_use": 0,
+    "cigarettes_per_day": 0,
+    "congestive_heart_failure": 0,
+    "prior_stroke_tia": 0,
+    "vascular_disease": 0,
+    "physical_activity_level": "active",
+    "family_history_diabetes": "none",
+    "history_high_glucose": 0,
+    "daily_fruit_veg": 0,
+    "daily_activity_30min": 0,
+    "loud_snoring": 0,
+    "prior_fragility_fracture": 0,
+    "family_history_osteoporosis": 0,
+    "falls_last_year": 0,
+    "alcohol_intake_level": "none",
+    "care_home": 0,
+    "dementia": 0,
+    "cancer": 0,
+    "asthma_copd": 0,
+    "chronic_liver_disease": 0,
+    "advanced_ckd_stage45": 0,
+    "epilepsy": 0,
+    "parkinsons": 0,
+    "malabsorption": 0,
+    "endocrine_bone_disorder": 0,
+    "antidepressant_use": 0,
+    "hrt_estrogen_only": 0,
+}
+
+
 def get_profile(user_id: int) -> dict | None:
     """Return the user's clinical profile, or None if not set."""
     conn = get_connection()
@@ -20,86 +122,19 @@ def save_profile(user_id: int, data: dict):
     """Create or update the user's clinical profile."""
     conn = get_connection()
     try:
+        values = [data.get(field, PROFILE_DEFAULTS.get(field)) for field in PROFILE_FIELDS]
+        columns = ", ".join(["user_id"] + PROFILE_FIELDS + ["updated_at"])
+        placeholders = ", ".join(["?"] * (len(PROFILE_FIELDS) + 1) + ["datetime('now')"])
+        updates = ", ".join(f"{field} = excluded.{field}" for field in PROFILE_FIELDS)
         conn.execute(
-            """INSERT INTO user_clinical_profile
-               (user_id, date_of_birth, sex, height_cm, weight_kg,
-                smoking_status, diabetes_status, systolic_bp, diastolic_bp,
-                on_bp_medication, on_statin,
-                ethnicity, diabetes_type, family_history_chd,
-                atrial_fibrillation, rheumatoid_arthritis,
-                chronic_kidney_disease, migraine, sle,
-                severe_mental_illness, erectile_dysfunction,
-                atypical_antipsychotic, corticosteroid_use,
-                sbp_variability, cigarettes_per_day,
-                congestive_heart_failure, prior_stroke_tia, vascular_disease,
-                education_years, physical_activity_level,
-                updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                       ?, ?, ?, ?, ?,
-                       datetime('now'))
+            f"""INSERT INTO user_clinical_profile
+               ({columns})
+               VALUES ({placeholders})
                ON CONFLICT(user_id)
                DO UPDATE SET
-                   date_of_birth = excluded.date_of_birth,
-                   sex = excluded.sex,
-                   height_cm = excluded.height_cm,
-                   weight_kg = excluded.weight_kg,
-                   smoking_status = excluded.smoking_status,
-                   diabetes_status = excluded.diabetes_status,
-                   systolic_bp = excluded.systolic_bp,
-                   diastolic_bp = excluded.diastolic_bp,
-                   on_bp_medication = excluded.on_bp_medication,
-                   on_statin = excluded.on_statin,
-                   ethnicity = excluded.ethnicity,
-                   diabetes_type = excluded.diabetes_type,
-                   family_history_chd = excluded.family_history_chd,
-                   atrial_fibrillation = excluded.atrial_fibrillation,
-                   rheumatoid_arthritis = excluded.rheumatoid_arthritis,
-                   chronic_kidney_disease = excluded.chronic_kidney_disease,
-                   migraine = excluded.migraine,
-                   sle = excluded.sle,
-                   severe_mental_illness = excluded.severe_mental_illness,
-                   erectile_dysfunction = excluded.erectile_dysfunction,
-                   atypical_antipsychotic = excluded.atypical_antipsychotic,
-                   corticosteroid_use = excluded.corticosteroid_use,
-                   sbp_variability = excluded.sbp_variability,
-                   cigarettes_per_day = excluded.cigarettes_per_day,
-                   congestive_heart_failure = excluded.congestive_heart_failure,
-                   prior_stroke_tia = excluded.prior_stroke_tia,
-                   vascular_disease = excluded.vascular_disease,
-                   education_years = excluded.education_years,
-                   physical_activity_level = excluded.physical_activity_level,
+                   {updates},
                    updated_at = datetime('now')""",
-            (user_id,
-             data.get("date_of_birth"),
-             data.get("sex"),
-             data.get("height_cm"),
-             data.get("weight_kg"),
-             data.get("smoking_status"),
-             data.get("diabetes_status", 0),
-             data.get("systolic_bp"),
-             data.get("diastolic_bp"),
-             data.get("on_bp_medication", 0),
-             data.get("on_statin", 0),
-             data.get("ethnicity", "white"),
-             data.get("diabetes_type", "none"),
-             data.get("family_history_chd", 0),
-             data.get("atrial_fibrillation", 0),
-             data.get("rheumatoid_arthritis", 0),
-             data.get("chronic_kidney_disease", 0),
-             data.get("migraine", 0),
-             data.get("sle", 0),
-             data.get("severe_mental_illness", 0),
-             data.get("erectile_dysfunction", 0),
-             data.get("atypical_antipsychotic", 0),
-             data.get("corticosteroid_use", 0),
-             data.get("sbp_variability"),
-             data.get("cigarettes_per_day", 0),
-             data.get("congestive_heart_failure", 0),
-             data.get("prior_stroke_tia", 0),
-             data.get("vascular_disease", 0),
-             data.get("education_years"),
-             data.get("physical_activity_level", "active")),
+            (user_id, *values),
         )
         conn.commit()
     finally:
@@ -123,10 +158,16 @@ def get_age(user_id: int) -> float | None:
 def get_bmi(user_id: int) -> float | None:
     """Calculate BMI from height_cm and weight_kg, or None if not set."""
     profile = get_profile(user_id)
-    if not profile:
-        return None
-    height = profile.get("height_cm")
-    weight = profile.get("weight_kg")
+    height = (profile or {}).get("height_cm")
+    weight = (profile or {}).get("weight_kg")
+    if (height is None or weight is None) and user_id:
+        try:
+            from services.body_metrics_service import get_latest_metrics
+            latest = get_latest_metrics(user_id) or {}
+            height = height or latest.get("height_cm")
+            weight = weight or latest.get("weight_kg")
+        except Exception:
+            pass
     if not height or not weight or height <= 0:
         return None
     height_m = height / 100.0

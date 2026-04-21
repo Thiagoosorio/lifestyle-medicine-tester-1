@@ -138,6 +138,73 @@ def test_dxa_osteoporosis_who_thresholds():
     assert oss.calc_dxa_osteoporosis_who(dexa_t_score="-2,6") == 2.0
 
 
+def test_fnih_low_lean_mass_cutpoints():
+    assert oss.calc_fnih_low_lean_mass(dexa_alm_kg=23.0, bmi=27.0, sex="male") == 0.0
+    assert oss.calc_fnih_low_lean_mass(dexa_alm_kg=18.0, bmi=28.0, sex="male") == 1.0
+    assert oss.calc_fnih_low_lean_mass(dexa_alm_kg=16.0, bmi=29.0, sex="female") == 0.0
+    assert oss.calc_fnih_low_lean_mass(dexa_alm_kg=13.0, bmi=28.0, sex="female") == 1.0
+
+
+def test_ewgsop2_sarcopenia_staging():
+    assert oss.calc_ewgsop2_sarcopenia(
+        sex="male", grip_strength_kg=34.0, chair_stand_time_s=11.0, dexa_alm_h2=7.4, gait_speed_m_per_s=1.1
+    ) == 0.0
+    assert oss.calc_ewgsop2_sarcopenia(
+        sex="male", grip_strength_kg=24.0, chair_stand_time_s=11.0, dexa_alm_h2=7.4, gait_speed_m_per_s=1.0
+    ) == 1.0
+    assert oss.calc_ewgsop2_sarcopenia(
+        sex="female", grip_strength_kg=14.0, chair_stand_time_s=17.0, dexa_alm_h2=5.1, gait_speed_m_per_s=0.95
+    ) == 2.0
+    assert oss.calc_ewgsop2_sarcopenia(
+        sex="female", grip_strength_kg=14.0, chair_stand_time_s=17.0, dexa_alm_h2=5.1, gait_speed_m_per_s=0.7
+    ) == 3.0
+
+
+def test_findrisc_matches_reference_point_bands():
+    assert oss.calc_findrisc(
+        age=42, bmi=23.0, waist_cm=78.0, sex="female", daily_activity_30min=True,
+        daily_fruit_veg=True, on_bp_medication=False, history_high_glucose=False,
+        family_history_diabetes="none",
+    ) == 0
+    assert oss.calc_findrisc(
+        age=58, bmi=31.0, waist_cm=106.0, sex="male", daily_activity_30min=False,
+        daily_fruit_veg=False, on_bp_medication=True, history_high_glucose=True,
+        family_history_diabetes="first_degree",
+    ) == 25
+
+
+def test_nosas_thresholds():
+    assert oss.calc_nosas(age=45, bmi=24.0, sex="female", neck_circumference_cm=35.0, loud_snoring=False) == 0
+    assert oss.calc_nosas(age=60, bmi=31.0, sex="male", neck_circumference_cm=43.0, loud_snoring=True) == 17
+
+
+def test_qfracture_risk_increases_with_more_risk_factors():
+    lower = oss.calc_qfracture_major(
+        age=60, sex="female", bmi=24.0, ethrisk=1, smoke_cat=0, alcohol_cat6=0,
+        b_antidepressant=0, b_anycancer=0, b_asthmacopd=0, b_carehome=0,
+        b_corticosteroids=0, b_cvd=0, b_dementia=0, b_endocrine=0, b_epilepsy2=0,
+        b_falls=0, b_hrt_oest=0, b_liver=0, b_malabsorption=0, b_parkinsons=0,
+        b_ra_sle=0, b_renal=0, b_type1=0, b_type2=0, fh_osteoporosis=0,
+    )
+    higher = oss.calc_qfracture_major(
+        age=78, sex="female", bmi=19.5, ethrisk=1, smoke_cat=4, alcohol_cat6=4,
+        b_antidepressant=1, b_anycancer=1, b_asthmacopd=1, b_carehome=0,
+        b_corticosteroids=1, b_cvd=1, b_dementia=1, b_endocrine=1, b_epilepsy2=1,
+        b_falls=1, b_hrt_oest=0, b_liver=1, b_malabsorption=1, b_parkinsons=1,
+        b_ra_sle=1, b_renal=1, b_type1=0, b_type2=1, fh_osteoporosis=1,
+    )
+    hip = oss.calc_qfracture_hip(
+        age=78, sex="male", bmi=20.0, ethrisk=1, smoke_cat=4, alcohol_cat6=5,
+        b_antidepressant=1, b_anycancer=1, b_asthmacopd=1, b_carehome=1,
+        b_corticosteroids=1, b_cvd=1, b_dementia=1, b_endocrine=0, b_epilepsy2=1,
+        b_falls=1, b_fracture4=1, b_hrt_oest=0, b_liver=1, b_parkinsons=1,
+        b_ra_sle=1, b_renal=1, b_type1=0, b_type2=1, fh_osteoporosis=1,
+    )
+    assert lower is not None and higher is not None and hip is not None
+    assert higher > lower
+    assert hip > 0
+
+
 def test_get_latest_dexa_inputs_with_dates_coerces_numeric_text(monkeypatch):
     import services.body_metrics_service as body_metrics_service
 
@@ -149,6 +216,9 @@ def test_get_latest_dexa_inputs_with_dates_coerces_numeric_text(monkeypatch):
             "t_score": "-2,6",
             "z_score": "-1.3",
             "bmd_g_cm2": "0,912",
+            "alm_kg": "17,4",
+            "alm_h2": "6,2",
+            "ffmi": "18,1",
         },
     )
 
@@ -156,7 +226,39 @@ def test_get_latest_dexa_inputs_with_dates_coerces_numeric_text(monkeypatch):
     assert out["dexa_t_score"]["value"] == -2.6
     assert out["dexa_z_score"]["value"] == -1.3
     assert out["dexa_bmd_g_cm2"]["value"] == 0.912
+    assert out["dexa_alm_kg"]["value"] == 17.4
+    assert out["dexa_alm_h2"]["value"] == 6.2
+    assert out["dexa_ffmi"]["value"] == 18.1
     assert out["dexa_t_score"]["lab_date"] == "2026-03-01"
+
+
+def test_save_dexa_scan_derives_alm_h2_and_ffmi_from_direct_inputs(db_conn, monkeypatch):
+    import services.body_metrics_service as body_metrics_service
+
+    monkeypatch.setattr(body_metrics_service, "get_connection", db_conn)
+    monkeypatch.setattr(body_metrics_service, "_get_reference_height_cm", lambda _uid: 170.0)
+
+    conn = db_conn()
+    cur = conn.execute(
+        "INSERT INTO users (username, password_hash, display_name, email) VALUES (?, ?, ?, ?)",
+        ("dexa.user", "fakehash", "DEXA User", "dexa@example.com"),
+    )
+    user_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+
+    body_metrics_service.save_dexa_scan(
+        user_id,
+        "2026-03-02",
+        alm_kg=18.5,
+        lean_mass_g=50000.0,
+        t_score=-1.7,
+    )
+
+    latest = body_metrics_service.get_latest_dexa(user_id)
+    assert latest["alm_kg"] == 18.5
+    assert latest["alm_h2"] == 6.4
+    assert latest["ffmi"] == 17.3
 
 
 def test_compute_all_scores_uses_dexa_t_score_inputs(monkeypatch):
@@ -242,6 +344,12 @@ def test_framingham_vascular_age_gap_basics():
 def test_new_formula_dispatch_entries_exist():
     for key in (
         "calc_dxa_osteoporosis_who",
+        "calc_fnih_low_lean_mass",
+        "calc_ewgsop2_sarcopenia",
+        "calc_findrisc",
+        "calc_nosas",
+        "calc_qfracture_major",
+        "calc_qfracture_hip",
         "calc_thyroid_guideline_pattern",
         "calc_albi_score",
         "calc_fli",
@@ -264,9 +372,27 @@ def test_get_clinical_data_includes_waist_from_body_metrics(monkeypatch):
 
     import services.body_metrics_service as body_metrics_service
     monkeypatch.setattr(body_metrics_service, "get_latest_metrics", lambda _uid: {"waist_cm": 72.0})
+    monkeypatch.setattr(body_metrics_service, "get_body_metrics_history", lambda _uid: [{"waist_cm": 72.0}])
 
     clinical = oss._get_clinical_data(123)
     assert clinical["waist_cm"] == 72.0
+
+
+def test_get_clinical_data_falls_back_to_latest_non_null_waist(monkeypatch):
+    monkeypatch.setattr(oss, "get_profile", lambda _uid: {"sex": "female"})
+    monkeypatch.setattr(oss, "get_age", lambda _uid: 43.0)
+    monkeypatch.setattr(oss, "get_bmi", lambda _uid: 23.3)
+
+    import services.body_metrics_service as body_metrics_service
+    monkeypatch.setattr(body_metrics_service, "get_latest_metrics", lambda _uid: {"waist_cm": None})
+    monkeypatch.setattr(
+        body_metrics_service,
+        "get_body_metrics_history",
+        lambda _uid: [{"waist_cm": 81.0}, {"waist_cm": None}, {"waist_cm": 79.0}],
+    )
+
+    clinical = oss._get_clinical_data(123)
+    assert clinical["waist_cm"] == 79.0
 
 
 def test_new_scores_compute_for_backfilled_demo_user(db_conn, monkeypatch):
@@ -300,6 +426,12 @@ def test_new_scores_compute_for_backfilled_demo_user(db_conn, monkeypatch):
     codes = {row["code"] for row in computed}
 
     assert {
+        "fnih_low_lean_mass",
+        "ewgsop2_sarcopenia",
+        "qfracture_major",
+        "qfracture_hip",
+        "findrisc",
+        "nosas",
         "thyroid_guideline_pattern",
         "albi_score",
         "fli",

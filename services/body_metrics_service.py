@@ -69,6 +69,40 @@ def get_latest_height(user_id):
         conn.close()
 
 
+def _get_reference_height_cm(user_id):
+    """Return height from body metrics first, then clinical profile as fallback."""
+    height = get_latest_height(user_id)
+    if height:
+        return height
+    try:
+        from models.clinical_profile import get_profile
+        profile = get_profile(user_id) or {}
+        return profile.get("height_cm")
+    except Exception:
+        return None
+
+
+def _hydrate_dexa_derived_fields(user_id, scan):
+    """Fill derived DEXA indices for legacy rows that predate current calculations."""
+    if not scan:
+        return scan
+
+    arm_lean = (scan.get("left_arm_lean_g") or 0) + (scan.get("right_arm_lean_g") or 0)
+    leg_lean = (scan.get("left_leg_lean_g") or 0) + (scan.get("right_leg_lean_g") or 0)
+    if not scan.get("alm_kg") and arm_lean > 0 and leg_lean > 0:
+        scan["alm_kg"] = round((arm_lean + leg_lean) / 1000, 2)
+
+    height_cm = _get_reference_height_cm(user_id)
+    if height_cm and height_cm > 0:
+        height_m2 = (height_cm / 100.0) ** 2
+        if not scan.get("alm_h2") and scan.get("alm_kg"):
+            scan["alm_h2"] = round(scan["alm_kg"] / height_m2, 2)
+        if not scan.get("ffmi") and scan.get("lean_mass_g"):
+            scan["ffmi"] = round((scan["lean_mass_g"] / 1000.0) / height_m2, 1)
+
+    return scan
+
+
 def delete_body_metrics(user_id, entry_id):
     """Delete a body metrics entry."""
     conn = get_connection()
@@ -186,20 +220,21 @@ _DEXA_FIELDS = [
 def save_dexa_scan(user_id, scan_date, **kwargs):
     """Insert or update a DEXA scan. Computes derived indices automatically."""
     # ── Derived indices ──────────────────────────────────────────────────
+    height = _get_reference_height_cm(user_id)
     arm_lean = (kwargs.get("left_arm_lean_g") or 0) + (kwargs.get("right_arm_lean_g") or 0)
     leg_lean = (kwargs.get("left_leg_lean_g") or 0) + (kwargs.get("right_leg_lean_g") or 0)
     if arm_lean > 0 and leg_lean > 0:
         alm_g = arm_lean + leg_lean
         kwargs["alm_kg"] = round(alm_g / 1000, 2)
-        height = get_latest_height(user_id)
         if height and height > 0:
             kwargs["alm_h2"] = round((alm_g / 1000) / (height / 100) ** 2, 2)
 
+    if kwargs.get("alm_kg") and not kwargs.get("alm_h2") and height and height > 0:
+        kwargs["alm_h2"] = round(kwargs["alm_kg"] / (height / 100) ** 2, 2)
+
     lean_g = kwargs.get("lean_mass_g")
-    if lean_g:
-        height = get_latest_height(user_id)
-        if height and height > 0:
-            kwargs["ffmi"] = round((lean_g / 1000) / (height / 100) ** 2, 1)
+    if lean_g and not kwargs.get("ffmi") and height and height > 0:
+        kwargs["ffmi"] = round((lean_g / 1000) / (height / 100) ** 2, 1)
 
     # ── Build dynamic INSERT ─────────────────────────────────────────────
     provided = {k: kwargs[k] for k in _DEXA_FIELDS if k in kwargs and kwargs[k] is not None}
@@ -233,7 +268,7 @@ def get_dexa_history(user_id):
             "SELECT * FROM dexa_scans WHERE user_id = ? ORDER BY scan_date ASC",
             (user_id,),
         ).fetchall()
-        return [dict(r) for r in rows]
+        return [_hydrate_dexa_derived_fields(user_id, dict(r)) for r in rows]
     finally:
         conn.close()
 
@@ -246,7 +281,7 @@ def get_latest_dexa(user_id):
             "SELECT * FROM dexa_scans WHERE user_id = ? ORDER BY scan_date DESC LIMIT 1",
             (user_id,),
         ).fetchone()
-        return dict(row) if row else None
+        return _hydrate_dexa_derived_fields(user_id, dict(row)) if row else None
     finally:
         conn.close()
 
@@ -291,6 +326,7 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
         '  "weight_kg": number, "total_fat_pct": number, "total_fat_g": number,\n'
         '  "lean_mass_g": number, "bone_mass_g": number, "bmi": number,\n'
         '  "bmd_g_cm2": number, "t_score": number, "z_score": number,\n'
+        '  "alm_kg": number, "alm_h2": number, "ffmi": number,\n'
         '  "vat_mass_g": number, "vat_volume_cm3": number, "vat_area_cm2": number,\n'
         '  "android_fat_pct": number, "gynoid_fat_pct": number, "ag_ratio": number,\n'
         '  "left_arm_fat_pct": number, "right_arm_fat_pct": number,\n'
@@ -304,6 +340,7 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
         "- Convert all masses to grams EXCEPT weight_kg\n"
         "- Percentages as plain numbers (9.5 not '9.5%')\n"
         "- Commas may be decimal separators (European format)\n"
+        "- If appendicular lean mass (ALM) or ALM/height^2 is explicitly reported, capture it directly\n"
         "- If arms are reported combined, split evenly for left/right\n"
         "- BMC = bone_mass_g, BMD = bmd_g_cm2\n"
         "- Use null for unavailable values\n"

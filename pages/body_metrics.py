@@ -766,7 +766,7 @@ with tab_dexa:
 
     # ── Stats Cards ──────────────────────────────────────────────────────
     if latest_dexa:
-        dc = st.columns(7)
+        dc = st.columns(8)
         with dc[0]:
             v = latest_dexa.get("total_fat_pct")
             st.metric("Body Fat %", f"{v:.1f}%" if v else "--")
@@ -792,13 +792,26 @@ with tab_dexa:
                     unsafe_allow_html=True,
                 )
         with dc[4]:
+            zs = latest_dexa.get("z_score")
+            st.metric("Z-score", f"{zs:.2f}" if zs is not None else "--")
+        with dc[5]:
             v = latest_dexa.get("vat_mass_g")
             st.metric("Visceral Fat", f"{v:.0f} g" if v else "--")
-        with dc[5]:
+        with dc[6]:
             v = latest_dexa.get("alm_h2")
             st.metric("ALM/h2", f"{v:.2f}" if v else "--",
                        help="Appendicular lean mass / height^2 (kg/m2)")
-        with dc[6]:
+        with dc[7]:
+            v = latest_dexa.get("ffmi")
+            st.metric("FFMI", f"{v:.1f}" if v else "--",
+                       help="Fat-free mass index (kg/m2)")
+        
+        extra_dexa_cols = st.columns(2)
+        with extra_dexa_cols[0]:
+            v = latest_dexa.get("alm_kg")
+            st.metric("ALM", f"{v:.2f} kg" if v else "--",
+                      help="Appendicular lean mass from arms + legs.")
+        with extra_dexa_cols[1]:
             v = latest_dexa.get("ag_ratio")
             st.metric("A/G Ratio", f"{v:.2f}" if v else "--",
                        help="Android/Gynoid fat ratio")
@@ -866,6 +879,30 @@ with tab_dexa:
         with r3[4]:
             dexa_gynoid = st.number_input("Gynoid Fat %", value=ex.get("gynoid_fat_pct"), format="%.1f", key="dexa_gyn")
 
+        with st.expander("Advanced lean-mass fields (for FNIH / EWGSOP2)", expanded=bool(
+            ex.get("alm_kg") or ex.get("alm_h2") or ex.get("left_arm_lean_g") or ex.get("left_leg_lean_g")
+        )):
+            st.caption("Use direct ALM values if your DEXA report provides them. If you enter limb lean masses, ALM and ALM/h2 are derived automatically.")
+            adv1 = st.columns(3)
+            with adv1[0]:
+                dexa_alm_kg = st.number_input("Appendicular lean mass (kg)", value=ex.get("alm_kg"), format="%.2f", key="dexa_alm_kg")
+            with adv1[1]:
+                dexa_alm_h2 = st.number_input("ALM / height^2 (kg/m2)", value=ex.get("alm_h2"), format="%.2f", key="dexa_alm_h2")
+            with adv1[2]:
+                dexa_ffmi = st.number_input("FFMI (kg/m2)", value=ex.get("ffmi"), format="%.1f", key="dexa_ffmi")
+
+            adv2 = st.columns(5)
+            with adv2[0]:
+                left_arm_lean_g = st.number_input("Left arm lean (g)", value=ex.get("left_arm_lean_g"), format="%.0f", key="dexa_la_lean")
+            with adv2[1]:
+                right_arm_lean_g = st.number_input("Right arm lean (g)", value=ex.get("right_arm_lean_g"), format="%.0f", key="dexa_ra_lean")
+            with adv2[2]:
+                trunk_lean_g = st.number_input("Trunk lean (g)", value=ex.get("trunk_lean_g"), format="%.0f", key="dexa_trunk_lean")
+            with adv2[3]:
+                left_leg_lean_g = st.number_input("Left leg lean (g)", value=ex.get("left_leg_lean_g"), format="%.0f", key="dexa_ll_lean")
+            with adv2[4]:
+                right_leg_lean_g = st.number_input("Right leg lean (g)", value=ex.get("right_leg_lean_g"), format="%.0f", key="dexa_rl_lean")
+
         col_s, col_c = st.columns([3, 1])
         with col_s:
             if st.button("Save DEXA Scan", type="primary", use_container_width=True, key="dexa_save"):
@@ -887,11 +924,14 @@ with tab_dexa:
                     trunk_fat_pct=ex.get("trunk_fat_pct"),
                     left_leg_fat_pct=ex.get("left_leg_fat_pct"),
                     right_leg_fat_pct=ex.get("right_leg_fat_pct"),
-                    left_arm_lean_g=ex.get("left_arm_lean_g"),
-                    right_arm_lean_g=ex.get("right_arm_lean_g"),
-                    trunk_lean_g=ex.get("trunk_lean_g"),
-                    left_leg_lean_g=ex.get("left_leg_lean_g"),
-                    right_leg_lean_g=ex.get("right_leg_lean_g"),
+                    left_arm_lean_g=left_arm_lean_g,
+                    right_arm_lean_g=right_arm_lean_g,
+                    trunk_lean_g=trunk_lean_g,
+                    left_leg_lean_g=left_leg_lean_g,
+                    right_leg_lean_g=right_leg_lean_g,
+                    alm_kg=dexa_alm_kg,
+                    alm_h2=dexa_alm_h2,
+                    ffmi=dexa_ffmi,
                     source="pdf",
                 )
                 del st.session_state["dexa_extracted"]
@@ -936,11 +976,40 @@ with tab_dexa:
             with mr3[4]:
                 m_gynoid = st.number_input("Gynoid Fat %", value=None, format="%.1f", key="dexa_m_gyn")
 
+            with st.expander("Advanced lean-mass fields (for FNIH / EWGSOP2)", expanded=False):
+                st.caption("Add direct ALM values or limb lean masses when available. ALM/h2 is derived automatically if height is already stored.")
+                m_adv1 = st.columns(3)
+                with m_adv1[0]:
+                    m_alm_kg = st.number_input("Appendicular lean mass (kg)", value=None, format="%.2f", key="dexa_m_alm_kg")
+                with m_adv1[1]:
+                    m_alm_h2 = st.number_input("ALM / height^2 (kg/m2)", value=None, format="%.2f", key="dexa_m_alm_h2")
+                with m_adv1[2]:
+                    m_ffmi = st.number_input("FFMI (kg/m2)", value=None, format="%.1f", key="dexa_m_ffmi")
+
+                m_adv2 = st.columns(5)
+                with m_adv2[0]:
+                    m_left_arm_lean = st.number_input("Left arm lean (g)", value=None, format="%.0f", key="dexa_m_la_lean")
+                with m_adv2[1]:
+                    m_right_arm_lean = st.number_input("Right arm lean (g)", value=None, format="%.0f", key="dexa_m_ra_lean")
+                with m_adv2[2]:
+                    m_trunk_lean = st.number_input("Trunk lean (g)", value=None, format="%.0f", key="dexa_m_trunk_lean")
+                with m_adv2[3]:
+                    m_left_leg_lean = st.number_input("Left leg lean (g)", value=None, format="%.0f", key="dexa_m_ll_lean")
+                with m_adv2[4]:
+                    m_right_leg_lean = st.number_input("Right leg lean (g)", value=None, format="%.0f", key="dexa_m_rl_lean")
+
             m_notes = st.text_area("Notes", key="dexa_m_notes", height=68)
 
             if st.form_submit_button("Save DEXA Entry", use_container_width=True, type="primary"):
-                if m_fat is None and m_weight is None and m_bmd is None and m_ts is None and m_zs is None:
-                    st.error("Enter at least one DEXA metric (e.g., T-score, BMD, body fat %, or weight).")
+                if all(
+                    value is None
+                    for value in (
+                        m_weight, m_fat, m_lean, m_bone, m_bmd, m_ts, m_zs,
+                        m_alm_kg, m_alm_h2, m_ffmi, m_left_arm_lean, m_right_arm_lean,
+                        m_trunk_lean, m_left_leg_lean, m_right_leg_lean,
+                    )
+                ):
+                    st.error("Enter at least one DEXA metric (for example T-score, BMD, ALM, limb lean mass, body fat %, or weight).")
                 else:
                     save_dexa_scan(
                         user_id, m_date.isoformat(),
@@ -949,6 +1018,14 @@ with tab_dexa:
                         lean_mass_g=m_lean, bone_mass_g=m_bone,
                         bmd_g_cm2=m_bmd, t_score=m_ts, z_score=m_zs,
                         android_fat_pct=m_android, gynoid_fat_pct=m_gynoid,
+                        left_arm_lean_g=m_left_arm_lean,
+                        right_arm_lean_g=m_right_arm_lean,
+                        trunk_lean_g=m_trunk_lean,
+                        left_leg_lean_g=m_left_leg_lean,
+                        right_leg_lean_g=m_right_leg_lean,
+                        alm_kg=m_alm_kg,
+                        alm_h2=m_alm_h2,
+                        ffmi=m_ffmi,
                         notes=m_notes or None, source="manual",
                     )
                     st.success("DEXA scan saved!")
@@ -987,6 +1064,14 @@ with tab_dexa:
                 line=dict(color="#9C27B0", width=2, dash="dot"),
                 marker=dict(size=6), yaxis="y2",
                 hovertemplate="<b>%{x|%b %Y}</b><br>Bone: %{y:.2f} kg<extra></extra>",
+            ))
+        if "alm_kg" in dexa_df.columns and dexa_df["alm_kg"].notna().any():
+            fig_bc.add_trace(go.Scatter(
+                x=dexa_df["scan_date"], y=dexa_df["alm_kg"],
+                mode="lines+markers", name="ALM (kg)",
+                line=dict(color="#00897B", width=2, dash="dash"),
+                marker=dict(size=7), yaxis="y2",
+                hovertemplate="<b>%{x|%b %Y}</b><br>ALM: %{y:.2f} kg<extra></extra>",
             ))
         fig_bc.update_layout(
             **PLOTLY_LAYOUT_DEFAULTS, height=420,
@@ -1069,6 +1154,15 @@ with tab_dexa:
                 z_score_val = scan.get("z_score")
                 if z_score_val is not None:
                     parts.append(f"Z-score: {z_score_val:.2f}")
+                alm_kg_val = scan.get("alm_kg")
+                if alm_kg_val is not None:
+                    parts.append(f"ALM: {alm_kg_val:.2f} kg")
+                alm_h2_val = scan.get("alm_h2")
+                if alm_h2_val is not None:
+                    parts.append(f"ALM/h2: {alm_h2_val:.2f}")
+                ffmi_val = scan.get("ffmi")
+                if ffmi_val is not None:
+                    parts.append(f"FFMI: {ffmi_val:.1f}")
                 if scan.get("lab_name"):
                     parts.append(scan["lab_name"])
                 sc1, sc2 = st.columns([5, 1])
@@ -1078,3 +1172,5 @@ with tab_dexa:
                     if st.button("Delete", key=f"del_dexa_{scan['id']}", type="secondary"):
                         delete_dexa_scan(user_id, scan["id"])
                         st.rerun()
+
+

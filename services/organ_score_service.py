@@ -60,6 +60,9 @@ def _get_latest_dexa_inputs_with_dates(user_id: int) -> dict:
         "dexa_t_score": _coerce_float(dexa.get("t_score")),
         "dexa_z_score": _coerce_float(dexa.get("z_score")),
         "dexa_bmd_g_cm2": _coerce_float(dexa.get("bmd_g_cm2")),
+        "dexa_alm_kg": _coerce_float(dexa.get("alm_kg")),
+        "dexa_alm_h2": _coerce_float(dexa.get("alm_h2")),
+        "dexa_ffmi": _coerce_float(dexa.get("ffmi")),
     }
     return {
         code: {"value": value, "lab_date": scan_date}
@@ -160,6 +163,47 @@ def _coerce_float(value) -> float | None:
         except ValueError:
             return None
     return None
+
+
+def _qfracture_ethnicity_code(ethnicity: str | None) -> int:
+    eth_map = {
+        "white": 1,
+        "indian": 2,
+        "pakistani": 3,
+        "bangladeshi": 4,
+        "other_asian": 5,
+        "black_caribbean": 6,
+        "black_african": 7,
+        "chinese": 8,
+        "other": 9,
+    }
+    return eth_map.get((ethnicity or "white").strip().lower(), 1)
+
+
+def _qfracture_smoke_cat(smoking_status: str | None, cigarettes_per_day: int | float | None) -> int:
+    status = (smoking_status or "").strip().lower()
+    cigs = int(_coerce_float(cigarettes_per_day) or 0)
+    if status == "former":
+        return 1
+    if status == "current":
+        if cigs >= 20:
+            return 4
+        if cigs >= 10:
+            return 3
+        return 2
+    return 0
+
+
+def _qfracture_alcohol_cat(alcohol_intake_level: str | None) -> int:
+    alcohol_map = {
+        "none": 0,
+        "trivial": 1,
+        "light": 2,
+        "moderate": 3,
+        "heavy": 4,
+        "very_heavy": 5,
+    }
+    return alcohol_map.get((alcohol_intake_level or "none").strip().lower(), 0)
 
 
 def _mgdl_to_mmol_glucose(mg: float) -> float:
@@ -1558,6 +1602,467 @@ def calc_dxa_osteoporosis_who(dexa_t_score: float) -> float | None:
 # TIER 2: DERIVED / EXPERIMENTAL FORMULAS
 # ══════════════════════════════════════════════════════════════════════════════
 
+def calc_fnih_low_lean_mass(dexa_alm_kg: float, bmi: float, sex: str) -> float | None:
+    """FNIH low lean mass using ALM/BMI cutpoints.
+
+    Recommended cutpoints:
+    - men: ALM/BMI < 0.789
+    - women: ALM/BMI < 0.512
+
+    PMID: 24737559, 24737560.
+    """
+    dexa_alm_kg = _coerce_float(dexa_alm_kg)
+    bmi = _coerce_float(bmi)
+    sex = (sex or "").strip().lower()
+    if dexa_alm_kg is None or bmi is None or bmi <= 0 or sex not in {"male", "female"}:
+        return None
+
+    cutoff = 0.789 if sex == "male" else 0.512
+    return 1.0 if (dexa_alm_kg / bmi) < cutoff else 0.0
+
+
+def calc_ewgsop2_sarcopenia(
+    sex: str,
+    grip_strength_kg: float,
+    chair_stand_time_s: float,
+    dexa_alm_h2: float,
+    gait_speed_m_per_s: float | None = None,
+) -> float | None:
+    """EWGSOP2 sarcopenia staging.
+
+    Stage:
+    - 0 = no sarcopenia
+    - 1 = probable sarcopenia
+    - 2 = confirmed sarcopenia
+    - 3 = severe sarcopenia
+
+    PMID: 30312372.
+    """
+    sex = (sex or "").strip().lower()
+    grip_strength_kg = _coerce_float(grip_strength_kg)
+    chair_stand_time_s = _coerce_float(chair_stand_time_s)
+    dexa_alm_h2 = _coerce_float(dexa_alm_h2)
+    gait_speed_m_per_s = _coerce_float(gait_speed_m_per_s)
+    if sex not in {"male", "female"}:
+        return None
+    if grip_strength_kg is None or chair_stand_time_s is None or dexa_alm_h2 is None:
+        return None
+
+    low_strength = (
+        grip_strength_kg < (27.0 if sex == "male" else 16.0)
+        or chair_stand_time_s > 15.0
+    )
+    if not low_strength:
+        return 0.0
+
+    low_mass = dexa_alm_h2 < (7.0 if sex == "male" else 5.5)
+    if not low_mass:
+        return 1.0
+
+    if gait_speed_m_per_s is not None and gait_speed_m_per_s <= 0.8:
+        return 3.0
+    return 2.0
+
+
+def calc_findrisc(
+    age: float,
+    bmi: float,
+    waist_cm: float,
+    sex: str,
+    daily_activity_30min: bool,
+    daily_fruit_veg: bool,
+    on_bp_medication: bool,
+    history_high_glucose: bool,
+    family_history_diabetes: str,
+) -> int | None:
+    """Finnish Diabetes Risk Score (FINDRISC), 0-26 points."""
+    age = _coerce_float(age)
+    bmi = _coerce_float(bmi)
+    waist_cm = _coerce_float(waist_cm)
+    sex = (sex or "").strip().lower()
+    family_history_diabetes = (family_history_diabetes or "none").strip().lower()
+    if age is None or bmi is None or waist_cm is None or sex not in {"male", "female"}:
+        return None
+
+    score = 0
+    if age >= 65:
+        score += 4
+    elif age >= 55:
+        score += 3
+    elif age >= 45:
+        score += 2
+
+    if bmi >= 30:
+        score += 3
+    elif bmi >= 25:
+        score += 1
+
+    if sex == "male":
+        if waist_cm > 102:
+            score += 4
+        elif waist_cm >= 94:
+            score += 3
+    else:
+        if waist_cm > 88:
+            score += 4
+        elif waist_cm >= 80:
+            score += 3
+
+    if not daily_activity_30min:
+        score += 2
+    if not daily_fruit_veg:
+        score += 1
+    if on_bp_medication:
+        score += 2
+    if history_high_glucose:
+        score += 5
+    if family_history_diabetes == "first_degree":
+        score += 5
+    elif family_history_diabetes == "second_degree":
+        score += 3
+    return score
+
+
+def calc_nosas(
+    age: float,
+    bmi: float,
+    sex: str,
+    neck_circumference_cm: float,
+    loud_snoring: bool,
+) -> int | None:
+    """NoSAS score for sleep-disordered breathing, 0-17."""
+    age = _coerce_float(age)
+    bmi = _coerce_float(bmi)
+    neck_circumference_cm = _coerce_float(neck_circumference_cm)
+    sex = (sex or "").strip().lower()
+    if age is None or bmi is None or neck_circumference_cm is None or sex not in {"male", "female"}:
+        return None
+
+    score = 0
+    if neck_circumference_cm > 40:
+        score += 4
+    if bmi >= 30:
+        score += 5
+    elif bmi >= 25:
+        score += 3
+    if loud_snoring:
+        score += 2
+    if age > 55:
+        score += 4
+    if sex == "male":
+        score += 2
+    return score
+
+
+def _calc_qfracture_fracture4_female_raw(
+    age: int, alcohol_cat6: int, b_antidepressant: int, b_anycancer: int,
+    b_asthmacopd: int, b_corticosteroids: int, b_cvd: int, b_dementia: int,
+    b_endocrine: int, b_epilepsy2: int, b_falls: int, b_hrt_oest: int,
+    b_liver: int, b_malabsorption: int, b_parkinsons: int, b_ra_sle: int,
+    b_renal: int, b_type1: int, b_type2: int, bmi: float, ethrisk: int,
+    fh_osteoporosis: int, smoke_cat: int, surv: int = 10,
+) -> float:
+    survivor = [0, 0.998549282550812, 0.996993362903595, 0.995339095592499,
+                0.993514478206635, 0.991504669189453, 0.989245474338531,
+                0.986799359321594, 0.984268248081207, 0.981499433517456,
+                0.978452086448669]
+    ialcohol = [0, -0.016119659842711558, 0.018142191954688299,
+                0.087039813091311105, 0.48508766816483712, 0.45214700457238632]
+    iethrisk = [0, 0, -0.42566069216366254, -0.55432091195021416,
+                -0.91826010978069306, -0.68193606531483042, -1.4668483404988077,
+                -0.9101238114228446, -0.64217833175447392, -0.50368294326345109]
+    ismoke = [0, 0.055735693430561166, 0.16338956617013528,
+              0.1540488338696587, 0.23297715917579045]
+    dage = age / 10.0
+    dbmi = bmi / 10.0
+    age_1 = (dage ** 2) - 25.463895797729492
+    age_2 = (dage ** 3) - 128.49531555175781
+    bmi_1 = (dbmi ** -1) - 0.382189363241196
+    a = ialcohol[alcohol_cat6] + iethrisk[ethrisk] + ismoke[smoke_cat]
+    a += age_1 * 0.14882306172165083
+    a += age_2 * -0.0095516624764288762
+    a += bmi_1 * 2.818029138982781
+    a += b_antidepressant * 0.29358915788812839
+    a += b_anycancer * 0.11755227331477931
+    a += b_asthmacopd * 0.19971937533528999
+    a += b_corticosteroids * 0.21870200942467749
+    a += b_cvd * 0.14196437255030517
+    a += b_dementia * 0.46973872630851521
+    a += b_endocrine * 0.11053940282175923
+    a += b_epilepsy2 * 0.4024460098604033
+    a += b_falls * 0.33223216263035837
+    a += b_hrt_oest * -0.20278644563582324
+    a += b_liver * 0.48311615769615862
+    a += b_malabsorption * 0.16874778018355746
+    a += b_parkinsons * 0.47422393580391814
+    a += b_ra_sle * 0.22670593274719042
+    a += b_renal * 0.25086487237940064
+    a += b_type1 * 0.78328871609322936
+    a += b_type2 * 0.23638696578140608
+    a += fh_osteoporosis * 0.38379497558604947
+    return 100.0 * (1 - pow(survivor[surv], math.exp(a)))
+
+
+def _calc_qfracture_fracture4_male_raw(
+    age: int, alcohol_cat6: int, b_antidepressant: int, b_anycancer: int,
+    b_asthmacopd: int, b_carehome: int, b_corticosteroids: int, b_cvd: int,
+    b_dementia: int, b_epilepsy2: int, b_falls: int, b_liver: int,
+    b_malabsorption: int, b_parkinsons: int, b_ra_sle: int, b_renal: int,
+    b_type1: int, b_type2: int, bmi: float, ethrisk: int, fh_osteoporosis: int,
+    smoke_cat: int, surv: int = 10,
+) -> float:
+    survivor = [0, 0.999435424804688, 0.998826444149017, 0.998191893100739,
+                0.997505903244019, 0.996722519397736, 0.995886385440826,
+                0.994963765144348, 0.993958413600922, 0.992862939834595,
+                0.9916952252388]
+    ialcohol = [0, -0.11296487134120664, -0.10199331473836099,
+                -0.0087172177838055233, 0.23783672918943868, 0.59006748283242694]
+    iethrisk = [0, 0, -0.24977593616949206, -0.33887234093637719,
+                -1.1780652312756217, -0.56375361284174452, -0.88026742214030562,
+                -0.6220839068056021, -0.87002407600843878, -0.35869346039908434]
+    ismoke = [0, 0.037462254711292393, 0.25366546242832472,
+              0.2728541689904917, 0.34982597804377003]
+    dage = age / 10.0
+    dbmi = bmi / 10.0
+    age_1 = (dage ** 0.5) - 2.201908826828003
+    age_2 = dage - 4.84840202331543
+    bmi_1 = (dbmi ** -1) - 0.375702142715454
+    bmi_2 = (dbmi ** -0.5) - 0.612945437431335
+    a = ialcohol[alcohol_cat6] + iethrisk[ethrisk] + ismoke[smoke_cat]
+    a += age_1 * -8.5962113395742179
+    a += age_2 * 2.3534585567599957
+    a += bmi_1 * 18.353475363901577
+    a += bmi_2 * -19.090527346773332
+    a += b_antidepressant * 0.41850098025644566
+    a += b_anycancer * 0.29238496678496179
+    a += b_asthmacopd * 0.26582431501520032
+    a += b_carehome * 0.094672730961445892
+    a += b_corticosteroids * 0.2601592893954755
+    a += b_cvd * 0.21554209768209007
+    a += b_dementia * 0.62530663904759942
+    a += b_epilepsy2 * 0.66957080643014266
+    a += b_falls * 0.44771413426265022
+    a += b_liver * 0.79709360810249363
+    a += b_malabsorption * 0.25089210354989244
+    a += b_parkinsons * 0.82542763402188735
+    a += b_ra_sle * 0.38465858327350932
+    a += b_renal * 0.44796728800624863
+    a += b_type1 * 1.0121689145067305
+    a += b_type2 * 0.24392544324902793
+    a += fh_osteoporosis * 0.98987175124665938
+    return 100.0 * (1 - pow(survivor[surv], math.exp(a)))
+
+
+def _calc_qfracture_nof_female_raw(
+    age: int, alcohol_cat6: int, b_antidepressant: int, b_anycancer: int,
+    b_asthmacopd: int, b_corticosteroids: int, b_cvd: int, b_dementia: int,
+    b_endocrine: int, b_epilepsy2: int, b_falls: int, b_fracture4: int,
+    b_hrt_oest: int, b_liver: int, b_parkinsons: int, b_ra_sle: int,
+    b_renal: int, b_type1: int, b_type2: int, bmi: float, ethrisk: int,
+    smoke_cat: int, surv: int = 10,
+) -> float:
+    survivor = [0, 0.999798893928528, 0.999581158161163, 0.999346554279327,
+                0.99908310174942, 0.998790085315704, 0.998455047607422,
+                0.99809741973877, 0.997704565525055, 0.997259438037872,
+                0.996739983558655]
+    ialcohol = [0, -0.12617582013302897, -0.13732433479084133,
+                -0.11336168348939307, 0.40178870335718131, 0.5006572131880983]
+    iethrisk = [0, 0, -0.52102821686313605, -0.41779421048371701,
+                -0.7951236994041091, -0.65881047977255047, -1.5796225547799494,
+                -1.0777580735638324, -0.85217856317616292, -0.57150351840750313]
+    ismoke = [0, 0.029418868029262912, 0.32637564283207843,
+              0.34964372787020898, 0.51551769146918169]
+    dage = age / 10.0
+    dbmi = bmi / 10.0
+    age_1 = (dage ** 2) - 25.815217971801758
+    age_2 = (dage ** 3) - 131.16371154785156
+    bmi_1 = (dbmi ** -2) - 0.146003782749176
+    a = ialcohol[alcohol_cat6] + iethrisk[ethrisk] + ismoke[smoke_cat]
+    a += age_1 * 0.26005507923658827
+    a += age_2 * -0.017124380501438056
+    a += bmi_1 * 5.2078461133313851
+    a += b_antidepressant * 0.29613702281361015
+    a += b_anycancer * 0.11413504536129365
+    a += b_asthmacopd * 0.14586468140838021
+    a += b_corticosteroids * 0.17801655206966349
+    a += b_cvd * 0.13867259004313143
+    a += b_dementia * 0.55933926151498436
+    a += b_endocrine * 0.19889323459236768
+    a += b_epilepsy2 * 0.45447051866494581
+    a += b_falls * 0.26827166495754934
+    a += b_fracture4 * 0.4485906129569035
+    a += b_hrt_oest * -0.25853153132813594
+    a += b_liver * 0.47643941255732225
+    a += b_parkinsons * 0.54448153618029238
+    a += b_ra_sle * 0.30841080245869545
+    a += b_renal * 0.24878174406741482
+    a += b_type1 * 1.3350155588126134
+    a += b_type2 * 0.41285144813251984
+    return 100.0 * (1 - pow(survivor[surv], math.exp(a)))
+
+
+def _calc_qfracture_nof_male_raw(
+    age: int, alcohol_cat6: int, b_antidepressant: int, b_anycancer: int,
+    b_asthmacopd: int, b_carehome: int, b_corticosteroids: int, b_cvd: int,
+    b_dementia: int, b_epilepsy2: int, b_falls: int, b_fracture4: int,
+    b_liver: int, b_parkinsons: int, b_ra_sle: int, b_renal: int, b_type1: int,
+    b_type2: int, bmi: float, ethrisk: int, fh_osteoporosis: int,
+    smoke_cat: int, surv: int = 10,
+) -> float:
+    survivor = [0, 0.999893844127655, 0.999774158000946, 0.999640882015228,
+                0.999497473239899, 0.999327778816223, 0.999136328697205,
+                0.998924136161804, 0.998683452606201, 0.998405933380127,
+                0.998105704784393]
+    ialcohol = [0, -0.19892778799156768, -0.26135127858736523,
+                -0.21652612292615428, 0.077168247457371886, 0.48658895922459683]
+    iethrisk = [0, 0, -0.51977072137266467, -0.42736228902907902,
+                -1.3616785101903839, -0.89793032737509737, -0.9201178622676105,
+                -0.58502497198020909, -1.2625832440588742, -0.39347225411628184]
+    ismoke = [0, 0.017210771932229665, 0.43340145804840513,
+              0.47063054551016315, 0.635907862082839]
+    dage = age / 10.0
+    dbmi = bmi / 10.0
+    age_1 = (dage ** 3) - 113.99311828613281
+    age_2 = ((dage ** 3) * math.log(dage)) - 179.96238708496094
+    bmi_1 = (dbmi ** -2) - 0.141164988279343
+    a = ialcohol[alcohol_cat6] + iethrisk[ethrisk] + ismoke[smoke_cat]
+    a += age_1 * 0.041982559539881142
+    a += age_2 * -0.015251995233972332
+    a += bmi_1 * 5.7167542710069563
+    a += b_antidepressant * 0.42677868800990187
+    a += b_anycancer * 0.23284997516454178
+    a += b_asthmacopd * 0.23480155549787779
+    a += b_carehome * 0.18790031027255144
+    a += b_corticosteroids * 0.17401085680145045
+    a += b_cvd * 0.23769025952003547
+    a += b_dementia * 0.84640833781655367
+    a += b_epilepsy2 * 0.70235950031403205
+    a += b_falls * 0.34610487349139629
+    a += b_fracture4 * 0.6405104279877627
+    a += b_liver * 0.835503791086325
+    a += b_parkinsons * 0.9880686646887743
+    a += b_ra_sle * 0.4201341417376428
+    a += b_renal * 0.57189278878097272
+    a += b_type1 * 1.3669282519025776
+    a += b_type2 * 0.30570436623928593
+    a += fh_osteoporosis * 0.27337605103109514
+    return 100.0 * (1 - pow(survivor[surv], math.exp(a)))
+
+
+def calc_qfracture_major(
+    age: float,
+    sex: str,
+    bmi: float,
+    ethrisk: int,
+    smoke_cat: int,
+    alcohol_cat6: int,
+    b_antidepressant: int,
+    b_anycancer: int,
+    b_asthmacopd: int,
+    b_carehome: int,
+    b_corticosteroids: int,
+    b_cvd: int,
+    b_dementia: int,
+    b_endocrine: int,
+    b_epilepsy2: int,
+    b_falls: int,
+    b_hrt_oest: int,
+    b_liver: int,
+    b_malabsorption: int,
+    b_parkinsons: int,
+    b_ra_sle: int,
+    b_renal: int,
+    b_type1: int,
+    b_type2: int,
+    fh_osteoporosis: int,
+) -> float | None:
+    """QFracture 10-year major osteoporotic fracture risk (%)."""
+    age = _coerce_float(age)
+    bmi = _coerce_float(bmi)
+    sex = (sex or "").strip().lower()
+    if age is None or bmi is None or bmi <= 0 or sex not in {"male", "female"}:
+        return None
+    if age < 30 or age > 99:
+        return None
+    if sex == "female":
+        return round(_calc_qfracture_fracture4_female_raw(
+            age=int(round(age)), alcohol_cat6=alcohol_cat6, b_antidepressant=b_antidepressant,
+            b_anycancer=b_anycancer, b_asthmacopd=b_asthmacopd,
+            b_corticosteroids=b_corticosteroids, b_cvd=b_cvd, b_dementia=b_dementia,
+            b_endocrine=b_endocrine, b_epilepsy2=b_epilepsy2, b_falls=b_falls,
+            b_hrt_oest=b_hrt_oest, b_liver=b_liver, b_malabsorption=b_malabsorption,
+            b_parkinsons=b_parkinsons, b_ra_sle=b_ra_sle, b_renal=b_renal,
+            b_type1=b_type1, b_type2=b_type2, bmi=bmi, ethrisk=ethrisk,
+            fh_osteoporosis=fh_osteoporosis, smoke_cat=smoke_cat,
+        ), 2)
+    return round(_calc_qfracture_fracture4_male_raw(
+        age=int(round(age)), alcohol_cat6=alcohol_cat6, b_antidepressant=b_antidepressant,
+        b_anycancer=b_anycancer, b_asthmacopd=b_asthmacopd, b_carehome=b_carehome,
+        b_corticosteroids=b_corticosteroids, b_cvd=b_cvd, b_dementia=b_dementia,
+        b_epilepsy2=b_epilepsy2, b_falls=b_falls, b_liver=b_liver,
+        b_malabsorption=b_malabsorption, b_parkinsons=b_parkinsons, b_ra_sle=b_ra_sle,
+        b_renal=b_renal, b_type1=b_type1, b_type2=b_type2, bmi=bmi,
+        ethrisk=ethrisk, fh_osteoporosis=fh_osteoporosis, smoke_cat=smoke_cat,
+    ), 2)
+
+
+def calc_qfracture_hip(
+    age: float,
+    sex: str,
+    bmi: float,
+    ethrisk: int,
+    smoke_cat: int,
+    alcohol_cat6: int,
+    b_antidepressant: int,
+    b_anycancer: int,
+    b_asthmacopd: int,
+    b_carehome: int,
+    b_corticosteroids: int,
+    b_cvd: int,
+    b_dementia: int,
+    b_endocrine: int,
+    b_epilepsy2: int,
+    b_falls: int,
+    b_fracture4: int,
+    b_hrt_oest: int,
+    b_liver: int,
+    b_parkinsons: int,
+    b_ra_sle: int,
+    b_renal: int,
+    b_type1: int,
+    b_type2: int,
+    fh_osteoporosis: int,
+) -> float | None:
+    """QFracture 10-year hip fracture risk (%)."""
+    age = _coerce_float(age)
+    bmi = _coerce_float(bmi)
+    sex = (sex or "").strip().lower()
+    if age is None or bmi is None or bmi <= 0 or sex not in {"male", "female"}:
+        return None
+    if age < 30 or age > 99:
+        return None
+    if sex == "female":
+        return round(_calc_qfracture_nof_female_raw(
+            age=int(round(age)), alcohol_cat6=alcohol_cat6, b_antidepressant=b_antidepressant,
+            b_anycancer=b_anycancer, b_asthmacopd=b_asthmacopd,
+            b_corticosteroids=b_corticosteroids, b_cvd=b_cvd, b_dementia=b_dementia,
+            b_endocrine=b_endocrine, b_epilepsy2=b_epilepsy2, b_falls=b_falls,
+            b_fracture4=b_fracture4, b_hrt_oest=b_hrt_oest, b_liver=b_liver,
+            b_parkinsons=b_parkinsons, b_ra_sle=b_ra_sle, b_renal=b_renal,
+            b_type1=b_type1, b_type2=b_type2, bmi=bmi, ethrisk=ethrisk,
+            smoke_cat=smoke_cat,
+        ), 2)
+    return round(_calc_qfracture_nof_male_raw(
+        age=int(round(age)), alcohol_cat6=alcohol_cat6, b_antidepressant=b_antidepressant,
+        b_anycancer=b_anycancer, b_asthmacopd=b_asthmacopd, b_carehome=b_carehome,
+        b_corticosteroids=b_corticosteroids, b_cvd=b_cvd, b_dementia=b_dementia,
+        b_epilepsy2=b_epilepsy2, b_falls=b_falls, b_fracture4=b_fracture4,
+        b_liver=b_liver, b_parkinsons=b_parkinsons, b_ra_sle=b_ra_sle,
+        b_renal=b_renal, b_type1=b_type1, b_type2=b_type2, bmi=bmi,
+        ethrisk=ethrisk, fh_osteoporosis=fh_osteoporosis, smoke_cat=smoke_cat,
+    ), 2)
+
+
 def calc_thyroid_guideline_pattern(tsh: float, free_t4_ngdl: float) -> float | None:
     """Guideline-aligned thyroid dysfunction pattern score (0-4, higher=worse).
 
@@ -2014,6 +2519,112 @@ def _build_nlr_args(bio, clin):
 def _build_dxa_osteoporosis_args(bio, clin):
     return {"dexa_t_score": bio.get("dexa_t_score")}
 
+def _build_fnih_low_lean_mass_args(bio, clin):
+    return {
+        "dexa_alm_kg": bio.get("dexa_alm_kg"),
+        "bmi": clin.get("bmi"),
+        "sex": clin.get("sex"),
+    }
+
+
+def _build_ewgsop2_args(bio, clin):
+    kwargs = {
+        "sex": clin.get("sex"),
+        "grip_strength_kg": clin.get("grip_strength_kg"),
+        "chair_stand_time_s": clin.get("chair_stand_time_s"),
+        "dexa_alm_h2": bio.get("dexa_alm_h2"),
+    }
+    if clin.get("gait_speed_m_per_s") is not None:
+        kwargs["gait_speed_m_per_s"] = clin.get("gait_speed_m_per_s")
+    return kwargs
+
+
+def _build_findrisc_args(bio, clin):
+    return {
+        "age": clin.get("age"),
+        "bmi": clin.get("bmi"),
+        "waist_cm": clin.get("waist_cm"),
+        "sex": clin.get("sex"),
+        "daily_activity_30min": bool(clin.get("daily_activity_30min")),
+        "daily_fruit_veg": bool(clin.get("daily_fruit_veg")),
+        "on_bp_medication": bool(clin.get("on_bp_medication")),
+        "history_high_glucose": bool(clin.get("history_high_glucose")),
+        "family_history_diabetes": clin.get("family_history_diabetes"),
+    }
+
+
+def _build_nosas_args(bio, clin):
+    return {
+        "age": clin.get("age"),
+        "bmi": clin.get("bmi"),
+        "sex": clin.get("sex"),
+        "neck_circumference_cm": clin.get("neck_circumference_cm"),
+        "loud_snoring": bool(clin.get("loud_snoring")),
+    }
+
+
+def _build_qfracture_major_args(bio, clin):
+    dm_type = (clin.get("diabetes_type") or "none").strip().lower()
+    return {
+        "age": clin.get("age"),
+        "sex": clin.get("sex"),
+        "bmi": clin.get("bmi"),
+        "ethrisk": _qfracture_ethnicity_code(clin.get("ethnicity")),
+        "smoke_cat": _qfracture_smoke_cat(clin.get("smoking_status"), clin.get("cigarettes_per_day")),
+        "alcohol_cat6": _qfracture_alcohol_cat(clin.get("alcohol_intake_level")),
+        "b_antidepressant": int(bool(clin.get("antidepressant_use"))),
+        "b_anycancer": int(bool(clin.get("cancer"))),
+        "b_asthmacopd": int(bool(clin.get("asthma_copd"))),
+        "b_carehome": int(bool(clin.get("care_home"))),
+        "b_corticosteroids": int(bool(clin.get("corticosteroid_use"))),
+        "b_cvd": int(bool(clin.get("vascular_disease")) or bool(clin.get("prior_stroke_tia"))),
+        "b_dementia": int(bool(clin.get("dementia"))),
+        "b_endocrine": int(bool(clin.get("endocrine_bone_disorder"))),
+        "b_epilepsy2": int(bool(clin.get("epilepsy"))),
+        "b_falls": int(bool(clin.get("falls_last_year"))),
+        "b_hrt_oest": int(bool(clin.get("hrt_estrogen_only"))),
+        "b_liver": int(bool(clin.get("chronic_liver_disease"))),
+        "b_malabsorption": int(bool(clin.get("malabsorption"))),
+        "b_parkinsons": int(bool(clin.get("parkinsons"))),
+        "b_ra_sle": int(bool(clin.get("rheumatoid_arthritis")) or bool(clin.get("sle"))),
+        "b_renal": int(bool(clin.get("advanced_ckd_stage45"))),
+        "b_type1": int(dm_type == "type1"),
+        "b_type2": int(dm_type == "type2"),
+        "fh_osteoporosis": int(bool(clin.get("family_history_osteoporosis"))),
+    }
+
+
+def _build_qfracture_hip_args(bio, clin):
+    dm_type = (clin.get("diabetes_type") or "none").strip().lower()
+    return {
+        "age": clin.get("age"),
+        "sex": clin.get("sex"),
+        "bmi": clin.get("bmi"),
+        "ethrisk": _qfracture_ethnicity_code(clin.get("ethnicity")),
+        "smoke_cat": _qfracture_smoke_cat(clin.get("smoking_status"), clin.get("cigarettes_per_day")),
+        "alcohol_cat6": _qfracture_alcohol_cat(clin.get("alcohol_intake_level")),
+        "b_antidepressant": int(bool(clin.get("antidepressant_use"))),
+        "b_anycancer": int(bool(clin.get("cancer"))),
+        "b_asthmacopd": int(bool(clin.get("asthma_copd"))),
+        "b_carehome": int(bool(clin.get("care_home"))),
+        "b_corticosteroids": int(bool(clin.get("corticosteroid_use"))),
+        "b_cvd": int(bool(clin.get("vascular_disease")) or bool(clin.get("prior_stroke_tia"))),
+        "b_dementia": int(bool(clin.get("dementia"))),
+        "b_endocrine": int(bool(clin.get("endocrine_bone_disorder"))),
+        "b_epilepsy2": int(bool(clin.get("epilepsy"))),
+        "b_falls": int(bool(clin.get("falls_last_year"))),
+        "b_fracture4": int(bool(clin.get("prior_fragility_fracture"))),
+        "b_hrt_oest": int(bool(clin.get("hrt_estrogen_only"))),
+        "b_liver": int(bool(clin.get("chronic_liver_disease"))),
+        "b_parkinsons": int(bool(clin.get("parkinsons"))),
+        "b_ra_sle": int(bool(clin.get("rheumatoid_arthritis")) or bool(clin.get("sle"))),
+        "b_renal": int(bool(clin.get("advanced_ckd_stage45"))),
+        "b_type1": int(dm_type == "type1"),
+        "b_type2": int(dm_type == "type2"),
+        "fh_osteoporosis": int(bool(clin.get("family_history_osteoporosis"))),
+    }
+
+
 def _build_thyroid_guideline_args(bio, clin):
     return {"tsh": bio.get("tsh"), "free_t4_ngdl": bio.get("free_t4")}
 
@@ -2255,6 +2866,12 @@ FORMULA_DISPATCH = {
     "calc_sii": (calc_sii, _build_sii_args),
     "calc_nlr": (calc_nlr, _build_nlr_args),
     "calc_dxa_osteoporosis_who": (calc_dxa_osteoporosis_who, _build_dxa_osteoporosis_args),
+    "calc_fnih_low_lean_mass": (calc_fnih_low_lean_mass, _build_fnih_low_lean_mass_args),
+    "calc_ewgsop2_sarcopenia": (calc_ewgsop2_sarcopenia, _build_ewgsop2_args),
+    "calc_findrisc": (calc_findrisc, _build_findrisc_args),
+    "calc_nosas": (calc_nosas, _build_nosas_args),
+    "calc_qfracture_major": (calc_qfracture_major, _build_qfracture_major_args),
+    "calc_qfracture_hip": (calc_qfracture_hip, _build_qfracture_hip_args),
     "calc_thyroid_guideline_pattern": (calc_thyroid_guideline_pattern, _build_thyroid_guideline_args),
     "calc_jostel_tsh_index": (calc_jostel_tsh_index, _build_jostel_args),
     "calc_spina_gt": (calc_spina_gt, _build_spina_gt_args),
@@ -2339,9 +2956,16 @@ def _get_clinical_data(user_id: int) -> dict:
     result["bmi"] = bmi
     # Waist circumference is stored in body_metrics (not clinical profile).
     try:
-        from services.body_metrics_service import get_latest_metrics
+        from services.body_metrics_service import get_body_metrics_history, get_latest_metrics
         latest_metrics = get_latest_metrics(user_id) or {}
-        result["waist_cm"] = latest_metrics.get("waist_cm")
+        waist_cm = latest_metrics.get("waist_cm")
+        if waist_cm is None:
+            history = get_body_metrics_history(user_id) or []
+            for row in reversed(history):
+                if row.get("waist_cm") is not None:
+                    waist_cm = row.get("waist_cm")
+                    break
+        result["waist_cm"] = waist_cm
     except Exception:
         result["waist_cm"] = None
     return result
