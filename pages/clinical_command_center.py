@@ -159,9 +159,37 @@ def _render_critical_policy_block(snapshot: dict) -> None:
         "Critical lab values detected. Follow urgent communication workflow and clinician escalation."
     )
 
+    for alert in plan.get("alerts", []):
+        urgency = alert.get("urgency_level") or "urgent_review"
+        overdue = alert.get("notify_overdue")
+        mins_left = alert.get("minutes_until_notify")
+        if overdue:
+            header_icon = ":red_circle:"
+            deadline_text = f":red[**OVERDUE** — notify target was {alert.get('notify_by_iso')}]"
+        elif urgency == "immediate":
+            header_icon = ":red_circle:"
+            deadline_text = f":red[Notify within {alert.get('notify_within_minutes')} min — by **{alert.get('notify_by_iso')}**] (~{mins_left} min remaining)"
+        else:
+            header_icon = ":large_orange_diamond:"
+            deadline_text = f":orange[Notify within {alert.get('notify_within_minutes')} min — by **{alert.get('notify_by_iso')}**]"
+
+        with st.container(border=True):
+            st.markdown(
+                f"{header_icon} **{alert.get('name')}**: {alert.get('value')} {alert.get('unit') or ''} "
+                f"({alert.get('classification')}, threshold {alert.get('critical_threshold')})"
+            )
+            st.markdown(deadline_text)
+            st.markdown(alert.get("recommended_action") or "")
+            st.caption(
+                f"Detected {alert.get('detected_at_iso')} | "
+                f"Escalate if no acknowledgment by {alert.get('escalate_by_iso')} | "
+                f"Urgency: {urgency}"
+            )
+
     rows = _critical_policy_rows(plan)
     if rows:
-        st.dataframe(rows, use_container_width=True, hide_index=True)
+        with st.expander("Full alert table"):
+            st.dataframe(rows, use_container_width=True, hide_index=True)
 
     with st.expander("Critical Communication Policy (Evidence-backed)", expanded=False):
         for step in policy.get("workflow_steps", []):
@@ -273,6 +301,47 @@ def _render_five_domain_cards(snapshot: dict) -> None:
                         st.caption("Covered systems: " + ", ".join(covered))
                     if row.get("note"):
                         st.caption(row["note"])
+
+
+_PATTERN_SEVERITY_STYLE = {
+    "critical": {"tone": "error", "icon": ":red_circle:"},
+    "high":     {"tone": "error", "icon": ":large_orange_diamond:"},
+    "elevated": {"tone": "warning", "icon": ":warning:"},
+    "normal":   {"tone": "info", "icon": ":information_source:"},
+}
+
+
+def _render_cross_domain_patterns(snapshot: dict) -> None:
+    patterns = snapshot.get("cross_domain_patterns") or []
+    render_section_header(
+        "Cross-Domain Patterns",
+        "Evidence-backed syndromes linking multiple organ scores into a shared mechanism.",
+    )
+    if not patterns:
+        st.info(
+            "No cross-domain patterns active. Patterns appear when two or more organ "
+            "systems are drifting together in a clinically recognized cluster."
+        )
+        return
+
+    for pattern in patterns:
+        style = _PATTERN_SEVERITY_STYLE.get(pattern.get("severity"), _PATTERN_SEVERITY_STYLE["elevated"])
+        with st.container(border=True):
+            st.markdown(f"{style['icon']} **{pattern['name']}** -- peak severity: {pattern.get('severity', 'elevated')}")
+            st.markdown(pattern["narrative"])
+            triggers = pattern.get("triggering_scores") or []
+            if triggers:
+                trigger_md = ", ".join(
+                    f"{t.get('name') or t.get('code')} ({t.get('severity')})"
+                    for t in triggers
+                )
+                st.caption(f"Triggered by: {trigger_md}")
+            st.markdown(f"**Next steps.** {pattern['action']}")
+            citation = pattern.get("citation_text")
+            if citation:
+                pmid = pattern.get("citation_pmid")
+                pmid_suffix = f" (PMID {pmid})" if pmid else ""
+                st.caption(f":gray[Source: {citation}{pmid_suffix}]")
 
 
 def _render_ai_cds_tab(snapshot: dict) -> None:
@@ -633,6 +702,9 @@ with tab_summary:
 
     st.divider()
     _render_five_domain_cards(snapshot)
+
+    st.divider()
+    _render_cross_domain_patterns(snapshot)
 
     st.divider()
     render_section_header(

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import services.critical_lab_policy_service as clps
 
 
@@ -72,4 +74,49 @@ def test_build_critical_communication_plan_from_results_detects_critical():
     assert sodium["code"] == "sodium"
     assert sodium["classification"] == "critical_low"
     assert sodium["notify_within_minutes"] == 15
+
+
+def test_alert_includes_detection_and_deadline_timestamps():
+    rows = [
+        {
+            "code": "potassium",
+            "name": "Potassium",
+            "value": 6.8,
+            "unit": "mmol/L",
+            "classification": "critical_high",
+            "critical_low": 3.0,
+            "critical_high": 6.0,
+            "lab_date": "2020-01-01T14:30:00",  # old date -> overdue
+        }
+    ]
+    plan = clps.build_critical_communication_plan(rows)
+    alert = plan["alerts"][0]
+    assert "detected_at_iso" in alert
+    assert "notify_by_iso" in alert
+    assert "escalate_by_iso" in alert
+    assert alert["notify_overdue"] is True
+    # Deadline = detection + 15 min for potassium
+    detected = datetime.fromisoformat(alert["detected_at_iso"])
+    notify_by = datetime.fromisoformat(alert["notify_by_iso"])
+    assert (notify_by - detected).total_seconds() == 15 * 60
+
+
+def test_alert_not_overdue_for_fresh_detection():
+    now_iso = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    rows = [
+        {
+            "code": "potassium",
+            "name": "Potassium",
+            "value": 6.8,
+            "unit": "mmol/L",
+            "classification": "critical_high",
+            "critical_low": 3.0,
+            "critical_high": 6.0,
+            "lab_date": now_iso,
+        }
+    ]
+    plan = clps.build_critical_communication_plan(rows)
+    alert = plan["alerts"][0]
+    assert alert["notify_overdue"] is False
+    assert alert["minutes_until_notify"] >= 0
 

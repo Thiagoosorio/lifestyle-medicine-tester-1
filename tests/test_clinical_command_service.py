@@ -117,6 +117,9 @@ def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     assert snap["counts"]["labs_flagged"] == 1
     assert snap["counts"]["organ_scores_high_risk"] == 1
     assert snap["organ_overall"]["overall_score_10"] == 6.3
+    # Cross-domain patterns slot is always present (empty when no scores trigger)
+    assert "cross_domain_patterns" in snap
+    assert snap["cross_domain_patterns"] == []
     assert snap["wearable"]["overall_score_10"] == 6.9
 
 
