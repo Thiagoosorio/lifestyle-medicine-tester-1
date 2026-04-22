@@ -52,6 +52,21 @@ DOMAIN_LABELS = {
 LIFECYCLE_CODES: tuple[str, ...] = ("active", "superseded", "research")
 
 
+# Outcome proximity (Phase-1 weighting axis from the OECD/JRC Handbook +
+# Greco 2019 + AHA-PREVENT precedent):
+#     risk_calculator  outputs an outcome probability directly (10-yr CVD,
+#                      kidney failure, fracture, etc.) -- closest to outcome
+#     mechanistic      directly measures a biology-relevant quantity that a
+#                      guideline treats as a risk-modifying target
+#                      (ApoB, HOMA-IR, FIB-4, eGFR, DXA T-score)
+#     derivative       ratio / transform of one or more mechanistic markers
+#                      (AIP, TG:HDL, Castelli) -- re-express the same signal
+#     exploratory      research-tier construct without a clear outcome link
+OUTCOME_PROXIMITY_CODES: tuple[str, ...] = (
+    "risk_calculator", "mechanistic", "derivative", "exploratory",
+)
+
+
 # Per-score classification. Every score_code in ORGAN_SCORE_DEFINITIONS must
 # appear here (enforced by tests/test_score_classification.py).
 SCORE_CLASSIFICATION: dict[str, dict] = {
@@ -447,14 +462,94 @@ SCORE_CLASSIFICATION: dict[str, dict] = {
 }
 
 
+# Outcome-proximity tag per score. Kept as a side-table (vs inlining into the
+# per-score SCORE_CLASSIFICATION dict) so this clinical-judgment axis is easy
+# to review and revise without editing every entry.
+OUTCOME_PROXIMITY_BY_CODE: dict[str, str] = {
+    # risk calculators
+    "prevent_10yr": "risk_calculator",
+    "prevent_10yr_ascvd": "risk_calculator",
+    "prevent_10yr_hf": "risk_calculator",
+    "ascvd_pce": "risk_calculator",
+    "qrisk3": "risk_calculator",
+    "framingham_cvd": "risk_calculator",
+    "who_na_me_cvd_lab": "risk_calculator",
+    "who_na_me_cvd_nonlab": "risk_calculator",
+    "kfre_2yr": "risk_calculator",
+    "kfre_5yr": "risk_calculator",
+    "kdigo_risk": "risk_calculator",
+    "qfracture_major": "risk_calculator",
+    "qfracture_hip": "risk_calculator",
+    "caide_dementia": "risk_calculator",
+    "findrisc": "risk_calculator",
+    "cha2ds2_vasc": "risk_calculator",
+    "nosas": "risk_calculator",
+    "amap_hcc": "risk_calculator",
+    # direct mechanistic measurements
+    "apob_risk": "mechanistic",
+    "non_hdl_c": "mechanistic",
+    "remnant_cholesterol": "mechanistic",
+    "lpa_risk": "mechanistic",
+    "homa_ir": "mechanistic",
+    "homa_b": "mechanistic",
+    "quicki": "mechanistic",
+    "mcauley_index": "mechanistic",
+    "tyg_index": "mechanistic",
+    "mets_ir": "mechanistic",
+    "lap_index": "mechanistic",
+    "vai": "mechanistic",
+    "fib4": "mechanistic",
+    "apri": "mechanistic",
+    "hsi": "mechanistic",
+    "fli": "mechanistic",
+    "nafld_fibrosis": "mechanistic",
+    "bard_score": "mechanistic",
+    "albi_score": "mechanistic",
+    "ckd_epi_egfr": "mechanistic",
+    "dxa_osteoporosis_who": "mechanistic",
+    "ewgsop2_sarcopenia": "mechanistic",
+    "fnih_low_lean_mass": "mechanistic",
+    "cbc_mortality_risk": "mechanistic",
+    "iron_status_composite": "mechanistic",
+    "homocysteine_neurovascular": "mechanistic",
+    "thyroid_guideline_pattern": "mechanistic",
+    "phenoage": "mechanistic",
+    "sii": "mechanistic",
+    "nlr": "mechanistic",
+    "pni": "mechanistic",
+    # ratios / transforms of mechanistic markers (same signal, re-expressed)
+    "aip": "derivative",
+    "tg_hdl_ratio": "derivative",
+    "castelli_ratio": "derivative",
+    "tyg_bmi": "derivative",
+    "framingham_vascular_age_gap": "derivative",
+    # research-tier constructs; no established outcome link yet
+    "plr": "exploratory",
+    "jostel_tsh_index": "exploratory",
+    "spina_gt": "exploratory",
+    "spina_gd": "exploratory",
+    "tfqi": "exploratory",
+    "glasgow_prognostic": "exploratory",
+}
+
+
 def get_classification(score_code: str) -> dict:
-    """Return the classification entry for a score, or a permissive default."""
-    return SCORE_CLASSIFICATION.get(score_code, {
+    """Return the classification entry for a score, or a permissive default.
+
+    ``outcome_proximity`` is merged in from the OUTCOME_PROXIMITY_BY_CODE
+    side-table so callers can rely on every classification dict having the
+    full set of fields.
+    """
+    base = SCORE_CLASSIFICATION.get(score_code, {
         "lifecycle": "active",
         "lifecycle_note": "",
         "primary_domain": "system_wide",
         "secondary_domains": [],
     })
+    return {
+        **base,
+        "outcome_proximity": OUTCOME_PROXIMITY_BY_CODE.get(score_code, "mechanistic"),
+    }
 
 
 def scores_for_domain(domain: str, primary_only: bool = False) -> list[str]:

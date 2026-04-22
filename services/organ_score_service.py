@@ -3485,6 +3485,67 @@ def compute_overall_organ_score(user_id: int) -> dict | None:
     }
 
 
+def compare_weighting_strategies(user_id: int) -> dict | None:
+    """Run every registered weighting strategy on the user's latest scores.
+
+    Returns a dict keyed by strategy_code with:
+        label, description, overall_score_100, overall_score_10,
+        overall_label, organ_breakdown [{organ_system, name, score_10}]
+
+    None if the user has no computed scores. Lean re-implementation that
+    shares no state with ``compute_overall_organ_score`` so future
+    regressions in one path don't hide the other.
+    """
+    from services.score_calibration.weighting_strategies import (
+        list_strategies,
+    )
+
+    latest_scores = get_latest_scores(user_id)
+    if not latest_scores:
+        return None
+
+    comparison: dict[str, dict] = {}
+    for strategy in list_strategies():
+        scores_by_organ: dict[str, list[tuple[float, float]]] = {}
+        for score in latest_scores:
+            organ = score.get("organ_system", "other")
+            sev_health = _severity_to_health_100(score.get("severity"))
+            weight = max(0.0, float(strategy.compute_weight(score)))
+            scores_by_organ.setdefault(organ, []).append((sev_health, weight))
+
+        organ_breakdown: list[dict] = []
+        for organ in sorted(
+            scores_by_organ.keys(),
+            key=lambda code: ORGAN_SYSTEMS.get(code, {}).get("sort_order", 999),
+        ):
+            rows = scores_by_organ[organ]
+            weighted_sum = sum(h * w for h, w in rows)
+            weight_sum = sum(w for _, w in rows) or float(len(rows))
+            score_100 = weighted_sum / weight_sum
+            organ_breakdown.append({
+                "organ_system": organ,
+                "name": ORGAN_SYSTEMS.get(organ, {}).get(
+                    "name", organ.replace("_", " ").title()
+                ),
+                "score_10": round(score_100 / 10.0, 1),
+                "score_100": round(score_100, 1),
+                "score_count": len(rows),
+            })
+
+        if not organ_breakdown:
+            continue
+        overall_100 = sum(o["score_100"] for o in organ_breakdown) / len(organ_breakdown)
+        comparison[strategy.code] = {
+            "label": strategy.label,
+            "description": strategy.description,
+            "overall_score_100": round(overall_100, 1),
+            "overall_score_10": round(overall_100 / 10.0, 1),
+            "overall_label": _health_band(overall_100),
+            "organ_breakdown": organ_breakdown,
+        }
+    return comparison
+
+
 def get_organ_score_summary(user_id: int) -> str:
     """Build a text summary of organ scores for AI coach context."""
     scores = get_latest_scores(user_id)

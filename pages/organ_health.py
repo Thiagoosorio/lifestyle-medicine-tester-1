@@ -90,8 +90,12 @@ if not user_id:
     st.stop()
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_dashboard, tab_profile, tab_trends, tab_missing = st.tabs([
-    "Organ Dashboard", "Clinical Profile", "Score Trends", "Missing Data"
+tab_dashboard, tab_profile, tab_trends, tab_missing, tab_weights = st.tabs([
+    "Organ Dashboard",
+    "Clinical Profile",
+    "Score Trends",
+    "Missing Data",
+    "Weighting Strategies",
 ])
 
 # ── Tab 1: Organ Dashboard ───────────────────────────────────────────────────
@@ -483,3 +487,86 @@ with tab_missing:
                         st.markdown("**Missing clinical data:**")
                         for c in m["missing_clinical"]:
                             st.markdown(f"- `{c}`")
+
+
+# ── Tab 5: Weighting Strategies ──────────────────────────────────────────────
+with tab_weights:
+    render_section_header(
+        "Weighting Strategies (Sensitivity Analysis)",
+        "Side-by-side composites under four weighting methods. Per OECD/JRC "
+        "Handbook 2008, composite-index tools must expose how the headline "
+        "number depends on weighting choices.",
+    )
+    try:
+        from services.organ_score_service import compare_weighting_strategies
+        comparison = compare_weighting_strategies(user_id)
+    except Exception as exc:
+        comparison = None
+        st.error(f"Could not run weighting comparison: {exc}")
+
+    if not comparison:
+        st.info(
+            "No organ scores computed yet. Return to **Organ Dashboard** and "
+            "click Recalculate to generate scores, then revisit this tab."
+        )
+    else:
+        overall_values = [c["overall_score_10"] for c in comparison.values()]
+        spread = max(overall_values) - min(overall_values) if overall_values else 0.0
+        if spread > 1.0:
+            st.warning(
+                f"**Weighting-sensitivity warning**: the overall score moves by "
+                f"{spread:.1f} points (0-10 scale) depending on the weighting "
+                f"method. Treat the headline number with appropriate caution."
+            )
+        else:
+            st.success(
+                f"Overall composite is stable across weighting strategies "
+                f"(spread {spread:.2f} on the 0-10 scale)."
+            )
+
+        strat_cols = st.columns(len(comparison))
+        for col, (code, payload) in zip(strat_cols, comparison.items()):
+            with col:
+                with st.container(border=True):
+                    st.markdown(f"**{payload['label']}**")
+                    st.metric(
+                        "Overall",
+                        f"{payload['overall_score_10']}/10",
+                        help=payload["description"],
+                    )
+                    st.caption(payload["overall_label"])
+
+        st.divider()
+        st.markdown("#### Per-organ breakdown")
+        organ_codes_seen = []
+        for payload in comparison.values():
+            for row in payload["organ_breakdown"]:
+                if row["organ_system"] not in organ_codes_seen:
+                    organ_codes_seen.append(row["organ_system"])
+
+        breakdown_rows = []
+        for organ in organ_codes_seen:
+            row = {"Organ": ORGAN_SYSTEMS.get(organ, {}).get("name", organ)}
+            for code, payload in comparison.items():
+                value = next(
+                    (o["score_10"] for o in payload["organ_breakdown"]
+                     if o["organ_system"] == organ),
+                    None,
+                )
+                row[payload["label"]] = value if value is not None else "-"
+            breakdown_rows.append(row)
+        st.dataframe(breakdown_rows, use_container_width=True, hide_index=True)
+
+        with st.expander("Methodology"):
+            st.markdown(
+                "- **Equal weights** — OECD/JRC baseline. Every score counts the same.\n"
+                "- **Evidence tier only** — validated 1.0x / derived 0.6x. The app's "
+                "historical default.\n"
+                "- **Outcome proximity only** — risk calculators 1.5x, mechanistic 1.0x, "
+                "derivative 0.6x, exploratory 0.4x. Rewards scores closer to a clinical endpoint.\n"
+                "- **Hybrid (recommended)** — evidence tier x outcome proximity x severity "
+                "emphasis. Phase-1 default per Greco 2019.\n\n"
+                "Full methodology: `services/score_calibration/methodology.md`. "
+                "Domain-level weights will be added via a Delphi panel once run "
+                "(protocol: `services/score_calibration/delphi_protocol.md`)."
+            )
