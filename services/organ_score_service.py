@@ -383,10 +383,16 @@ def calc_ascvd_pce(age: float, sex: str, total_chol: float, hdl: float,
     dm_val = 1.0 if diabetes else 0.0
 
     if sex == "female":
+        # Goff DC Jr et al. 2013 ACC/AHA Pooled Cohort Equations, white-female
+        # panel (Circulation 2014;129[25 Suppl 2]:S49-73, Appendix 7 Table A).
+        # NOTE: the age * ln(TC) and age * ln(HDL) interaction terms are
+        # required to keep the exponent from overflowing for typical low-risk
+        # women -- omitting them previously clamped healthy profiles to 100%.
         if on_bp_med:
             coeff_sum = (
                 -29.799 * ln_age + 4.884 * ln_age ** 2
-                + 13.540 * ln_tc + -13.578 * ln_hdl
+                + 13.540 * ln_tc + -3.114 * ln_age * ln_tc
+                + -13.578 * ln_hdl + 3.149 * ln_age * ln_hdl
                 + 2.019 * ln_sbp
                 + 7.574 * smoking_val + -1.665 * ln_age * smoking_val
                 + 0.661 * dm_val
@@ -394,13 +400,14 @@ def calc_ascvd_pce(age: float, sex: str, total_chol: float, hdl: float,
         else:
             coeff_sum = (
                 -29.799 * ln_age + 4.884 * ln_age ** 2
-                + 13.540 * ln_tc + -13.578 * ln_hdl
+                + 13.540 * ln_tc + -3.114 * ln_age * ln_tc
+                + -13.578 * ln_hdl + 3.149 * ln_age * ln_hdl
                 + 1.957 * ln_sbp
                 + 7.574 * smoking_val + -1.665 * ln_age * smoking_val
                 + 0.661 * dm_val
             )
         baseline_survival = 0.9665
-        mean_coeff = -29.18
+        mean_coeff = -29.1817
     else:
         if on_bp_med:
             coeff_sum = (
@@ -421,7 +428,7 @@ def calc_ascvd_pce(age: float, sex: str, total_chol: float, hdl: float,
                 + 0.658 * dm_val
             )
         baseline_survival = 0.9144
-        mean_coeff = 61.18
+        mean_coeff = 61.1816
 
     risk = 1.0 - baseline_survival ** math.exp(coeff_sum - mean_coeff)
     return round(max(0, min(risk * 100, 100)), 1)
@@ -720,13 +727,18 @@ def calc_homa_b(fasting_insulin: float, fasting_glucose_mgdl: float) -> float | 
 
 
 def calc_tyg_index(tg_mgdl: float, glucose_mgdl: float) -> float | None:
-    """TyG Index = ln(Triglycerides [mg/dL] x Fasting Glucose [mg/dL]) / 2
+    """TyG Index = ln(Triglycerides [mg/dL] * Fasting Glucose [mg/dL] / 2).
 
-    PMID: 36521498 — Lopez-Jaramillo P et al. Lancet Healthy Longev 2023.
+    Canonical form from Simental-Mendia LE et al. Metab Syndr Relat Disord
+    2008;6(4):299-304 (PMID 18850113). The interpretation bands used in
+    config/organ_scores_data.py (8.0 / 8.5 / 9.0) are calibrated to this
+    scale -- the earlier implementation divided *after* the natural log,
+    which produced values in the 4-5 range and silently reported every
+    patient as "Normal insulin sensitivity".
     """
     if tg_mgdl <= 0 or glucose_mgdl <= 0:
         return None
-    return round(math.log(tg_mgdl * glucose_mgdl) / 2.0, 2)
+    return round(math.log(tg_mgdl * glucose_mgdl / 2.0), 2)
 
 
 def calc_mets_ir(glucose_mgdl: float, tg_mgdl: float, hdl_mgdl: float,
