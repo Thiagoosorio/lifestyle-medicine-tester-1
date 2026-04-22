@@ -2,6 +2,12 @@
 
 import streamlit as st
 from config.organ_scores_data import ORGAN_SYSTEMS, OPTIONAL_ADVANCED_SCORE_CODES
+from config.score_classification import (
+    DOMAIN_CODES,
+    DOMAIN_LABELS,
+    LIFECYCLE_CODES,
+    get_classification,
+)
 from components.custom_theme import render_hero_banner, render_section_header
 from services.organ_score_service import (
     compute_all_scores, get_computable_scores, get_latest_computed_scores,
@@ -222,10 +228,16 @@ with tab_dashboard:
                 status = "Not applicable for this patient"
                 value_str = "—"
                 severity = ""
+            classification = get_classification(code)
+            primary_domain = classification.get("primary_domain", "")
+            secondary = classification.get("secondary_domains") or []
             inventory_rows.append({
                 "Organ": organ_meta.get("name", defn.get("organ_system", "")),
                 "Score": defn.get("name"),
                 "Tier": defn.get("tier"),
+                "Lifecycle": classification.get("lifecycle", ""),
+                "Primary Domain": DOMAIN_LABELS.get(primary_domain, primary_domain),
+                "Secondary Domains": ", ".join(DOMAIN_LABELS.get(d, d) for d in secondary),
                 "Value": value_str,
                 "Severity": severity,
                 "Status": status,
@@ -242,8 +254,53 @@ with tab_dashboard:
             "3. Return here to see your scores"
         )
     else:
+        # ── Filters: lifecycle (active / superseded / research) + domain ─────
+        with st.expander("Filter scores", expanded=False):
+            filter_cols = st.columns([2, 3])
+            with filter_cols[0]:
+                show_superseded = st.checkbox(
+                    "Show superseded scores (older tools kept for teaching)",
+                    value=False, key="organ_show_superseded",
+                )
+                show_research = st.checkbox(
+                    "Show research-tier scores (emerging, not guideline-endorsed)",
+                    value=False, key="organ_show_research",
+                )
+            with filter_cols[1]:
+                domain_filter = st.selectbox(
+                    "Domain",
+                    options=["all"] + list(DOMAIN_CODES),
+                    format_func=lambda d: "All domains" if d == "all" else DOMAIN_LABELS[d],
+                    key="organ_domain_filter",
+                )
+                domain_primary_only = st.checkbox(
+                    "Primary domain only (hide cross-listed secondary mentions)",
+                    value=False, key="organ_domain_primary_only",
+                )
+
+        allowed_lifecycles = {"active"}
+        if show_superseded:
+            allowed_lifecycles.add("superseded")
+        if show_research:
+            allowed_lifecycles.add("research")
+
+        def _passes_filters(code: str) -> bool:
+            info = get_classification(code)
+            if info["lifecycle"] not in allowed_lifecycles:
+                return False
+            if domain_filter != "all":
+                if domain_primary_only:
+                    return info.get("primary_domain") == domain_filter
+                return (
+                    info.get("primary_domain") == domain_filter
+                    or domain_filter in (info.get("secondary_domains") or [])
+                )
+            return True
+
         scores_by_organ = {}
         for s in existing_scores:
+            if not _passes_filters(s.get("code", "")):
+                continue
             organ = s.get("organ_system", "other")
             scores_by_organ.setdefault(organ, []).append(s)
 
@@ -252,6 +309,8 @@ with tab_dashboard:
 
         missing_by_organ = {}
         for m in core_missing:
+            if not _passes_filters(m["definition"]["code"]):
+                continue
             organ = m["definition"]["organ_system"]
             missing_by_organ.setdefault(organ, []).append(m)
 
