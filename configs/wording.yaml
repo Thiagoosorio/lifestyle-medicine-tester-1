@@ -1,0 +1,61 @@
+# Risk-band wording templates per score (architecture_spec.md section 8).
+#
+# All strings below are user-facing. They are linted at CI time for the
+# regulator-restricted vocabulary listed in src/healthscore/wording.py
+# (FORBIDDEN_LEMMAS). The lint scope per Phase 2:
+#     - this file
+#     - configs/scores/*.json (display_name, calibration_caveat, etc.)
+#     - tests/healthscore/regression/* rendered output
+
+fib4:
+  low:           "Low likelihood band on liver fibrosis screen."
+  indeterminate: "Indeterminate band on liver fibrosis screen -- consider follow-up testing per the AASLD 2023 stepwise pathway."
+  high:          "High-risk band on liver fibrosis screen. Discuss with a clinician for confirmatory testing (transient elastography or ELF)."
+
+albi:
+  low:           "Liver synthetic-function band: preserved (Grade 1 zone)."
+  indeterminate: "Liver synthetic-function band: borderline (Grade 2 zone) -- monitor."
+  high:          "Liver synthetic-function band: impaired (Grade 3 zone). Discuss with a clinician."
+
+amap:
+  low:           "Lower-risk band on the HCC screening score."
+  indeterminate: "Intermediate band on the HCC screening score -- discuss surveillance with a clinician."
+  high:          "Higher-risk band on the HCC screening score. Discuss surveillance imaging with a clinician."
+
+fli:
+  low:           "Low likelihood of hepatic steatosis on this screen."
+  indeterminate: "Indeterminate band on the steatosis screen -- consider abdominal ultrasound or transient elastography."
+  high:          "High likelihood of hepatic steatosis on this screen. Discuss lifestyle steps with a clinician."
+
+# Confirmatory-display scores reuse a generic banner. They are not aggregated
+# into the composite per methodology Section 1.5.
+nafld_fs:
+  low:           "Confirmatory NAFLD-FS reading is in the lower band."
+  indeterminate: "Confirmatory NAFLD-FS reading is in the indeterminate band -- corroborate with FIB-4."
+  high:          "Confirmatory NAFLD-FS reading is in the higher band -- discuss with a clinician."
+
+apri:
+  low:           "Confirmatory APRI reading is in the lower band."
+  indeterminate: "Confirmatory APRI reading is in the indeterminate band -- corroborate with FIB-4."
+  high:          "Confirmatory APRI reading is in the higher band -- discuss with a clinician."
+
+hsi:
+  low:           "Confirmatory HSI reading is in the lower band."
+  indeterminate: "Confirmatory HSI reading is in the indeterminate band."
+  high:          "Confirmatory HSI reading is in the higher band -- corroborates a steatosis signal."
+
+# Kidney organ panel.
+egfr:
+  low:           "Kidney filtration is in the preserved band."
+  indeterminate: "Kidney filtration is in the moderately reduced band -- discuss with a clinician."
+  high:          "Kidney filtration is in the markedly reduced band. Discuss with a clinician promptly."
+
+kfre:
+  low:           "Lower-risk band on the 5-year kidney-failure screen."
+  indeterminate: "Intermediate band on the 5-year kidney-failure screen -- discuss surveillance with a clinician."
+  high:          "Higher-risk band on the 5-year kidney-failure screen. Discuss specialist referral with a clinician."
+
+kdigo_category:
+  low:           "Kidney risk band: lower-risk per the KDIGO 2024 heatmap."
+  indeterminate: "Kidney risk band: moderately or high risk per the KDIGO 2024 heatmap -- discuss with a clinician."
+  high:          "Kidney risk band: very-high risk per the KDIGO 2024 heatmap. Discuss specialist referral with a clinician."

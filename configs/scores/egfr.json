@@ -1,0 +1,48 @@
+{
+  "score_id": "egfr",
+  "display_name": "eGFR (CKD-EPI 2021)",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "34554658",
+  "pmid_supporting": ["33828794"],
+  "guideline_anchor": "KDIGO 2024 CKD evaluation and management",
+  "input_variables": [
+    { "name": "serum_creatinine_mgdl", "unit": "mg/dL", "physio_min": 0.1, "physio_max": 20.0 },
+    { "name": "age",                   "unit": "years", "physio_min": 18,  "physio_max": 120 },
+    { "name": "sex",                   "unit": "category" }
+  ],
+  "formula": "egfr_deficit",
+  "anchors": {
+    "low":           { "value": 0,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 30, "q": 0.5, "source": "published" },
+    "high":          { "value": 60, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "egfr_deficit_below_90",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_kidney_injury", "pregnancy"],
+    "calibration_caveat": "CKD-EPI 2021 race-free creatinine equation; UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Inker 2021 (CKD-EPI 2021 development)",
+    "n": 8254,
+    "geography": "USA",
+    "ethnicity": "mixed (Black + non-Black pooled, race-free)",
+    "outcome": "measured GFR by iothalamate / iohexol clearance"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 60,
+    "severity": "attention",
+    "wording_key": "egfr_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.50
+}

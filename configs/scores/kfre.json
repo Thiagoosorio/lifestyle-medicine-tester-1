@@ -1,0 +1,55 @@
+{
+  "score_id": "kfre",
+  "display_name": "Kidney Failure Risk (KFRE 4v 5-yr)",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "21482743",
+  "pmid_supporting": ["26851278"],
+  "guideline_anchor": "KDIGO 2024; Tangri 2011 derivation in CKD G3a-G5",
+  "input_variables": [
+    { "name": "age",  "unit": "years", "physio_min": 18, "physio_max": 120 },
+    { "name": "sex",  "unit": "category" },
+    { "name": "egfr", "unit": "mL/min/1.73m^2", "physio_min": 1, "physio_max": 200 },
+    { "name": "uacr", "unit": "mg/g",            "physio_min": 0.1, "physio_max": 30000 }
+  ],
+  "formula": "kfre_5yr",
+  "anchors": {
+    "low":           { "value": 5,    "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 12.5, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 20,   "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "percent_5yr",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_kidney_injury", "pregnancy", "kidney_transplant"],
+    "calibration_caveat": "Derivation cohort: CKD G3a-G5 (Tangri 2011, Canadian); applies only when eGFR <= 60. UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Tangri 2011 (KFRE derivation cohort)",
+    "n": 3449,
+    "geography": "Canada",
+    "ethnicity": "mixed",
+    "outcome": "kidney failure (dialysis or transplant) within 5 years"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 20,
+    "severity": "urgent_review",
+    "wording_key": "kfre_high_band"
+  },
+  "gate_requirements": {
+    "field": "raw_inputs.egfr",
+    "predicate": "le",
+    "expected": 60,
+    "missing_policy": "fail",
+    "failure_reason_code": "egfr_above_ckd_threshold"
+  },
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.30
+}

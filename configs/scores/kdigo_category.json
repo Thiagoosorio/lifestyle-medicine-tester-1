@@ -1,0 +1,47 @@
+{
+  "score_id": "kdigo_category",
+  "display_name": "KDIGO 2024 Risk Category",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "38447622",
+  "pmid_supporting": [],
+  "guideline_anchor": "KDIGO 2024 CKD evaluation and management heatmap",
+  "input_variables": [
+    { "name": "egfr", "unit": "mL/min/1.73m^2", "physio_min": 1,   "physio_max": 200 },
+    { "name": "uacr", "unit": "mg/g",            "physio_min": 0,   "physio_max": 30000 }
+  ],
+  "formula": "kdigo_category",
+  "anchors": {
+    "low":           { "value": 0,   "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 1.5, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 3,   "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "kdigo_band_0_to_3",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_kidney_injury"],
+    "calibration_caveat": "KDIGO 2024 risk-band heatmap; treats the four colour bands as ordinal harm units (0..3)."
+  },
+  "derivation_cohort": {
+    "study": "KDIGO 2024 (consensus heatmap, no single derivation cohort)",
+    "n": null,
+    "geography": "international",
+    "ethnicity": "n/a (consensus document)",
+    "outcome": "CKD progression risk band"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 3,
+    "severity": "urgent_review",
+    "wording_key": "kdigo_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.20
+}
