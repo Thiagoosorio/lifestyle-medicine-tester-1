@@ -4,6 +4,17 @@ import sqlite3
 import services.wearable_wheel_service as wws
 
 
+# Test fixtures used to hardcode _RECENT_TS everywhere. That worked
+# when the file was written but rotted as soon as the wearable wheel's
+# smoothing windows (max_age_days = 3 / 7 / 30 in
+# services.wearable_wheel_service) outran the fixture date — coverage went
+# to 0 and four tests started failing every nightly CI run.
+#
+# Pin to "two days ago" so all data lands inside the tightest smoothing
+# window. Computed at module import; stable for the test run.
+_RECENT_TS = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def _create_user(db_conn) -> int:
     conn = db_conn()
     cursor = conn.execute(
@@ -23,8 +34,8 @@ def test_save_measurements_accepts_known_metrics(db_conn, monkeypatch):
     summary = wws.save_measurements(
         user_id,
         [
-            {"metric_code": "resting_heart_rate_bpm", "value": 54, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "unknown_metric", "value": 10, "measured_at": "2026-03-26T07:00:00"},
+            {"metric_code": "resting_heart_rate_bpm", "value": 54, "measured_at": _RECENT_TS},
+            {"metric_code": "unknown_metric", "value": 10, "measured_at": _RECENT_TS},
         ],
     )
 
@@ -45,16 +56,16 @@ def test_import_csv_template_and_compute_wheel(db_conn, monkeypatch):
     wws.save_measurements(
         user_id,
         [
-            {"metric_code": "arrhythmia_alert_afib", "value": 0, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "heart_rate_variability_ms", "value": 60, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "steps_count", "value": 10250, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "kilojoule_expended", "value": 2500, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "recovery_score", "value": 82, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "sleep_efficiency_pct", "value": 92, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "sleep_debt_hours", "value": 0.8, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "respiratory_rate_bpm", "value": 14.0, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "body_temperature_deviation_c", "value": 0.1, "measured_at": "2026-03-26T07:00:00"},
-            {"metric_code": "spo2_pct", "value": 97, "measured_at": "2026-03-26T07:00:00"},
+            {"metric_code": "arrhythmia_alert_afib", "value": 0, "measured_at": _RECENT_TS},
+            {"metric_code": "heart_rate_variability_ms", "value": 60, "measured_at": _RECENT_TS},
+            {"metric_code": "steps_count", "value": 10250, "measured_at": _RECENT_TS},
+            {"metric_code": "kilojoule_expended", "value": 2500, "measured_at": _RECENT_TS},
+            {"metric_code": "recovery_score", "value": 82, "measured_at": _RECENT_TS},
+            {"metric_code": "sleep_efficiency_pct", "value": 92, "measured_at": _RECENT_TS},
+            {"metric_code": "sleep_debt_hours", "value": 0.8, "measured_at": _RECENT_TS},
+            {"metric_code": "respiratory_rate_bpm", "value": 14.0, "measured_at": _RECENT_TS},
+            {"metric_code": "body_temperature_deviation_c", "value": 0.1, "measured_at": _RECENT_TS},
+            {"metric_code": "spo2_pct", "value": 97, "measured_at": _RECENT_TS},
         ],
     )
 
@@ -109,7 +120,7 @@ def test_optional_bp_and_cgm_do_not_reduce_required_coverage(db_conn, monkeypatc
     monkeypatch.setattr(wws, "get_connection", db_conn)
     user_id = _create_user(db_conn)
 
-    ts = "2026-03-26T07:00:00"
+    ts = _RECENT_TS
     # Required HM metrics only; optional BP/CGM/weight are intentionally missing.
     wws.save_measurements(
         user_id,
@@ -183,12 +194,12 @@ def test_csv_alias_conversion_and_bp_split(db_conn, monkeypatch):
     monkeypatch.setattr(wws, "get_connection", db_conn)
     user_id = _create_user(db_conn)
 
-    csv_text = """metric_code,value,unit,measured_at,source
-rhr,52,bpm,2026-03-26T07:00:00,Whoop Band
-glucose_avg,5.6,mmol/L,2026-03-26T07:00:00,CGM FreeStyle Libre
-weight,176.4,lb,2026-03-26T07:00:00,InBody H40 Home Scale
-bp,122/78,mmHg,2026-03-26T07:00:00,Withings BPM Connect Pro
-active_energy_kcal,500,kcal,2026-03-26T07:00:00,Whoop Band
+    csv_text = f"""metric_code,value,unit,measured_at,source
+rhr,52,bpm,{_RECENT_TS},Whoop Band
+glucose_avg,5.6,mmol/L,{_RECENT_TS},CGM FreeStyle Libre
+weight,176.4,lb,{_RECENT_TS},InBody H40 Home Scale
+bp,122/78,mmHg,{_RECENT_TS},Withings BPM Connect Pro
+active_energy_kcal,500,kcal,{_RECENT_TS},Whoop Band
 """
     summary = wws.import_measurements_csv_text(user_id, csv_text)
     latest = wws.get_latest_measurements(user_id)
@@ -216,7 +227,7 @@ def test_optional_weight_capped_vs_required_metrics(db_conn, monkeypatch):
     conn.commit()
     conn.close()
 
-    ts = "2026-03-26T07:00:00"
+    ts = _RECENT_TS
     # Weak required HM metrics.
     wws.save_measurements(
         user_id,
@@ -246,7 +257,7 @@ def test_optional_weight_capped_vs_required_metrics(db_conn, monkeypatch):
 def test_missing_required_codes_are_exposed_for_ui_coaching(db_conn, monkeypatch):
     monkeypatch.setattr(wws, "get_connection", db_conn)
     user_id = _create_user(db_conn)
-    ts = "2026-03-26T07:00:00"
+    ts = _RECENT_TS
 
     # Only one required HM metric + optional BP.
     wws.save_measurements(
@@ -301,7 +312,7 @@ def test_legacy_wearable_table_without_source_is_self_healed(tmp_path, monkeypat
         INSERT INTO wearable_measurements (user_id, metric_code, metric_name, value, unit, measured_at)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (1, "resting_heart_rate_bpm", "Resting Heart Rate", 55.0, "bpm", "2026-03-26T07:00:00"),
+        (1, "resting_heart_rate_bpm", "Resting Heart Rate", 55.0, "bpm", _RECENT_TS),
     )
     conn.commit()
     conn.close()
