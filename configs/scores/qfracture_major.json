@@ -1,0 +1,49 @@
+{
+  "score_id": "qfracture_major",
+  "display_name": "QFracture 10-year Major Fracture Risk",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "22619194",
+  "pmid_supporting": [],
+  "guideline_anchor": "Hippisley-Cox 2012 QFracture-2012 derivation/validation",
+  "input_variables": [
+    { "name": "age", "unit": "years",   "physio_min": 30, "physio_max": 100 },
+    { "name": "sex", "unit": "category" },
+    { "name": "bmi", "unit": "kg/m^2",  "physio_min": 13, "physio_max": 70 }
+  ],
+  "formula": "qfracture_major",
+  "anchors": {
+    "low":           { "value": 5.0,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 12.5, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 20.0, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "ten_year_major_fracture_risk_pct",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 30,
+    "max_age": 100,
+    "exclusions": ["pregnancy"],
+    "calibration_caveat": "QFracture derived in UK primary-care cohort; UAE calibration unverified. Tier 2 PMID corrected from prior 22941793 to 22619194 per source-data audit 4 May 2026 (same correction as qfracture_hip)."
+  },
+  "derivation_cohort": {
+    "study": "Hippisley-Cox 2012",
+    "n": 3142255,
+    "geography": "UK",
+    "ethnicity": "primarily white European",
+    "outcome": "10-year major osteoporotic fracture incidence"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": {
+    "field": "raw_inputs.age",
+    "predicate": "ge",
+    "expected": 30,
+    "missing_policy": "fail",
+    "failure_reason_code": "age_below_qfracture_threshold"
+  },
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": false,
+  "composite_weight": null
+}

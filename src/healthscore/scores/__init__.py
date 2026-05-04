@@ -24,8 +24,11 @@ from __future__ import annotations
 
 from typing import Callable, Mapping
 
+from healthscore.scores import bone_muscle as _bone_muscle
+from healthscore.scores import cardiovascular as _cvd
 from healthscore.scores import kidney as _kidney
 from healthscore.scores import liver as _liver
+from healthscore.scores import system_wide as _system_wide
 
 #: ``ScoreConfig.formula`` -> formula callable.
 #: New scores append entries here; the engine refuses to start if a
@@ -43,6 +46,16 @@ FORMULA_REGISTRY: dict[str, Callable[..., object]] = {
     "egfr_deficit": _kidney.calc_egfr_deficit,
     "kfre_5yr": _kidney.calc_kfre_5yr,
     "kdigo_category": _kidney.calc_kdigo_category,
+    # cardiovascular
+    "cha2ds2_vasc": _cvd.calc_cha2ds2_vasc,
+    "apob_passthrough": _cvd.calc_apob_passthrough,
+    "lpa_passthrough": _cvd.calc_lpa_passthrough,
+    "prevent_ascvd_10yr": _cvd.calc_prevent_ascvd_10yr,
+    # bone & muscle (Tier 2 promotion)
+    "qfracture_major": _bone_muscle.calc_qfracture_major,
+    "qfracture_hip": _bone_muscle.calc_qfracture_hip,
+    # system wide (Tier 2 promotion)
+    "hb_rdw_mortality": _system_wide.calc_hb_rdw_mortality,
 }
 
 

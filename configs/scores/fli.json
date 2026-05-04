@@ -1,0 +1,49 @@
+{
+  "score_id": "fli",
+  "display_name": "Fatty Liver Index",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "17081293",
+  "pmid_supporting": [],
+  "guideline_anchor": "Bedogni 2006 FLI",
+  "input_variables": [
+    { "name": "tg_mgdl",   "unit": "mg/dL", "physio_min": 20,  "physio_max": 2000 },
+    { "name": "bmi",       "unit": "kg/m^2", "physio_min": 12, "physio_max": 80 },
+    { "name": "ggt_ul",    "unit": "U/L",   "physio_min": 5,   "physio_max": 5000 },
+    { "name": "waist_cm",  "unit": "cm",    "physio_min": 50,  "physio_max": 200 }
+  ],
+  "formula": "fli",
+  "anchors": {
+    "low":           { "value": 30.0, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 45.0, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 60.0, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "fli_score_0_100",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_hepatitis"],
+    "calibration_caveat": "Bedogni 2006 cutoffs (<30 rule out, >=60 rule in) are screening-grade; the indeterminate band 30-60 is genuinely ambiguous."
+  },
+  "derivation_cohort": {
+    "study": "Bedogni 2006",
+    "n": 496,
+    "geography": "Italy",
+    "ethnicity": "European",
+    "outcome": "Hepatic steatosis on ultrasound"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 60.0,
+    "severity": "attention",
+    "wording_key": "fli_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.20
+}

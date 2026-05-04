@@ -1,0 +1,46 @@
+{
+  "score_id": "apob",
+  "display_name": "Apolipoprotein B",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "31504418",
+  "pmid_supporting": ["38253136"],
+  "guideline_anchor": "ESC 2019/2024 dyslipidaemia; AHA 2024 ApoB consensus",
+  "input_variables": [
+    { "name": "apob_mgdl", "unit": "mg/dL", "physio_min": 20, "physio_max": 400 }
+  ],
+  "formula": "apob_passthrough",
+  "anchors": {
+    "low":           { "value": 80,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 100, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 130, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "mg/dL",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": [],
+    "calibration_caveat": "ESC 2019/2024 dyslipidaemia thresholds; UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Sniderman 2019 (ApoB consensus, secondary derivation)",
+    "n": null,
+    "geography": "international",
+    "ethnicity": "mixed",
+    "outcome": "atherogenic-particle measure"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 130,
+    "severity": "attention",
+    "wording_key": "apob_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.30
+}

@@ -1,0 +1,50 @@
+{
+  "score_id": "phenoage",
+  "display_name": "PhenoAge (clinical-chemistry)",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "30596641",
+  "pmid_supporting": [],
+  "guideline_anchor": "Liu 2018 NHANES-IV clinical-chemistry PhenoAge (NOT the DNAm Levine 2018 PhenoAge)",
+  "input_variables": [
+    { "name": "age",                     "unit": "years",   "physio_min": 18, "physio_max": 120 },
+    { "name": "albumin_gdl",             "unit": "g/dL",    "physio_min": 1.0, "physio_max": 6.0 },
+    { "name": "creatinine_mgdl",         "unit": "mg/dL",   "physio_min": 0.2, "physio_max": 20.0 },
+    { "name": "fasting_glucose_mgdl",    "unit": "mg/dL",   "physio_min": 30, "physio_max": 600 },
+    { "name": "hs_crp_mgL",              "unit": "mg/L",    "physio_min": 0.0, "physio_max": 200.0 },
+    { "name": "lymphocyte_pct",          "unit": "%",       "physio_min": 0.0, "physio_max": 80.0 },
+    { "name": "mcv_fL",                  "unit": "fL",      "physio_min": 50.0, "physio_max": 130.0 },
+    { "name": "rdw_pct",                 "unit": "%",       "physio_min": 8.0, "physio_max": 30.0 },
+    { "name": "alkaline_phosphatase_uL", "unit": "U/L",     "physio_min": 5.0, "physio_max": 2000.0 },
+    { "name": "wbc_10e9L",               "unit": "10^9/L",  "physio_min": 0.5, "physio_max": 100.0 }
+  ],
+  "formula": "_phase3_pending",
+  "anchors": {
+    "low":           { "value": -10.0, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 0.0,   "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 10.0,  "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "phenoage_minus_chronological_years",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 30,
+    "max_age": 90,
+    "exclusions": ["pregnancy", "active_malignancy"],
+    "calibration_caveat": "Tier 2 PMID corrected from prior 29676998 (the DNA-methylation PhenoAge -- a different score requiring methylation array) to 30596641 (clinical-chemistry PhenoAge -- the score whose 9-biomarker inputs match this app's input panel) per source-data audit 4 May 2026."
+  },
+  "derivation_cohort": {
+    "study": "Liu 2018",
+    "n": 9926,
+    "geography": "USA",
+    "ethnicity": "mixed",
+    "outcome": "all-cause mortality (NHANES IV + NDI linkage)"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": false,
+  "composite_weight": null
+}

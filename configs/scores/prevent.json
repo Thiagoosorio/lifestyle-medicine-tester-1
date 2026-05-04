@@ -1,0 +1,56 @@
+{
+  "score_id": "prevent",
+  "display_name": "AHA PREVENT 10-year ASCVD",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "37947085",
+  "pmid_supporting": ["38253136"],
+  "guideline_anchor": "AHA PREVENT (Khan 2024); 5% / 7.5% / 20% risk-band cutoffs",
+  "input_variables": [
+    { "name": "age",              "unit": "years",          "physio_min": 30, "physio_max": 79 },
+    { "name": "sex",              "unit": "category" },
+    { "name": "total_chol_mgdl",  "unit": "mg/dL",          "physio_min": 50,  "physio_max": 500 },
+    { "name": "hdl_c_mgdl",       "unit": "mg/dL",          "physio_min": 10,  "physio_max": 200 },
+    { "name": "sbp_mmhg",         "unit": "mmHg",           "physio_min": 70,  "physio_max": 240 },
+    { "name": "bmi",              "unit": "kg/m^2",         "physio_min": 13,  "physio_max": 70 },
+    { "name": "egfr",             "unit": "mL/min/1.73m^2", "physio_min": 5,   "physio_max": 200 },
+    { "name": "diabetes",         "unit": "category" },
+    { "name": "smoking",          "unit": "category" },
+    { "name": "bp_treatment",     "unit": "category" },
+    { "name": "statin",           "unit": "category" }
+  ],
+  "formula": "prevent_ascvd_10yr",
+  "anchors": {
+    "low":           { "value": 5,    "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 7.5,  "q": 0.5, "source": "published" },
+    "high":          { "value": 20,   "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "percent_10yr",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 30,
+    "max_age": 79,
+    "exclusions": ["pregnancy", "documented_ascvd"],
+    "calibration_caveat": "Khan 2024 derivation cohort. UAE recalibration layer (Al-Shamsi 2025) deferred to a later phase; non-UAE users score on PREVENT directly."
+  },
+  "derivation_cohort": {
+    "study": "Khan 2024 (PREVENT pooled cohort)",
+    "n": 6612000,
+    "geography": "USA",
+    "ethnicity": "race-free, mixed",
+    "outcome": "10-year incident ASCVD events"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 20,
+    "severity": "attention",
+    "wording_key": "prevent_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.55
+}

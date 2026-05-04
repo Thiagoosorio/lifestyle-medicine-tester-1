@@ -1,0 +1,49 @@
+{
+  "score_id": "fib4",
+  "display_name": "FIB-4",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "16729309",
+  "pmid_supporting": ["32946642", "38851997"],
+  "guideline_anchor": "AASLD 2023 / EASL-EASD-EASO 2024 stepwise pathway",
+  "input_variables": [
+    { "name": "age",       "unit": "years", "physio_min": 18, "physio_max": 120 },
+    { "name": "ast",       "unit": "U/L",   "physio_min": 0,  "physio_max": 5000 },
+    { "name": "alt",       "unit": "U/L",   "physio_min": 0,  "physio_max": 5000 },
+    { "name": "platelets", "unit": "10^9/L", "physio_min": 1, "physio_max": 1500 }
+  ],
+  "formula": "fib4",
+  "anchors": {
+    "low":           { "value": 1.30,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 1.985, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 2.67,  "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "fib4_units",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 35,
+    "max_age": 79,
+    "exclusions": ["acute_hepatitis", "pregnancy"],
+    "calibration_caveat": "AASLD 2023 cutoffs may misclassify some MASLD cirrhosis cases; UAE calibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Sterling 2006",
+    "n": 832,
+    "geography": "USA",
+    "ethnicity": "mixed",
+    "outcome": "advanced fibrosis (Ishak 4-6) by biopsy"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 2.67,
+    "severity": "attention",
+    "wording_key": "fib4_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.40
+}

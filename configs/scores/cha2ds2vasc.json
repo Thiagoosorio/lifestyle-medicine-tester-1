@@ -1,0 +1,54 @@
+{
+  "score_id": "cha2ds2vasc",
+  "display_name": "CHA2DS2-VASc",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "19762550",
+  "pmid_supporting": [],
+  "guideline_anchor": "ESC 2020/2024 atrial-fibrillation management",
+  "input_variables": [
+    { "name": "age",                          "unit": "years", "physio_min": 18, "physio_max": 120 },
+    { "name": "sex",                          "unit": "category" },
+    { "name": "atrial_fibrillation_status",   "unit": "category" },
+    { "name": "chf_or_lv_dysfunction",        "unit": "category" },
+    { "name": "hypertension",                 "unit": "category" },
+    { "name": "diabetes",                     "unit": "category" },
+    { "name": "stroke_tia_thromboembolism",   "unit": "category" },
+    { "name": "vascular_disease",             "unit": "category" }
+  ],
+  "formula": "cha2ds2_vasc",
+  "anchors": {
+    "low":           { "value": 1, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 2, "q": 0.5, "source": "published" },
+    "high":          { "value": 4, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "points_0_to_9",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": [],
+    "calibration_caveat": "ESC AF stroke-risk score; meaningful only for users with documented atrial fibrillation."
+  },
+  "derivation_cohort": {
+    "study": "Lip 2010 (Euro Heart Survey AF)",
+    "n": 1084,
+    "geography": "Europe",
+    "ethnicity": "predominantly white European",
+    "outcome": "thromboembolic event over 1 year"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": {
+    "field": "raw_inputs.atrial_fibrillation_status",
+    "predicate": "equals",
+    "expected": true,
+    "missing_policy": "fail",
+    "failure_reason_code": "af_not_documented"
+  },
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": false,
+  "composite_weight": null
+}

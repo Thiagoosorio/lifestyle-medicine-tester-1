@@ -1,0 +1,46 @@
+{
+  "score_id": "nafld_fs",
+  "display_name": "NAFLD Fibrosis Score",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "17393509",
+  "pmid_supporting": [],
+  "guideline_anchor": "Angulo 2007 NFS (confirmatory display per methodology Section 1.5)",
+  "input_variables": [
+    { "name": "age",                  "unit": "years", "physio_min": 18, "physio_max": 120 },
+    { "name": "bmi",                  "unit": "kg/m^2", "physio_min": 12, "physio_max": 80 },
+    { "name": "ast",                  "unit": "U/L",   "physio_min": 0, "physio_max": 5000 },
+    { "name": "alt",                  "unit": "U/L",   "physio_min": 1, "physio_max": 5000 },
+    { "name": "platelets",            "unit": "10^9/L", "physio_min": 1, "physio_max": 1500 },
+    { "name": "albumin_gdl",          "unit": "g/dL",  "physio_min": 1.0, "physio_max": 6.0 }
+  ],
+  "formula": "nafld_fs",
+  "anchors": {
+    "low":           { "value": -1.455, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": -0.345, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 0.676,  "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "nfs_score",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 35,
+    "max_age": 120,
+    "exclusions": ["acute_hepatitis", "pregnancy"],
+    "calibration_caveat": "Confirmatory only -- displayed when discordant with FIB-4 to flag uncertainty per methodology Section 1.6."
+  },
+  "derivation_cohort": {
+    "study": "Angulo 2007",
+    "n": 733,
+    "geography": "USA + Europe",
+    "ethnicity": "mixed",
+    "outcome": "advanced fibrosis (F3-F4) by biopsy in NAFLD"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": false,
+  "composite_weight": null
+}

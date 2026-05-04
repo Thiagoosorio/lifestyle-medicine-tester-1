@@ -59,3 +59,40 @@ kdigo_category:
   low:           "Kidney risk band: lower-risk per the KDIGO 2024 heatmap."
   indeterminate: "Kidney risk band: moderately or high risk per the KDIGO 2024 heatmap -- discuss with a clinician."
   high:          "Kidney risk band: very-high risk per the KDIGO 2024 heatmap. Discuss specialist referral with a clinician."
+
+# Cardiovascular organ panel.
+prevent:
+  low:           "Lower-risk band on the AHA PREVENT 10-year cardiovascular score."
+  indeterminate: "Intermediate band on the AHA PREVENT 10-year cardiovascular score -- discuss lifestyle steps with a clinician."
+  high:          "Higher-risk band on the AHA PREVENT 10-year cardiovascular score. Discuss with a clinician."
+
+apob:
+  low:           "Apolipoprotein B is in the lower-risk band per the ESC 2019/2024 cutoffs."
+  indeterminate: "Apolipoprotein B is in the borderline band -- discuss with a clinician."
+  high:          "Apolipoprotein B is in the higher-risk band. Discuss with a clinician."
+
+lpa:
+  low:           "Lipoprotein(a) is in the lower-risk band per the AHA 2022 / EAS 2022 cutoffs."
+  indeterminate: "Lipoprotein(a) is in the intermediate band -- discuss with a clinician."
+  high:          "Lipoprotein(a) is in the higher-risk band. Discuss specialist referral with a clinician."
+
+cha2ds2vasc:
+  low:           "Lower-risk band on the AF stroke-risk score."
+  indeterminate: "Intermediate band on the AF stroke-risk score -- discuss anticoagulation options with a clinician."
+  high:          "Higher-risk band on the AF stroke-risk score. Discuss anticoagulation options with a clinician."
+
+# System-wide and bone/muscle (Tier-2 promotion).
+hb_rdw:
+  low:           "Haemoglobin and red-cell distribution width are in the lower-risk band per the WHO 2011 / Patel 2010 cutoffs."
+  indeterminate: "Haemoglobin and red-cell distribution width sit in the intermediate band -- discuss with a clinician."
+  high:          "Haemoglobin and red-cell distribution width sit in the higher-risk band. Discuss with a clinician."
+
+qfracture_hip:
+  low:           "Lower-risk band on the QFracture 10-year hip-fracture screen."
+  indeterminate: "Intermediate band on the QFracture 10-year hip-fracture screen -- discuss bone-health steps with a clinician."
+  high:          "Higher-risk band on the QFracture 10-year hip-fracture screen. Discuss with a clinician."
+
+qfracture_major:
+  low:           "Lower-risk band on the QFracture 10-year major-fracture screen."
+  indeterminate: "Intermediate band on the QFracture 10-year major-fracture screen -- discuss bone-health steps with a clinician."
+  high:          "Higher-risk band on the QFracture 10-year major-fracture screen. Discuss with a clinician."

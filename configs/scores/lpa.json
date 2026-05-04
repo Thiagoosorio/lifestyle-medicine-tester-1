@@ -1,0 +1,46 @@
+{
+  "score_id": "lpa",
+  "display_name": "Lipoprotein(a)",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "34818833",
+  "pmid_supporting": ["36404761"],
+  "guideline_anchor": "AHA 2022 scientific statement; EAS 2022 consensus",
+  "input_variables": [
+    { "name": "lpa_mgdl", "unit": "mg/dL", "physio_min": 0, "physio_max": 800 }
+  ],
+  "formula": "lpa_passthrough",
+  "anchors": {
+    "low":           { "value": 30, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 50, "q": 0.5, "source": "published" },
+    "high":          { "value": 75, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "mg/dL",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": [],
+    "calibration_caveat": "AHA 2022 / EAS 2022 thresholds; mass-based assay; SI nmol/L users should convert before scoring."
+  },
+  "derivation_cohort": {
+    "study": "Reyes-Soffer 2022 (AHA scientific statement)",
+    "n": null,
+    "geography": "international",
+    "ethnicity": "mixed",
+    "outcome": "ASCVD-event association (causal genetic evidence)"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 75,
+    "severity": "attention",
+    "wording_key": "lpa_high_band"
+  },
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.15
+}

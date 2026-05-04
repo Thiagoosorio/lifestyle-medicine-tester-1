@@ -1,0 +1,78 @@
+{
+  "score_id": "amap",
+  "display_name": "aMAP HCC Risk",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "32707225",
+  "pmid_supporting": [],
+  "guideline_anchor": "Liu 2020 aMAP score",
+  "input_variables": [
+    { "name": "age",                  "unit": "years", "physio_min": 18,  "physio_max": 120 },
+    { "name": "sex",                  "unit": "category", "physio_min": null, "physio_max": null },
+    { "name": "total_bilirubin_mgdl", "unit": "mg/dL", "physio_min": 0.1, "physio_max": 50.0 },
+    { "name": "albumin_gdl",          "unit": "g/dL",  "physio_min": 1.0, "physio_max": 6.0 },
+    { "name": "platelets",            "unit": "10^9/L", "physio_min": 1, "physio_max": 1500 }
+  ],
+  "formula": "amap",
+  "anchors": {
+    "low":           { "value": 50.0, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 55.0, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 60.0, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "amap_score_0_100",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_hepatitis", "pregnancy"],
+    "calibration_caveat": "Liu 2020 was derived in chronic liver disease (HBV/HCV/MASLD) cohorts; the eligibility gate restricts use to documented CLD or MASLD-screening evidence (FIB-4 + FLI)."
+  },
+  "derivation_cohort": {
+    "study": "Liu 2020",
+    "n": 17374,
+    "geography": "China + multinational",
+    "ethnicity": "mixed",
+    "outcome": "Hepatocellular carcinoma incidence in chronic liver disease"
+  },
+  "epsilon_override": null,
+  "red_flag": {
+    "trigger": ">=",
+    "threshold": 60.0,
+    "severity": "attention",
+    "wording_key": "amap_high_band"
+  },
+  "gate_requirements": {
+    "any_of": [
+      {
+        "field": "raw_inputs.chronic_liver_disease_status",
+        "predicate": "equals",
+        "expected": true,
+        "missing_policy": "skip",
+        "failure_reason_code": "cld_not_documented"
+      },
+      {
+        "all_of": [
+          {
+            "field": "score_results.fib4.raw_value",
+            "predicate": "ge",
+            "expected": 1.3,
+            "missing_policy": "fail",
+            "failure_reason_code": "fib4_unavailable_or_low"
+          },
+          {
+            "field": "score_results.fli.raw_value",
+            "predicate": "ge",
+            "expected": 60,
+            "missing_policy": "fail",
+            "failure_reason_code": "fli_unavailable_or_low"
+          }
+        ]
+      }
+    ]
+  },
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.20
+}
