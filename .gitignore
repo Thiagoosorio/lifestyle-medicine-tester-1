@@ -4,3 +4,6 @@ __pycache__/
 *.db
 .streamlit/secrets.toml
 reports/quality_loop/
+
+# project-local pytest tempdir for tests that bypass tmp_path on Windows
+.codex_test_tmp/

@@ -1,7 +1,15 @@
 from datetime import datetime, timedelta, timezone
+import os
+import shutil
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import services.wearable_wheel_service as wws
+
+
+_PROJECT_ROOT = Path(os.path.dirname(os.path.dirname(__file__)))
+_TEST_TEMP_ROOT = _PROJECT_ROOT / ".codex_test_tmp"
 
 
 # Test fixtures used to hardcode _RECENT_TS everywhere. That worked
@@ -274,8 +282,13 @@ def test_missing_required_codes_are_exposed_for_ui_coaching(db_conn, monkeypatch
     assert "steps_count" in hm_missing
 
 
-def test_legacy_wearable_table_without_source_is_self_healed(tmp_path, monkeypatch):
-    db_path = tmp_path / "legacy_wearable.db"
+def test_legacy_wearable_table_without_source_is_self_healed(monkeypatch):
+    # Use a project-local tempdir to dodge Windows-specific permission issues
+    # with the system-wide pytest-of-<user> root that occasionally locks up
+    # under antivirus / OneDrive scanning.
+    _TEST_TEMP_ROOT.mkdir(exist_ok=True)
+    case_dir = Path(tempfile.mkdtemp(prefix="legacy-wearable-", dir=_TEST_TEMP_ROOT))
+    db_path = case_dir / "legacy_wearable.db"
 
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
@@ -350,3 +363,4 @@ def test_legacy_wearable_table_without_source_is_self_healed(tmp_path, monkeypat
         verify_conn.close()
 
     assert "source" in columns
+    shutil.rmtree(case_dir, ignore_errors=True)

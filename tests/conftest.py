@@ -1,22 +1,31 @@
 """Shared pytest fixtures for Lifestyle Medicine app tests.
 
 Provides an isolated SQLite database per test function by:
-1. Creating a fresh DB from schema.sql + migrations in a tmp directory
+1. Creating a fresh DB from schema.sql + migrations in a temp directory
 2. Monkeypatching db.database.get_connection so all app code uses the test DB
 """
 
 import os
+import shutil
 import sqlite3
+import tempfile
+from pathlib import Path
+
 import pytest
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 _SCHEMA_PATH = os.path.join(_PROJECT_ROOT, "db", "schema.sql")
 
 
+_TEST_TEMP_ROOT = Path(_PROJECT_ROOT) / ".codex_test_tmp"
+
+
 @pytest.fixture
-def db_conn(tmp_path, monkeypatch):
+def db_conn(monkeypatch):
     """Yield a factory that returns connections to a fresh, isolated test DB."""
-    db_path = str(tmp_path / "test.db")
+    _TEST_TEMP_ROOT.mkdir(exist_ok=True)
+    case_dir = Path(tempfile.mkdtemp(prefix="db-fixture-", dir=_TEST_TEMP_ROOT))
+    db_path = str(case_dir / "test.db")
 
     def _get_test_connection():
         conn = sqlite3.connect(db_path)
@@ -60,7 +69,10 @@ def db_conn(tmp_path, monkeypatch):
     import seed_demo
     monkeypatch.setattr(seed_demo, "get_connection", _get_test_connection, raising=False)
 
-    yield _get_test_connection
+    try:
+        yield _get_test_connection
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
 
 
 def _run_test_migrations(conn, db_mod):

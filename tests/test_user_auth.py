@@ -1,5 +1,8 @@
 import os
+import shutil
 import sqlite3
+import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -8,11 +11,14 @@ import models.user as user_model
 
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 _SCHEMA_PATH = os.path.join(_PROJECT_ROOT, "db", "schema.sql")
+_TEST_TEMP_ROOT = Path(_PROJECT_ROOT) / ".codex_test_tmp"
 
 
 @pytest.fixture
-def user_db(tmp_path, monkeypatch):
-    db_path = str(tmp_path / "users.db")
+def user_db(monkeypatch):
+    _TEST_TEMP_ROOT.mkdir(exist_ok=True)
+    case_dir = Path(tempfile.mkdtemp(prefix="user-auth-", dir=_TEST_TEMP_ROOT))
+    db_path = str(case_dir / "users.db")
 
     def _get_test_connection():
         conn = sqlite3.connect(db_path)
@@ -27,7 +33,10 @@ def user_db(tmp_path, monkeypatch):
     conn.close()
 
     monkeypatch.setattr(user_model, "get_connection", _get_test_connection)
-    return _get_test_connection
+    try:
+        yield _get_test_connection
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
 
 
 def test_create_user_normalizes_username_and_supports_case_insensitive_login(user_db):
