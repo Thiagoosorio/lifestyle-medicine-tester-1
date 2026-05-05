@@ -116,36 +116,89 @@ def _build_raw_inputs(biomarkers: dict, clinical: dict) -> dict:
     if clinical.get("waist_cm") is not None:
         raw_inputs["waist_cm"] = clinical.get("waist_cm")
 
-    # behavioural / clinical flags (all default to False if absent).
-    flag_passthrough = (
-        "smoking", "bp_treatment", "statin", "diabetes",
-        "atrial_fibrillation_status",
-        "chf_or_lv_dysfunction", "hypertension",
-        "stroke_tia_thromboembolism", "vascular_disease",
-        "chronic_liver_disease_status", "diabetes_status", "diabetes_or_ifg",
-        "physically_active",
-        "snoring_loud", "tired_daytime", "observed_apnoea",
-        "high_bp_or_treated",
-        "fatigue", "resistance_difficulty_stairs",
-        "aerobic_difficulty_walking_block", "loss_of_weight_5pct",
-        "daily_activity_30min", "daily_fruit_veg",
-        "on_bp_medication", "history_high_glucose",
-    )
-    for k in flag_passthrough:
-        if k in clinical and clinical[k] is not None:
-            raw_inputs[k] = clinical[k]
+    # eGFR derivation: the existing biomarker store carries `creatinine`
+    # but not always `egfr`. KDIGO / PREVENT / KFRE all need `egfr` as
+    # a raw_input (in mL/min/1.73m^2), so derive it from creatinine +
+    # age + sex via CKD-EPI 2021 when not already supplied.
+    if "egfr" not in raw_inputs:
+        scr = raw_inputs.get("serum_creatinine_mgdl")
+        age = raw_inputs.get("age")
+        sex = raw_inputs.get("sex")
+        if scr is not None and age is not None and isinstance(sex, str):
+            try:
+                from healthscore.scores.kidney import _calc_ckd_epi_2021
+                female = sex.strip().lower().startswith("f")
+                raw_inputs["egfr"] = _calc_ckd_epi_2021(
+                    float(scr), float(age), sex_is_female=female,
+                )
+            except (TypeError, ValueError, ZeroDivisionError):
+                pass
 
-    # numeric clinical with sensible defaults
+    # ── Clinical-profile field mapping ──
+    # The existing app's clinical_profile schema uses different field
+    # names than the greenfield raw_inputs. Map explicitly so a missing
+    # mapping is visible as a code change, not a silent data drop.
+    # Existing-app key  ->  greenfield raw_inputs key (one entry per
+    # mapping; both directions if greenfield uses two names).
+    flag_map = {
+        "diabetes_status":          ("diabetes",),
+        "smoking_status":           None,           # special-cased below
+        "on_bp_medication":         ("bp_treatment", "on_bp_medication"),
+        "on_statin":                ("statin",),
+        "atrial_fibrillation":      ("atrial_fibrillation_status",),
+        "congestive_heart_failure": ("chf_or_lv_dysfunction",),
+        "vascular_disease":         ("vascular_disease",),
+        "prior_stroke_tia":         ("stroke_tia_thromboembolism",),
+        "chronic_liver_disease":    ("chronic_liver_disease_status",),
+        "loud_snoring":             ("snoring_loud",),
+        "physical_activity_level":  None,           # special-cased below
+        "family_history_diabetes":  ("family_history_diabetes",),
+        "daily_activity_30min":     ("daily_activity_30min",),
+        "daily_fruit_veg":          ("daily_fruit_veg",),
+        "history_high_glucose":     ("history_high_glucose",),
+        "education_years":          ("education_years",),
+        "neck_circumference_cm":    ("neck_circumference_cm",),
+    }
+    for src_key, dst_keys in flag_map.items():
+        if dst_keys is None:
+            continue
+        v = clinical.get(src_key)
+        if v is None:
+            continue
+        # Coerce 0/1 int flags to bool for greenfield's _flag() helper.
+        if isinstance(v, int) and not isinstance(v, bool) and v in (0, 1):
+            v = bool(v)
+        for dst in dst_keys:
+            raw_inputs[dst] = v
+
+    # smoking: existing app's smoking_status is 'never' / 'former' /
+    # 'current'; greenfield wants a bool meaning "currently smoking."
+    smoking_status = (clinical.get("smoking_status") or "").strip().lower()
+    raw_inputs["smoking"] = smoking_status == "current"
+
+    # physically_active: existing app has 'sedentary' / 'light' / 'active' /
+    # 'very_active'. CAIDE wants True if user is active.
+    activity = (clinical.get("physical_activity_level") or "").strip().lower()
+    raw_inputs["physically_active"] = activity in ("active", "very_active")
+
+    # systolic BP -> sbp_mmhg
     if clinical.get("systolic_bp") is not None:
         raw_inputs["sbp_mmhg"] = clinical["systolic_bp"]
-    if clinical.get("education_years") is not None:
-        raw_inputs["education_years"] = clinical["education_years"]
-    if clinical.get("family_history_diabetes"):
-        raw_inputs["family_history_diabetes"] = clinical["family_history_diabetes"]
-    if clinical.get("illness_count") is not None:
-        raw_inputs["illness_count"] = clinical["illness_count"]
-    if clinical.get("neck_circumference_cm") is not None:
-        raw_inputs["neck_circumference_cm"] = clinical["neck_circumference_cm"]
+
+    # Derive composite flags greenfield expects:
+    #   hypertension = SBP >= 140 OR on BP medication
+    #   high_bp_or_treated = same (STOP-BANG input)
+    sbp = raw_inputs.get("sbp_mmhg")
+    on_bp = raw_inputs.get("on_bp_medication", False)
+    hypertensive = bool(on_bp) or (sbp is not None and float(sbp) >= 140)
+    raw_inputs["hypertension"] = hypertensive
+    raw_inputs["high_bp_or_treated"] = hypertensive
+
+    # diabetes_or_ifg = diabetes diagnosed OR history of high glucose.
+    raw_inputs["diabetes_or_ifg"] = bool(
+        raw_inputs.get("diabetes")
+        or raw_inputs.get("history_high_glucose")
+    )
 
     # locale (default to en; existing app does not yet store locale per user)
     raw_inputs["locale"] = clinical.get("locale") or "en"
