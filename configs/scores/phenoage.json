@@ -40,6 +40,11 @@
     "outcome": "all-cause mortality (NHANES IV + NDI linkage)"
   },
   "epsilon_override": null,
+  "output_clamp": {
+    "min": -25,
+    "max": 25,
+    "rationale": "gompertz_tail"
+  },
   "red_flag": null,
   "gate_requirements": null,
   "confidence": "high",

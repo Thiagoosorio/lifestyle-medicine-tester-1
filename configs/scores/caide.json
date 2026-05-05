@@ -1,0 +1,47 @@
+{
+  "score_id": "caide",
+  "display_name": "CAIDE Dementia Risk Score",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "17005158",
+  "pmid_supporting": [],
+  "guideline_anchor": "Kivipelto 2006 derivation (CAIDE midlife dementia risk)",
+  "input_variables": [
+    { "name": "age",                "unit": "years",   "physio_min": 18, "physio_max": 120 },
+    { "name": "sex",                "unit": "category" },
+    { "name": "education_years",    "unit": "years",   "physio_min": 0,  "physio_max": 30 },
+    { "name": "sbp_mmhg",           "unit": "mmHg",    "physio_min": 70, "physio_max": 240 },
+    { "name": "bmi",                "unit": "kg/m^2",  "physio_min": 13, "physio_max": 70 },
+    { "name": "total_chol_mgdl",    "unit": "mg/dL",   "physio_min": 50, "physio_max": 500 },
+    { "name": "physically_active",  "unit": "category" }
+  ],
+  "formula": "caide",
+  "anchors": {
+    "low":           { "value": 4,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 8,  "q": 0.5, "source": "published" },
+    "high":          { "value": 11, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "caide_points_0_to_15",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 39,
+    "max_age": 70,
+    "exclusions": ["existing_dementia_diagnosis"],
+    "calibration_caveat": "Kivipelto 2006 derivation in Finnish midlife cohort followed for ~20 years. Score is calibrated for ages ~39-64; use outside this range with caution. UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Kivipelto 2006",
+    "n": 1409,
+    "geography": "Finland",
+    "ethnicity": "Finnish",
+    "outcome": "incident dementia at 20-year follow-up"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.25
+}

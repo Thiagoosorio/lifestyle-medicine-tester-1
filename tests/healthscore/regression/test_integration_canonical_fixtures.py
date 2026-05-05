@@ -45,6 +45,8 @@ _LIVER_MEMBERS = ("fib4", "albi", "amap", "fli")
 _KIDNEY_MEMBERS = ("egfr", "kfre", "kdigo_category")
 _CVD_MEMBERS = ("prevent", "apob", "lpa")
 _SYSTEM_WIDE_MEMBERS = ("phenoage", "hb_rdw", "sii", "frail_scale", "stop_bang")
+_METABOLIC_MEMBERS = ("homa_ir", "mets_ir", "tyg", "findrisc", "vai", "lap")
+_BRAIN_MEMBERS = ("moca", "caide", "phq9", "gad7", "homocysteine")
 
 
 @pytest.fixture(scope="module")
@@ -113,7 +115,19 @@ def _healthy_43yo_female_inputs() -> dict[str, object]:
         "neck_circumference_cm": 32,
         "snoring_loud": False, "tired_daytime": False,
         "observed_apnoea": False, "high_bp_or_treated": False,
-        "moca_score": 28,
+        "moca_score": 28, "mmse_score": 28,
+        # metabolic panel
+        "fasting_insulin_uIUmL": 6,
+        "daily_activity_30min": True, "daily_fruit_veg": True,
+        "on_bp_medication": False, "history_high_glucose": False,
+        "family_history_diabetes": "none",
+        # brain panel
+        "education_years": 16, "physically_active": True,
+        "homocysteine_umol_L": 9.5,
+        **{f"phq9_q{i}": 0 for i in range(1, 10)},
+        **{f"gad7_q{i}": 0 for i in range(1, 8)},
+        # locale
+        "locale": "en",
     }
 
 
@@ -166,6 +180,18 @@ def test_fixture_a_healthy_43yo_female_full_pipeline(
     assert results["nosas"].status is ScoreStatus.UNAVAILABLE
     assert results["nosas"].active_instrument == "stop_bang"
 
+    # Metabolic + brain panel composite-member sanity (Phase 5).
+    for sid in _METABOLIC_MEMBERS:
+        assert results[sid].status is ScoreStatus.OK, (
+            f"{sid}: {results[sid].status} ({results[sid].reason})"
+        )
+    # Active cognitive instrument (MoCA) computes; MMSE UNAVAILABLE.
+    for sid in ("caide", "phq9", "gad7", "homocysteine", "moca"):
+        assert results[sid].status is ScoreStatus.OK, (
+            f"{sid}: {results[sid].status} ({results[sid].reason})"
+        )
+    assert results["mmse"].status is ScoreStatus.UNAVAILABLE
+
     # Every shipped organ aggregator produces a value.
     liver = _organ(configs, results, "liver", "heart_metab", _LIVER_MEMBERS)
     kidney = _organ(configs, results, "kidney", "heart_metab", _KIDNEY_MEMBERS)
@@ -173,6 +199,11 @@ def test_fixture_a_healthy_43yo_female_full_pipeline(
     system_wide = _organ(
         configs, results, "system_wide", "system_wide", _SYSTEM_WIDE_MEMBERS,
     )
+    metabolic = _organ(
+        configs, results, "metabolic", "heart_metab", _METABOLIC_MEMBERS,
+    )
+    brain = _organ(configs, results, "brain", "brain", _BRAIN_MEMBERS)
+
     # Healthy user should land in upper-band per panel: kidney composite
     # has KFRE GATED (eGFR > 60), but eGFR + KDIGO contribute strongly
     # so the composite should be > 70.
@@ -180,9 +211,11 @@ def test_fixture_a_healthy_43yo_female_full_pipeline(
     assert kidney.spec_a_value is not None and kidney.spec_a_value > 70
     assert cvd.spec_a_value is not None and cvd.spec_a_value > 70
     assert system_wide.spec_a_value is not None and system_wide.spec_a_value > 60
+    assert metabolic.spec_a_value is not None and metabolic.spec_a_value > 70
+    assert brain.spec_a_value is not None and brain.spec_a_value > 70
 
     # Methodology §1.3: spec A == spec B at organ level.
-    for o in (liver, kidney, cvd, system_wide):
+    for o in (liver, kidney, cvd, system_wide, metabolic, brain):
         assert abs(o.spec_a_value - o.spec_b_value) < 0.01
 
     # Healthy user: KFRE gated; CHA2DS2-VASc gated.

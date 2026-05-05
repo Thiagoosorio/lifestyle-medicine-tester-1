@@ -36,6 +36,6 @@
   "confidence": "low",
   "instrument_slot": "cognitive",
   "version": "2026.1",
-  "composite_member": false,
-  "composite_weight": null
+  "composite_member": true,
+  "composite_weight": 0.30
 }

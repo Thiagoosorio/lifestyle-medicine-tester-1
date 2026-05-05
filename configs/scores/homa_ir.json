@@ -1,0 +1,42 @@
+{
+  "score_id": "homa_ir",
+  "display_name": "HOMA-IR",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "3899825",
+  "pmid_supporting": [],
+  "guideline_anchor": "Matthews 1985 derivation",
+  "input_variables": [
+    { "name": "fasting_insulin_uIUmL", "unit": "uIU/mL", "physio_min": 0,    "physio_max": 200 },
+    { "name": "fasting_glucose_mgdl",  "unit": "mg/dL",  "physio_min": 30,   "physio_max": 600 }
+  ],
+  "formula": "homa_ir",
+  "anchors": {
+    "low":           { "value": 1.0, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 2.0, "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 3.0, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "homa_ir_units",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["type1_diabetes", "exogenous_insulin_therapy", "pregnancy"],
+    "calibration_caveat": "Cutoffs are population-dependent; UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Matthews 1985",
+    "n": null,
+    "geography": "UK",
+    "ethnicity": "predominantly white European",
+    "outcome": "insulin sensitivity model"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "high",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.20
+}

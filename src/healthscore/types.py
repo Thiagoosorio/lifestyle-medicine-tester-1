@@ -65,6 +65,9 @@ class ScoreResult:
     reason: str | None                                       # for non-OK statuses; not user-facing
     wording: str | None                                      # rendered, regulator-safe; user-facing
     calibration_banner: str | None = None                    # §5.5; e.g. UAE-PREVENT pending recalibration
+    raw_value_unclamped: Decimal | None = None               # output_clamp audit; equals raw_value when no clamp applied
+    output_clamped: bool = False                             # True iff output_clamp activated this run
+    language_cutoff_active: str | None = None                # "en" / "ar" when language_anchor_overrides applied; None otherwise
 
 
 @dataclass(frozen=True, slots=True)

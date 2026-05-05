@@ -25,9 +25,11 @@ from __future__ import annotations
 from typing import Callable, Mapping
 
 from healthscore.scores import bone_muscle as _bone_muscle
+from healthscore.scores import brain as _brain
 from healthscore.scores import cardiovascular as _cvd
 from healthscore.scores import kidney as _kidney
 from healthscore.scores import liver as _liver
+from healthscore.scores import metabolic as _metabolic
 from healthscore.scores import system_wide as _system_wide
 
 #: ``ScoreConfig.formula`` -> formula callable.
@@ -51,6 +53,18 @@ FORMULA_REGISTRY: dict[str, Callable[..., object]] = {
     "apob_passthrough": _cvd.calc_apob_passthrough,
     "lpa_passthrough": _cvd.calc_lpa_passthrough,
     "prevent_ascvd_10yr": _cvd.calc_prevent_ascvd_10yr,
+    # metabolic
+    "homa_ir": _metabolic.calc_homa_ir,
+    "mets_ir": _metabolic.calc_mets_ir,
+    "tyg":     _metabolic.calc_tyg,
+    "findrisc": _metabolic.calc_findrisc,
+    "vai":     _metabolic.calc_vai,
+    "lap":     _metabolic.calc_lap,
+    # brain
+    "phq9":     _brain.calc_phq9,
+    "gad7":     _brain.calc_gad7,
+    "caide":    _brain.calc_caide,
+    "homocysteine_passthrough": _brain.calc_homocysteine_passthrough,
     # bone & muscle (Tier 2 promotion)
     "qfracture_major": _bone_muscle.calc_qfracture_major,
     "qfracture_hip": _bone_muscle.calc_qfracture_hip,

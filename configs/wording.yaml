@@ -137,3 +137,55 @@ mmse:
   low:           "Cognitive screen (MMSE, fallback): in the lower-deficit band."
   indeterminate: "Cognitive screen (MMSE, fallback): intermediate band -- discuss with a clinician."
   high:          "Cognitive screen (MMSE, fallback): higher-deficit band. Discuss specialist referral with a clinician."
+
+# Metabolic organ panel.
+homa_ir:
+  low:           "Insulin sensitivity is in the lower-risk band on this screen."
+  indeterminate: "Insulin sensitivity is in the borderline band -- discuss lifestyle steps with a clinician."
+  high:          "Insulin resistance signal is in the higher-risk band. Discuss lifestyle steps with a clinician."
+
+mets_ir:
+  low:           "METS-IR is in the lower-risk band on this insulin-resistance screen."
+  indeterminate: "METS-IR is in the intermediate band on this insulin-resistance screen -- discuss lifestyle steps with a clinician."
+  high:          "METS-IR is in the higher-risk band on this insulin-resistance screen. Discuss lifestyle steps with a clinician."
+
+tyg:
+  low:           "TyG index is in the lower-risk band on this insulin-resistance screen."
+  indeterminate: "TyG index is in the intermediate band on this insulin-resistance screen -- discuss lifestyle steps with a clinician."
+  high:          "TyG index is in the higher-risk band on this insulin-resistance screen. Discuss lifestyle steps with a clinician."
+
+findrisc:
+  low:           "Lower-risk band on the FINDRISC 10-year diabetes screen."
+  indeterminate: "Intermediate band on the FINDRISC 10-year diabetes screen -- discuss lifestyle steps with a clinician."
+  high:          "Higher-risk band on the FINDRISC 10-year diabetes screen. Discuss lifestyle steps with a clinician."
+
+vai:
+  low:           "Visceral adiposity index is in the lower-risk band."
+  indeterminate: "Visceral adiposity index is in the intermediate band -- discuss lifestyle steps with a clinician."
+  high:          "Visceral adiposity index is in the higher-risk band. Discuss lifestyle steps with a clinician."
+
+lap:
+  low:           "Lipid accumulation product is in the lower-risk band."
+  indeterminate: "Lipid accumulation product is in the intermediate band -- discuss lifestyle steps with a clinician."
+  high:          "Lipid accumulation product is in the higher-risk band. Discuss lifestyle steps with a clinician."
+
+# Brain organ panel.
+phq9:
+  low:           "Depression screen (PHQ-9) is in the lower band."
+  indeterminate: "Depression screen (PHQ-9) is in the intermediate band -- discuss with a clinician."
+  high:          "Depression screen (PHQ-9) is in the higher band. Discuss with a clinician."
+
+gad7:
+  low:           "Anxiety screen (GAD-7) is in the lower band."
+  indeterminate: "Anxiety screen (GAD-7) is in the intermediate band -- discuss with a clinician."
+  high:          "Anxiety screen (GAD-7) is in the higher band. Discuss with a clinician."
+
+caide:
+  low:           "Lower-risk band on the CAIDE midlife dementia-risk score."
+  indeterminate: "Intermediate band on the CAIDE midlife dementia-risk score -- discuss lifestyle steps with a clinician."
+  high:          "Higher-risk band on the CAIDE midlife dementia-risk score. Discuss lifestyle steps with a clinician."
+
+homocysteine:
+  low:           "Homocysteine is in the lower-risk band."
+  indeterminate: "Homocysteine is in the intermediate band -- discuss with a clinician (B12 / folate review)."
+  high:          "Homocysteine is in the higher-risk band. Discuss with a clinician (B12 / folate review)."

@@ -105,6 +105,48 @@ class RedFlagSpec(BaseModel):
     wording_key: str
 
 
+class LanguageAnchorOverrideSpec(BaseModel):
+    """Per-locale anchor + confidence override (Phase 5; methodology §5.5).
+
+    Used to apply Arabic-language cutoffs (PHQ-9 ≥9, GAD-7 ≥6, MoCA ≤22)
+    that differ from the English defaults. The override carries:
+      - anchors:             a complete AnchorsSpec for this locale;
+      - confidence_override: optional confidence override (e.g.
+                             "single_source" for low-confidence Arabic
+                             cutoffs from a single Saudi cancer cohort).
+    """
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    anchors: "AnchorsSpec"
+    confidence_override: Literal["high", "moderate", "low", "single_source"] | None = None
+
+
+class OutputClampSpec(BaseModel):
+    """Per-score formula-output clamp (commitments_log #22, 4 May 2026).
+
+    Applies BEFORE distance-to-cutoff normalisation. Audit log records both
+    unclamped and clamped values; activation forces ``confidence: low`` and
+    sets ``reason = "output_clamped:<rationale_tag>"``.
+
+    Used to keep tail-extreme Gompertz outputs (PhenoAge < -25 or > +25
+    years acceleration) within a band the wellness positioning can support
+    -- the formula's behaviour at population-distribution tails is not what
+    the published paper claims to estimate.
+    """
+    model_config = ConfigDict(frozen=True, extra="forbid")
+    min: Decimal
+    max: Decimal
+    rationale: str
+
+    @model_validator(mode="after")
+    def _min_below_max(self) -> "OutputClampSpec":
+        if self.min >= self.max:
+            raise ValueError(
+                f"output_clamp.min ({self.min}) must be strictly less than "
+                f"output_clamp.max ({self.max})"
+            )
+        return self
+
+
 class ScoreConfig(BaseModel):
     """Validated score config loaded from configs/scores/<score_id>.json."""
 
@@ -125,6 +167,8 @@ class ScoreConfig(BaseModel):
     applicable_population: ApplicablePopulationSpec | None = None
     derivation_cohort: DerivationCohortSpec | None = None
     epsilon_override: float | None = None
+    output_clamp: OutputClampSpec | None = None
+    language_anchor_overrides: dict[str, LanguageAnchorOverrideSpec] | None = None
     red_flag: RedFlagSpec | None = None
     gate_requirements: Any = None           # parsed via parse_gate_spec
     confidence: Literal["high", "moderate", "low", "single_source"]

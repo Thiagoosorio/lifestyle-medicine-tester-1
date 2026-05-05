@@ -187,6 +187,25 @@ def evaluate_score(
             wording=None,
         )
 
+    # 3b. Output clamp (commitments_log #22, 4 May 2026). Applied BEFORE
+    # normalisation so the q-mapping operates on the clamped value; the
+    # unclamped value is preserved for audit. Activation forces
+    # confidence=low and stamps reason="output_clamped:<rationale>".
+    raw_value_unclamped = raw_value
+    output_clamped = False
+    clamp_reason: str | None = None
+    if config.output_clamp is not None:
+        clamp_min = config.output_clamp.min
+        clamp_max = config.output_clamp.max
+        if raw_value < clamp_min:
+            raw_value = clamp_min
+            output_clamped = True
+        elif raw_value > clamp_max:
+            raw_value = clamp_max
+            output_clamped = True
+        if output_clamped:
+            clamp_reason = f"output_clamped:{config.output_clamp.rationale}"
+
     # 4. Normalise
     if config.anchors is None:
         # Non-continuous-3anchor kinds aren't implemented in Phase 2.
@@ -209,26 +228,54 @@ def evaluate_score(
             wording=None,
         )
 
+    # 4a. Language-anchor override (Phase 5; methodology §5.5).
+    # If the user's locale matches a configured language override, use
+    # those anchors and stamp the audit field. Confidence may be
+    # overridden (e.g. Arabic single-source -> "single_source" tag).
+    locale_raw = raw_inputs.get("locale")
+    locale_for_anchors = (
+        locale_raw.strip().lower()
+        if isinstance(locale_raw, str) and locale_raw.strip()
+        else "en"
+    )
+    active_anchors = config.anchors
+    language_cutoff_active: str | None = None
+    language_confidence_override: str | None = None
+    if (
+        config.language_anchor_overrides is not None
+        and locale_for_anchors in config.language_anchor_overrides
+    ):
+        override = config.language_anchor_overrides[locale_for_anchors]
+        active_anchors = override.anchors
+        language_cutoff_active = locale_for_anchors
+        language_confidence_override = override.confidence_override
+    elif config.language_anchor_overrides is not None:
+        # User has a configured override set but a locale outside it
+        # (e.g. "fr" when only "ar" is configured): default to "en"
+        # anchors; record "en" so the audit log shows the anchor set
+        # was deliberately the English default.
+        language_cutoff_active = "en"
+
     outcome = normalise_distance_to_cutoff(
         raw_value,
-        low_value=config.anchors.low.value,
-        indeterminate_value=config.anchors.indeterminate.value,
-        high_value=config.anchors.high.value,
-        low_source=config.anchors.low.source,
-        indeterminate_source=config.anchors.indeterminate.source,
-        high_source=config.anchors.high.source,
+        low_value=active_anchors.low.value,
+        indeterminate_value=active_anchors.indeterminate.value,
+        high_value=active_anchors.high.value,
+        low_source=active_anchors.low.source,
+        indeterminate_source=active_anchors.indeterminate.source,
+        high_source=active_anchors.high.source,
     )
 
     risk_band = _risk_band_from_q(outcome.q)
     anchors_used = (
-        config.anchors.low.value,
-        config.anchors.indeterminate.value,
-        config.anchors.high.value,
+        active_anchors.low.value,
+        active_anchors.indeterminate.value,
+        active_anchors.high.value,
     )
     anchor_sources = (
-        config.anchors.low.source,
-        config.anchors.indeterminate.source,
-        config.anchors.high.source,
+        active_anchors.low.source,
+        active_anchors.indeterminate.source,
+        active_anchors.high.source,
     )
 
     # 5. Wording
@@ -247,6 +294,23 @@ def evaluate_score(
                 confidence_for_result = "low"
                 reason_for_result = slot.fallback_reason
 
+    # Output-clamp confidence demotion (commitments_log #22). When the
+    # formula output was clamped, drop confidence to "low" and stamp the
+    # reason. If a fallback already lowered confidence, the clamp reason
+    # supersedes (more specific). Both states never co-occur in practice
+    # (instrument-slot scores are not Gompertz-tail-prone).
+    if output_clamped:
+        confidence_for_result = "low"
+        reason_for_result = clamp_reason
+
+    # Language-anchor confidence override (Phase 5). Applies when the
+    # locale-specific override carried a confidence_override (e.g.
+    # Arabic single-source PHQ-9 / GAD-7 cutoffs). Output-clamp takes
+    # precedence if both fire (only an extreme tail score can cause
+    # both, and "output_clamped" is the more specific failure mode).
+    if language_confidence_override is not None and not output_clamped:
+        confidence_for_result = language_confidence_override  # type: ignore[assignment]
+
     pre_render_result = ScoreResult(
         score_id=config.score_id,
         status=ScoreStatus.OK,
@@ -264,6 +328,9 @@ def evaluate_score(
         gate_evaluation_trace=(),
         reason=reason_for_result,
         wording=None,
+        raw_value_unclamped=raw_value_unclamped,
+        output_clamped=output_clamped,
+        language_cutoff_active=language_cutoff_active,
     )
     wording = render_wording(pre_render_result, templates=templates)
     banner = calibration_banner_for(config.score_id, raw_inputs)
@@ -286,4 +353,7 @@ def evaluate_score(
         reason=reason_for_result,
         wording=wording,
         calibration_banner=banner,
+        raw_value_unclamped=raw_value_unclamped,
+        output_clamped=output_clamped,
+        language_cutoff_active=language_cutoff_active,
     )
