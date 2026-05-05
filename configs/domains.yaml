@@ -1,0 +1,80 @@
+# Domain / organ / score weight configuration (architecture_spec.md §4).
+#
+# Domain weights sum to 1.0. Within each organ, the configured score
+# weights are nominal: when an instrument-slot inactive score is dropped
+# (per architecture_spec §7) and when GATED / MISSING_INPUT scores drop
+# out (per methodology §1.5), the aggregator renormalises the surviving
+# weights. Listed score weights therefore reflect the post-instrument-
+# resolution panel; engine.compute() drops the inactive twin before
+# the sum-to-1.0 check fires.
+#
+# System-Wide weights reflect the methodology §3.7 Option B reweighting
+# (4 May 2026): Frailty primary integrator at 0.30, PhenoAge demoted to
+# 0.15.
+
+epsilon_default: 0.01
+alpha_default: 0.5
+disagreement_threshold: 5.0
+
+domains:
+  heart_metab:
+    weight: 0.30
+    organs:
+      liver:
+        weight: 0.25
+        scores: { fib4: 0.40, albi: 0.20, amap: 0.20, fli: 0.20 }
+      kidney:
+        weight: 0.20
+        scores: { egfr: 0.50, kfre: 0.30, kdigo_category: 0.20 }
+      cvd:
+        weight: 0.30
+        scores: { prevent: 0.55, apob: 0.30, lpa: 0.15 }
+      metabolic:
+        weight: 0.25
+        scores: { homa_ir: 0.20, mets_ir: 0.20, tyg: 0.15, findrisc: 0.20, vai: 0.15, lap: 0.10 }
+
+  brain:
+    weight: 0.20
+    organs:
+      cognitive_mental:
+        weight: 1.00
+        # moca + mmse share the cognitive slot; the inactive twin is
+        # UNAVAILABLE and the aggregator drops it. Listed nominal
+        # weight 0.30 applies to whichever is active.
+        scores:
+          moca: 0.30
+          mmse: 0.30
+          caide: 0.25
+          phq9: 0.20
+          gad7: 0.15
+          homocysteine: 0.10
+
+  muscle_bones:
+    weight: 0.15
+    organs:
+      bone:
+        weight: 1.00
+        # QFractureX2 currently the only members; the panel is partial
+        # until DXA T-score / EWGSOP2 / SARC-F land.
+        scores: { qfracture_hip: 0.50, qfracture_major: 0.50 }
+
+  gut:
+    weight: 0.10
+    # Gut & Digestion deliberately empty per methodology §3.2 stop
+    # condition until FIT / faecal calprotectin land.
+    organs: {}
+
+  system_wide:
+    weight: 0.25
+    organs:
+      integrative:
+        weight: 1.00
+        # stop_bang + nosas share the OSA slot; same instrument-slot
+        # rule as moca/mmse.
+        scores:
+          phenoage: 0.15
+          hb_rdw: 0.20
+          sii: 0.15
+          frail_scale: 0.30
+          stop_bang: 0.20
+          nosas: 0.20
