@@ -1,5 +1,12 @@
 # Methodology §4.5 Sobol Perturbation — Narrowed Scope (4 May 2026)
 
+> **Patch superseded by methodology master commit; retained for audit history.**
+> The §4.5 narrowing described below was folded into the methodology master at
+> `docs/merged_methodology_organ_composite_scores.md` in commit `c8d5678` (4 May 2026).
+> This file is preserved in `docs/changelog/` as a self-contained audit record of
+> the Phase 6 distribution-finding → §4.5 narrowing decision chain. Do not apply
+> the patch a second time — the master already carries the narrowed text.
+
 *Patch-document for `merged_methodology_organ_composite_scores.md` §4.5. Apply by replacing the existing "Pre-registered Monte Carlo robustness protocol" block in §4.5 with the narrowed protocol below. The change is committed in parallel with the OSF pre-registration draft (`docs/osf_prereg_draft.md`); the pre-registration's Sobol perturbation scope must match the methodology document's pre-registered protocol verbatim.*
 
 ---

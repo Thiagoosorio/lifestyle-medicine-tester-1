@@ -286,7 +286,7 @@ This commitment is binding on the principal investigator and is recorded as part
 >
 > H6 (UAE-cohort parity): if UAE Harrell's C > 0.05 below UK Biobank C, deployment blocked pending recalibration.
 >
-> Multiple-testing correction: Holm-Bonferroni across the seven composites for H1–H3.
+> Multiple-testing correction: hierarchical Holm-Bonferroni. H1–H3 are tested independently per (cohort × spec) cell — there are four cells: (UAE × Spec A), (UAE × Spec B), (UK Biobank × Spec A), (UK Biobank × Spec B). Within each cell, Holm-Bonferroni adjusts across the seven composites. The launch decision rule (§8) requires every cell to clear its Holm-adjusted threshold for a composite to be publishable; partial-cell failures invalidate the composite for launch. H4 and H5 are not subject to multiple-testing adjustment.
 >
 > ---
 >
