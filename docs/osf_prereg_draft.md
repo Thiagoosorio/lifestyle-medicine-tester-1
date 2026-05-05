@@ -150,7 +150,14 @@ Endpoints are time-to-event; censoring at last follow-up or competing-risk death
 Each domain composite is benchmarked against the eight comparators below. The launch threshold (H1) requires the composite to beat the **best single guideline score per endpoint** (#2) by Harrell's C ≥ 0.02 with non-overlapping CIs.
 
 1. **Equal-weighted arithmetic mean** of the same normalised inputs (trivial baseline).
-2. **Best single guideline score per endpoint:** FIB-4 alone for fibrosis; eGFR alone for kidney; AHA PREVENT alone for CVD; PHQ-9 alone for depression; STOP-BANG alone for OSA; CAIDE alone for dementia; Frailty alone for System-Wide mortality.
+2. **Best single guideline score per endpoint** (one per composite; enumerated verbatim so the §8 condition #1 launch decision has no analyst-discretion gap at validation time):
+    - **Liver organ** (advanced fibrosis): **FIB-4 alone** (Sterling 2006, PMID 16729309).
+    - **Kidney organ** (40% eGFR decline): **eGFR alone** (CKD-EPI 2021, Inker 2021, PMID 34554658).
+    - **CVD organ** (MACE): **AHA PREVENT alone** (Khan 2024, PMID 37947085).
+    - **Metabolic organ** (incident T2DM): **FINDRISC alone** (Lindström & Tuomilehto 2003, PMID 12610029); Tier A; methodology §3.1.
+    - **Brain Health domain** (incident dementia / MCI): **CAIDE alone** for dementia; **PHQ-9 alone** for the depression component.
+    - **Muscle & Bones domain** (fragility fracture): **QFracture alone** (Hippisley-Cox & Coupland 2012, PMID 22619194; Tier 2 PMID-corrected per `pmid_verification_log.md`).
+    - **System-Wide domain** (all-cause mortality): **Fried Frailty Phenotype alone** (Fried 2001, PMID 11253156); **STOP-BANG alone** is the OSA-component anchor.
 3. **Evidence-tier-only weighting** (Tier A = 1.0; Tier B = 0.5; Tier C = 0.25; Tier D = 0.0; renormalised).
 4. **Outcome-proximity-only weighting.**
 5. **PhenoAge alone** (Liu 2018 PMID 30596641, clinical-chemistry form). PhenoAge is `composite_member: false` per Option C, but is retained here as a **published comparator** representing the canonical "biological age" benchmark.
