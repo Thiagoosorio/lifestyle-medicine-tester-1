@@ -44,7 +44,9 @@ _INSTRUMENTS_YAML = _REPO_ROOT / "configs" / "instruments.yaml"
 _LIVER_MEMBERS = ("fib4", "albi", "amap", "fli")
 _KIDNEY_MEMBERS = ("egfr", "kfre", "kdigo_category")
 _CVD_MEMBERS = ("prevent", "apob", "lpa")
-_SYSTEM_WIDE_MEMBERS = ("phenoage", "hb_rdw", "sii", "frail_scale", "stop_bang")
+# System-Wide post-Option C (methodology §3.7): PhenoAge is non-composite
+# (research-grade display only); the four composite members renormalise.
+_SYSTEM_WIDE_MEMBERS = ("hb_rdw", "sii", "frail_scale", "stop_bang")
 _METABOLIC_MEMBERS = ("homa_ir", "mets_ir", "tyg", "findrisc", "vai", "lap")
 _BRAIN_MEMBERS = ("moca", "caide", "phq9", "gad7", "homocysteine")
 
@@ -139,11 +141,17 @@ def _healthy_43yo_female_inputs() -> dict[str, object]:
 def test_fixture_a_healthy_43yo_female_full_pipeline(
     configs, wording_templates, instrument_registry,
 ):
-    """Phase 5 reweighting per methodology §3.7 (commitments_log "System-Wide
-    composite reweighting (Option B)" 4 May 2026): system-wide weights are
-    Frailty 0.30 / Hb+RDW 0.20 / OSA 0.20 / PhenoAge 0.15 / SII 0.15. This
-    test verifies the reweighted configs sum to 1.00 and the System-Wide
-    composite recomputes correctly."""
+    """Phase 6 Option C reweighting per methodology §3.7
+    (commitments_log "System-Wide composite reweighting (Option C;
+    PhenoAge dropped from composite)" 4 May 2026): system-wide composite
+    weights are Frailty 0.35 / Hb+RDW 0.25 / OSA 0.25 / SII 0.15
+    (sum 1.00); PhenoAge is composite_member: false and is computed +
+    surfaced to the user with a research-grade caveat but does not
+    contribute to the composite. This test verifies (a) the four
+    composite members run and aggregate; (b) PhenoAge still computes and
+    its audit blob carries composite_member: false so forensic replay
+    can distinguish "computed but excluded by policy" from
+    "not computed at all."""
     raw_inputs = _healthy_43yo_female_inputs()
     results = evaluate_all_scores(
         configs=configs, raw_inputs=raw_inputs,
@@ -174,9 +182,9 @@ def test_fixture_a_healthy_43yo_female_full_pipeline(
         assert results[sid].status is ScoreStatus.OK, (
             f"{sid} expected OK; got {results[sid].status} ({results[sid].reason})"
         )
-    # System-wide members: stop_bang (OSA primary, active) must compute;
-    # phenoage / sii / frail / hb_rdw must compute. nosas is inactive
-    # (UNAVAILABLE per §7).
+    # System-wide composite members (Option C): stop_bang (OSA primary,
+    # active) must compute; sii / frail / hb_rdw must compute. nosas is
+    # inactive (UNAVAILABLE per §7).
     for sid in _SYSTEM_WIDE_MEMBERS:
         assert results[sid].status is ScoreStatus.OK, (
             f"{sid} expected OK; got {results[sid].status} ({results[sid].reason})"
@@ -184,6 +192,12 @@ def test_fixture_a_healthy_43yo_female_full_pipeline(
     # The non-active osa instrument is structurally UNAVAILABLE.
     assert results["nosas"].status is ScoreStatus.UNAVAILABLE
     assert results["nosas"].active_instrument == "stop_bang"
+    # PhenoAge: still computed; status=OK; composite_member: false at
+    # the config level. Forensic replay distinguishes "computed but
+    # excluded by policy" (this case) from "not computed" (gated /
+    # missing / unavailable).
+    assert results["phenoage"].status is ScoreStatus.OK
+    assert configs["phenoage"].composite_member is False
 
     # Metabolic + brain panel composite-member sanity (Phase 5).
     for sid in _METABOLIC_MEMBERS:

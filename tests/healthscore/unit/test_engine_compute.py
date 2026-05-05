@@ -324,3 +324,53 @@ def test_aggregation_overrides_applied_summary_omits_none_fields():
     o = AggregationOverrides(alpha=0.6)
     assert o.applied_summary() == {"alpha": 0.6}
     assert AggregationOverrides().applied_summary() == {}
+
+
+# ── Audit-log composite_member distinguishability (action #28 (f)) ──────
+
+
+def test_audit_log_records_composite_member_for_policy_excluded_score(
+    configs, domains_config, instrument_registry, wording_templates, healthy_inputs,
+):
+    """Phase 6 Option C: PhenoAge computes (status=OK) but is excluded
+    from the composite by policy (composite_member: false). The audit
+    log must record composite_member so forensic replay can distinguish
+    'computed but excluded by policy' from 'not computed' (GATED /
+    UNAVAILABLE / MISSING_INPUT).
+
+    Closes commitments_log action item #28 (f)."""
+    sink = InMemoryAuditSink()
+    compute(
+        score_configs=configs, domains_config=domains_config,
+        instrument_registry=instrument_registry,
+        raw_inputs=healthy_inputs, audit_sink=sink,
+        templates=wording_templates,
+    )
+    record = sink.records[0]
+    by_id = {s["score_id"]: s for s in record["scores"]}
+
+    pheno = by_id["phenoage"]
+    assert pheno["status"] == "ok", (
+        "PhenoAge should still COMPUTE under Option C; "
+        "exclusion is at composite-aggregation, not at the score-eval level."
+    )
+    assert pheno["composite_member"] is False
+    assert pheno["composite_weight"] is None
+
+    # Contrast: a composite-bearing score in the same panel.
+    frail = by_id["frail_scale"]
+    assert frail["status"] == "ok"
+    assert frail["composite_member"] is True
+    assert frail["composite_weight"] == 0.35
+
+    # Contrast: a gated score has both status=gated and composite_member
+    # state recorded so the two failure modes don't blur in the audit log.
+    cha = by_id["cha2ds2vasc"]
+    assert cha["status"] == "gated"
+    assert cha["composite_member"] is False  # also non-composite by Tier 1 design
+
+    # Contrast: an unavailable instrument-slot twin.
+    nosas = by_id["nosas"]
+    assert nosas["status"] == "unavailable"
+    assert nosas["composite_member"] is True
+    assert nosas["composite_weight"] == 0.25

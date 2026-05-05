@@ -90,26 +90,31 @@ def _brain_inputs(locale: str = "en") -> dict[str, object]:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-def test_system_wide_composite_weights_after_option_b_reweighting(configs):
-    """Phase 5 Option B (methodology §3.7): Frailty 0.30 + Hb+RDW 0.20 +
-    OSA-slot 0.20 + PhenoAge 0.15 + SII 0.15 = 1.00. PhenoAge demoted from
-    0.35 per persistent-low-confidence + cross-panel input redundancy."""
-    assert configs["frail_scale"].composite_weight == 0.30
-    assert configs["hb_rdw"].composite_weight == 0.20
-    assert configs["stop_bang"].composite_weight == 0.20
-    assert configs["phenoage"].composite_weight == 0.15
+def test_system_wide_composite_weights_after_option_c_reweighting(configs):
+    """Phase 6 Option C reweighting per methodology §3.7 (commitments_log
+    "System-Wide composite reweighting (Option C; PhenoAge dropped from
+    composite)" 4 May 2026): PhenoAge becomes composite_member: false
+    (research-grade display only) after the Phase 6 distribution check
+    closed action item #26 with 100% clamp activation. Remaining four
+    members renormalise: Frailty 0.35 + Hb+RDW 0.25 + OSA-slot 0.25 +
+    SII 0.15 = 1.00."""
+    assert configs["phenoage"].composite_member is False
+    assert configs["phenoage"].composite_weight is None
+
+    assert configs["frail_scale"].composite_weight == 0.35
+    assert configs["hb_rdw"].composite_weight == 0.25
+    assert configs["stop_bang"].composite_weight == 0.25
     assert configs["sii"].composite_weight == 0.15
     total = (
         configs["frail_scale"].composite_weight
         + configs["hb_rdw"].composite_weight
         + configs["stop_bang"].composite_weight
-        + configs["phenoage"].composite_weight
         + configs["sii"].composite_weight
     )
     assert total == pytest.approx(1.0, abs=1e-6)
-    # OSA fallback (NoSAS) carries the same 0.20 weight so a fallback
+    # OSA fallback (NoSAS) carries the same 0.25 weight so a fallback
     # activation does not silently change the panel total.
-    assert configs["nosas"].composite_weight == 0.20
+    assert configs["nosas"].composite_weight == 0.25
 
 
 def test_metabolic_composite_weights_sum_to_one(configs):

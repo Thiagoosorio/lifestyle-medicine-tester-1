@@ -188,10 +188,26 @@ def new_run_id() -> str:
 # ── compute() ───────────────────────────────────────────────────────────
 
 
-def _score_to_audit(result: ScoreResult, raw_inputs: Mapping[str, object]) -> dict[str, Any]:
+def _score_to_audit(
+    result: ScoreResult,
+    raw_inputs: Mapping[str, object],
+    config: ScoreConfig,
+) -> dict[str, Any]:
+    """Build the per-score audit blob.
+
+    The ``composite_member`` field lets forensic replay distinguish:
+      - status=OK, composite_member=true   computed and contributes
+      - status=OK, composite_member=false  computed and excluded by policy
+                                           (e.g. PhenoAge per §3.7 Option C)
+      - status=GATED                       not computed (gate failed)
+      - status=UNAVAILABLE                 not computed (inactive instrument)
+      - status=MISSING_INPUT / OUT_OF_RANGE  not computed (data invalid)
+    """
     return {
         "score_id": result.score_id,
         "status": result.status.value,
+        "composite_member": config.composite_member,
+        "composite_weight": config.composite_weight,
         "raw_inputs": dict(raw_inputs),
         "raw_value": str(result.raw_value) if result.raw_value is not None else None,
         "raw_value_unclamped": (
@@ -416,7 +432,10 @@ def compute(
         "epsilon_used": epsilon,
         "overrides_applied": overrides.applied_summary() if overrides else {},
         "score_eval_order": list(eval_order),
-        "scores": [_score_to_audit(r, raw_inputs) for r in results.values()],
+        "scores": [
+            _score_to_audit(r, raw_inputs, score_configs[r.score_id])
+            for r in results.values()
+        ],
         "organs": [
             {
                 "organ_id": o.organ_id,

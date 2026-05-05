@@ -30,7 +30,7 @@
     "min_age": 30,
     "max_age": 90,
     "exclusions": ["pregnancy", "active_malignancy"],
-    "calibration_caveat": "Tier 2 PMID corrected from prior 29676998 (the DNA-methylation PhenoAge -- a different score requiring methylation array) to 30596641 (clinical-chemistry PhenoAge -- the score whose 9-biomarker inputs match this app's input panel) per source-data audit 4 May 2026."
+    "calibration_caveat": "Research-grade display only. Phase 6 distribution check (1000 NHANES-like simulated healthy adults, ages 35-75) showed the [-25, +25] year output_clamp activates 100% of the time with median unclamped output around -56 years; the formula's central tendency lies entirely outside the clinically meaningful display range we adopt. PhenoAge is therefore retained in the panel for user education but excluded from the System-Wide composite per methodology Section 3.7 Option C (commitments_log 4 May 2026). Tier 2 PMID corrected from prior 29676998 (DNA-methylation PhenoAge -- different score) to 30596641 (clinical-chemistry PhenoAge per Liu 2018) per source-data audit 4 May 2026."
   },
   "derivation_cohort": {
     "study": "Liu 2018",
@@ -50,6 +50,6 @@
   "confidence": "high",
   "instrument_slot": null,
   "version": "2026.1",
-  "composite_member": true,
-  "composite_weight": 0.15
+  "composite_member": false,
+  "composite_weight": null
 }

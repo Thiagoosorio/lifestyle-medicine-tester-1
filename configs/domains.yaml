@@ -70,11 +70,15 @@ domains:
       integrative:
         weight: 1.00
         # stop_bang + nosas share the OSA slot; same instrument-slot
-        # rule as moca/mmse.
+        # rule as moca/mmse. Weights reflect methodology §3.7 Option C
+        # (4 May 2026): PhenoAge dropped from composite per the Phase 6
+        # distribution finding (100% clamp activation). PhenoAge is
+        # retained in the panel as research-grade display only -- its
+        # config carries composite_member: false and is intentionally
+        # absent from this scores list.
         scores:
-          phenoage: 0.15
-          hb_rdw: 0.20
+          frail_scale: 0.35
+          hb_rdw: 0.25
           sii: 0.15
-          frail_scale: 0.30
-          stop_bang: 0.20
-          nosas: 0.20
+          stop_bang: 0.25
+          nosas: 0.25
