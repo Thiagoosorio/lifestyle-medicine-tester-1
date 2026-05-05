@@ -64,6 +64,7 @@ class ScoreResult:
     gate_evaluation_trace: tuple[str, ...]                   # ordered audit trace of gate node evaluations
     reason: str | None                                       # for non-OK statuses; not user-facing
     wording: str | None                                      # rendered, regulator-safe; user-facing
+    calibration_banner: str | None = None                    # §5.5; e.g. UAE-PREVENT pending recalibration
 
 
 @dataclass(frozen=True, slots=True)

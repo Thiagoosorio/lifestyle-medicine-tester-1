@@ -1,6 +1,6 @@
 {
   "score_id": "hb_rdw",
-  "display_name": "Hb + RDW Mortality Risk",
+  "display_name": "Hb + RDW Harm Score (Patel-2010-informed)",
   "kind": "continuous_3anchor",
   "pmid_primary": "19880817",
   "pmid_supporting": [],
@@ -23,7 +23,7 @@
     "min_age": 35,
     "max_age": 120,
     "exclusions": [],
-    "calibration_caveat": "Patel 2010 derived in NHANES-III older adults; UAE calibration unverified. Tier 2 PMID corrected from prior 20921437 (pacemaker-complications paper) to 19880817 per source-data audit 4 May 2026."
+    "calibration_caveat": "Harm score informed by Patel 2010 RDW quintiles + WHO 2011 anaemia categories; NOT the published Patel 2010 Cox hazard model. Direction is right (RDW above 13.5% raises harm; haemoglobin below the WHO threshold raises harm) but the coefficient block is not the published one. Full Cox implementation is a calibration follow-up (commitments_log #19). Tier 2 PMID corrected from 20921437 to 19880817 per audit 4 May 2026; UAE calibration unverified."
   },
   "derivation_cohort": {
     "study": "Patel 2010",
@@ -38,6 +38,6 @@
   "confidence": "high",
   "instrument_slot": null,
   "version": "2026.1",
-  "composite_member": false,
-  "composite_weight": null
+  "composite_member": true,
+  "composite_weight": 0.15
 }

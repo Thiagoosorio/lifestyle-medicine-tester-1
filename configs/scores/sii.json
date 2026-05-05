@@ -1,0 +1,43 @@
+{
+  "score_id": "sii",
+  "display_name": "Systemic Immune-inflammation Index",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "24890259",
+  "pmid_supporting": ["25271081"],
+  "guideline_anchor": "Hu 2014 SII derivation; Yang 2018 NHANES validation",
+  "input_variables": [
+    { "name": "platelets_k_ul",   "unit": "10^3/uL", "physio_min": 1,    "physio_max": 1500 },
+    { "name": "neutrophils_k_ul", "unit": "10^3/uL", "physio_min": 0.05, "physio_max": 100 },
+    { "name": "lymphocytes_k_ul", "unit": "10^3/uL", "physio_min": 0.05, "physio_max": 50 }
+  ],
+  "formula": "sii",
+  "anchors": {
+    "low":           { "value": 500,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 900,  "q": 0.5, "source": "constructed_midpoint" },
+    "high":          { "value": 1500, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "sii_index",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 18,
+    "max_age": 120,
+    "exclusions": ["acute_infection_within_2_weeks", "active_chemotherapy"],
+    "calibration_caveat": "SII reference distributions vary by population; UAE recalibration unverified."
+  },
+  "derivation_cohort": {
+    "study": "Hu 2014",
+    "n": 133,
+    "geography": "China",
+    "ethnicity": "Han Chinese",
+    "outcome": "hepatocellular-carcinoma post-resection survival (original derivation; subsequently validated in many populations)"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "moderate",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.15
+}

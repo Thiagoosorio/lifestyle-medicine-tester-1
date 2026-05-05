@@ -54,8 +54,16 @@ FORMULA_REGISTRY: dict[str, Callable[..., object]] = {
     # bone & muscle (Tier 2 promotion)
     "qfracture_major": _bone_muscle.calc_qfracture_major,
     "qfracture_hip": _bone_muscle.calc_qfracture_hip,
-    # system wide (Tier 2 promotion)
-    "hb_rdw_mortality": _system_wide.calc_hb_rdw_mortality,
+    # system wide
+    "hb_rdw_mortality":   _system_wide.calc_hb_rdw_mortality,
+    "phenoage_acceleration": _system_wide.calc_phenoage_acceleration,
+    "sii":                _system_wide.calc_sii,
+    "nlr":                _system_wide.calc_nlr,
+    "stop_bang":          _system_wide.calc_stop_bang,
+    "nosas":              _system_wide.calc_nosas,
+    "frail_scale":        _system_wide.calc_frail_scale,
+    "moca_deficit":       _system_wide.calc_moca_deficit,
+    "mmse_deficit":       _system_wide.calc_mmse_deficit,
 }
 
 

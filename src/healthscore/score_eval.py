@@ -31,6 +31,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any, Callable, Mapping
 
+from healthscore.calibration_banners import calibration_banner_for
 from healthscore.enums import (
     AnchorSource,
     InterpolationMode,
@@ -41,6 +42,7 @@ from healthscore.gates import (
     GatePredicate,
     evaluate_gate_to_result,
 )
+from healthscore.instruments import InstrumentRegistry
 from healthscore.normalize import normalise_distance_to_cutoff
 from healthscore.score_config import ScoreConfig
 from healthscore.types import ScoreResult
@@ -102,8 +104,38 @@ def evaluate_score(
     gate: GatePredicate | None,
     epsilon: float = 0.01,
     templates: Mapping[str, Mapping[str, str]] | None = None,
+    instrument_registry: InstrumentRegistry | None = None,
 ) -> ScoreResult:
     """Evaluate a single score end-to-end. See module docstring for the pipeline."""
+    # 0. Instrument-slot routing (architecture_spec.md §7).
+    #    When this score is the inactive member of an instrument slot, it
+    #    returns UNAVAILABLE without touching gate / formula / normaliser.
+    if instrument_registry is not None and instrument_registry.is_inactive_instrument(
+        config.score_id
+    ):
+        slot = instrument_registry.resolution_for_score(config.score_id)
+        return ScoreResult(
+            score_id=config.score_id,
+            status=ScoreStatus.UNAVAILABLE,
+            raw_value=None,
+            normalised_q=None,
+            epsilon_applied=False,
+            risk_band=None,
+            anchors_used=None,
+            anchor_sources=None,
+            interpolation_mode=None,
+            confidence=None,
+            pmid=config.pmid_primary,
+            active_instrument=slot.active if slot else None,
+            gate_failures=(),
+            gate_evaluation_trace=(),
+            reason=(
+                f"inactive_instrument:{slot.slot}->>{slot.active}"
+                if slot else "inactive_instrument"
+            ),
+            wording=None,
+        )
+
     # 1. Gate
     gated = evaluate_gate_to_result(
         config.score_id, gate, raw_inputs, prior_results,
@@ -202,6 +234,19 @@ def evaluate_score(
     # 5. Wording
     from healthscore.wording import render_wording
 
+    # Resolve instrument-slot metadata (active instrument label,
+    # fallback confidence demotion per architecture_spec §7).
+    active_instrument: str | None = None
+    confidence_for_result = config.confidence
+    reason_for_result: str | None = None
+    if instrument_registry is not None:
+        slot = instrument_registry.resolution_for_score(config.score_id)
+        if slot is not None:
+            active_instrument = slot.active
+            if slot.fallback_active:
+                confidence_for_result = "low"
+                reason_for_result = slot.fallback_reason
+
     pre_render_result = ScoreResult(
         score_id=config.score_id,
         status=ScoreStatus.OK,
@@ -212,15 +257,16 @@ def evaluate_score(
         anchors_used=anchors_used,
         anchor_sources=anchor_sources,
         interpolation_mode=outcome.interpolation_mode,
-        confidence=config.confidence,
+        confidence=confidence_for_result,
         pmid=config.pmid_primary,
-        active_instrument=None,
+        active_instrument=active_instrument,
         gate_failures=(),
         gate_evaluation_trace=(),
-        reason=None,
+        reason=reason_for_result,
         wording=None,
     )
     wording = render_wording(pre_render_result, templates=templates)
+    banner = calibration_banner_for(config.score_id, raw_inputs)
 
     return ScoreResult(
         score_id=config.score_id,
@@ -232,11 +278,12 @@ def evaluate_score(
         anchors_used=anchors_used,
         anchor_sources=anchor_sources,
         interpolation_mode=outcome.interpolation_mode,
-        confidence=config.confidence,
+        confidence=confidence_for_result,
         pmid=config.pmid_primary,
-        active_instrument=None,
+        active_instrument=active_instrument,
         gate_failures=(),
         gate_evaluation_trace=(),
-        reason=None,
+        reason=reason_for_result,
         wording=wording,
+        calibration_banner=banner,
     )

@@ -1,0 +1,41 @@
+{
+  "score_id": "mmse",
+  "display_name": "MMSE (cognitive screen, no-licence fallback)",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "1202204",
+  "pmid_supporting": [],
+  "guideline_anchor": "Folstein 1975 derivation",
+  "input_variables": [
+    { "name": "mmse_score", "unit": "points_0_to_30", "physio_min": 0, "physio_max": 30 }
+  ],
+  "formula": "mmse_deficit",
+  "anchors": {
+    "low":           { "value": 0,  "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 4,  "q": 0.5, "source": "published" },
+    "high":          { "value": 8,  "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "mmse_deficit_below_30",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 55,
+    "max_age": 120,
+    "exclusions": ["delirium", "active_psychosis"],
+    "calibration_caveat": "Anchors are MMSE-deficit (30 - score). Cutoff <24 = cognitive impairment (deficit >= 7) per Folstein 1975; lower MCI sensitivity than MoCA (~80% vs ~90%) and known education / culture bias amplified in UAE / MENA users -- fallback role only."
+  },
+  "derivation_cohort": {
+    "study": "Folstein 1975",
+    "n": 206,
+    "geography": "USA",
+    "ethnicity": "mixed",
+    "outcome": "cognitive status (clinical reference)"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "low",
+  "instrument_slot": "cognitive",
+  "version": "2026.1",
+  "composite_member": false,
+  "composite_weight": null
+}

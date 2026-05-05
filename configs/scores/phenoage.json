@@ -17,7 +17,7 @@
     { "name": "alkaline_phosphatase_uL", "unit": "U/L",     "physio_min": 5.0, "physio_max": 2000.0 },
     { "name": "wbc_10e9L",               "unit": "10^9/L",  "physio_min": 0.5, "physio_max": 100.0 }
   ],
-  "formula": "_phase3_pending",
+  "formula": "phenoage_acceleration",
   "anchors": {
     "low":           { "value": -10.0, "q": 1.0, "source": "published" },
     "indeterminate": { "value": 0.0,   "q": 0.5, "source": "constructed_midpoint" },
@@ -45,6 +45,6 @@
   "confidence": "high",
   "instrument_slot": null,
   "version": "2026.1",
-  "composite_member": false,
-  "composite_weight": null
+  "composite_member": true,
+  "composite_weight": 0.35
 }

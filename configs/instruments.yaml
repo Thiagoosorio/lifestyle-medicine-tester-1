@@ -1,0 +1,27 @@
+# Runtime instrument selection (architecture_spec.md §7).
+#
+# Two slots have committed primary + fallback pairs (commitments_log §5.6):
+#   cognitive: MoCA primary, MMSE fallback (MoCA Cognition Inc. licensing)
+#   osa:       STOP-BANG primary, NoSAS fallback (UHN / Frances Chung licensing)
+#
+# Deployment changes the `active` field per slot. The non-active instrument
+# is registered as UNAVAILABLE for any input that arrives in that slot;
+# it does not contribute to aggregation, does not emit a wording, and is
+# logged once at startup.
+#
+# Fallback activation forces the resulting ScoreResult.confidence = low
+# regardless of the underlying config value, with reason
+# "fallback_active:<primary>->><fallback>" (architecture_spec §7).
+
+slots:
+  cognitive:
+    primary: moca
+    fallback: mmse
+    active: moca
+    fallback_reason: null
+
+  osa:
+    primary: stop_bang
+    fallback: nosas
+    active: stop_bang
+    fallback_reason: null

@@ -1,0 +1,45 @@
+{
+  "score_id": "frail_scale",
+  "display_name": "FRAIL Scale",
+  "kind": "continuous_3anchor",
+  "pmid_primary": "22836700",
+  "pmid_supporting": [],
+  "guideline_anchor": "Morley 2012 FRAIL scale derivation",
+  "input_variables": [
+    { "name": "fatigue",                          "unit": "category" },
+    { "name": "resistance_difficulty_stairs",     "unit": "category" },
+    { "name": "aerobic_difficulty_walking_block", "unit": "category" },
+    { "name": "illness_count",                    "unit": "count", "physio_min": 0, "physio_max": 30 },
+    { "name": "loss_of_weight_5pct",              "unit": "category" }
+  ],
+  "formula": "frail_scale",
+  "anchors": {
+    "low":           { "value": 0, "q": 1.0, "source": "published" },
+    "indeterminate": { "value": 2, "q": 0.5, "source": "published" },
+    "high":          { "value": 3, "q": 0.0, "source": "published" }
+  },
+  "anchors_unit": "frail_points_0_to_5",
+  "interpolation": "piecewise_linear",
+  "clamp": [0.0, 1.0],
+  "applicable_population": {
+    "min_age": 60,
+    "max_age": 120,
+    "exclusions": [],
+    "calibration_caveat": "FRAIL scale is a self-report screen; below age 60 the cutoffs are less established."
+  },
+  "derivation_cohort": {
+    "study": "Morley 2012",
+    "n": 998,
+    "geography": "USA",
+    "ethnicity": "African-American (derivation cohort)",
+    "outcome": "incident frailty + 9-year mortality"
+  },
+  "epsilon_override": null,
+  "red_flag": null,
+  "gate_requirements": null,
+  "confidence": "moderate",
+  "instrument_slot": null,
+  "version": "2026.1",
+  "composite_member": true,
+  "composite_weight": 0.20
+}

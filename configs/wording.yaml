@@ -96,3 +96,44 @@ qfracture_major:
   low:           "Lower-risk band on the QFracture 10-year major-fracture screen."
   indeterminate: "Intermediate band on the QFracture 10-year major-fracture screen -- discuss bone-health steps with a clinician."
   high:          "Higher-risk band on the QFracture 10-year major-fracture screen. Discuss with a clinician."
+
+# System-wide organ panel (PhenoAge, SII, NLR, FRAIL, sleep slot, cognitive slot).
+phenoage:
+  low:           "Biological age tracks at or below chronological age on this screen."
+  indeterminate: "Biological age tracks slightly ahead of chronological age on this screen -- discuss lifestyle steps with a clinician."
+  high:          "Biological age tracks well ahead of chronological age on this screen. Discuss lifestyle steps with a clinician."
+
+sii:
+  low:           "Systemic inflammation index is in the lower-risk band."
+  indeterminate: "Systemic inflammation index is in the intermediate band -- discuss with a clinician."
+  high:          "Systemic inflammation index is in the higher-risk band. Discuss with a clinician."
+
+nlr:
+  low:           "Confirmatory NLR reading is in the lower band."
+  indeterminate: "Confirmatory NLR reading is in the intermediate band."
+  high:          "Confirmatory NLR reading is in the higher band -- corroborates a systemic-inflammation signal."
+
+frail_scale:
+  low:           "Frailty screen: robust band."
+  indeterminate: "Frailty screen: pre-frail band -- discuss strength and balance steps with a clinician."
+  high:          "Frailty screen: frail band. Discuss with a clinician."
+
+stop_bang:
+  low:           "Lower-risk band on the OSA screen (STOP-BANG)."
+  indeterminate: "Intermediate band on the OSA screen (STOP-BANG) -- discuss sleep evaluation with a clinician."
+  high:          "Higher-risk band on the OSA screen (STOP-BANG). Discuss sleep evaluation with a clinician."
+
+nosas:
+  low:           "Lower-risk band on the OSA screen (NoSAS)."
+  indeterminate: "Intermediate band on the OSA screen (NoSAS) -- discuss sleep evaluation with a clinician."
+  high:          "Higher-risk band on the OSA screen (NoSAS). Discuss sleep evaluation with a clinician."
+
+moca:
+  low:           "Cognitive screen (MoCA): in the lower-deficit band."
+  indeterminate: "Cognitive screen (MoCA): intermediate band -- discuss with a clinician."
+  high:          "Cognitive screen (MoCA): higher-deficit band. Discuss specialist referral with a clinician."
+
+mmse:
+  low:           "Cognitive screen (MMSE, fallback): in the lower-deficit band."
+  indeterminate: "Cognitive screen (MMSE, fallback): intermediate band -- discuss with a clinician."
+  high:          "Cognitive screen (MMSE, fallback): higher-deficit band. Discuss specialist referral with a clinician."
