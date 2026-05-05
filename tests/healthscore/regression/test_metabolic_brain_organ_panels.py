@@ -90,6 +90,28 @@ def _brain_inputs(locale: str = "en") -> dict[str, object]:
 # ──────────────────────────────────────────────────────────────────────────
 
 
+def test_system_wide_composite_weights_after_option_b_reweighting(configs):
+    """Phase 5 Option B (methodology §3.7): Frailty 0.30 + Hb+RDW 0.20 +
+    OSA-slot 0.20 + PhenoAge 0.15 + SII 0.15 = 1.00. PhenoAge demoted from
+    0.35 per persistent-low-confidence + cross-panel input redundancy."""
+    assert configs["frail_scale"].composite_weight == 0.30
+    assert configs["hb_rdw"].composite_weight == 0.20
+    assert configs["stop_bang"].composite_weight == 0.20
+    assert configs["phenoage"].composite_weight == 0.15
+    assert configs["sii"].composite_weight == 0.15
+    total = (
+        configs["frail_scale"].composite_weight
+        + configs["hb_rdw"].composite_weight
+        + configs["stop_bang"].composite_weight
+        + configs["phenoage"].composite_weight
+        + configs["sii"].composite_weight
+    )
+    assert total == pytest.approx(1.0, abs=1e-6)
+    # OSA fallback (NoSAS) carries the same 0.20 weight so a fallback
+    # activation does not silently change the panel total.
+    assert configs["nosas"].composite_weight == 0.20
+
+
 def test_metabolic_composite_weights_sum_to_one(configs):
     members = [configs[sid] for sid in _METABOLIC_MEMBERS]
     total = sum(c.composite_weight or 0.0 for c in members)

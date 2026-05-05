@@ -139,6 +139,11 @@ def _healthy_43yo_female_inputs() -> dict[str, object]:
 def test_fixture_a_healthy_43yo_female_full_pipeline(
     configs, wording_templates, instrument_registry,
 ):
+    """Phase 5 reweighting per methodology §3.7 (commitments_log "System-Wide
+    composite reweighting (Option B)" 4 May 2026): system-wide weights are
+    Frailty 0.30 / Hb+RDW 0.20 / OSA 0.20 / PhenoAge 0.15 / SII 0.15. This
+    test verifies the reweighted configs sum to 1.00 and the System-Wide
+    composite recomputes correctly."""
     raw_inputs = _healthy_43yo_female_inputs()
     results = evaluate_all_scores(
         configs=configs, raw_inputs=raw_inputs,
