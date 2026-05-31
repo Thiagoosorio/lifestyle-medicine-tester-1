@@ -1,0 +1,4850 @@
+{
+  "evidenceAudit": {
+    "status": "extracted_not_validated",
+    "last_reviewed": "2026-05-22",
+    "score_formula_status": "Norm bands and demo scores are visible in the public client; raw-to-normalized, percentile, composite-domain, domain, and overall score formulas are not exposed.",
+    "reference_statuses": {
+      "mcmahon_cmj_force_time": {
+        "status": "mismatched_link_corrected",
+        "note": "The extracted app linked the CMJ force-time article to PMID 30479481, which is unrelated. The corrected source is the Strength and Conditioning Journal article page.",
+        "original_url": "https://pubmed.ncbi.nlm.nih.gov/30479481/",
+        "corrected_url": "https://journals.lww.com/nsca-scj/fulltext/2018/08000/understanding_the_key_phases_of_the.10.aspx"
+      },
+      "dossantos_imtp": {
+        "status": "protocol_source_not_threshold_source",
+        "note": "PMID 28002178 supports IMTP onset-threshold methodology. It does not validate all score bands or category thresholds.",
+        "original_url": "https://pubmed.ncbi.nlm.nih.gov/28538306/",
+        "corrected_url": "https://pubmed.ncbi.nlm.nih.gov/28002178/"
+      },
+      "buchheit_laursen_hiit": {
+        "status": "protocol_source_not_threshold_source",
+        "note": "PMID 23539308 is Part I and PMID 23832851 is Part II of the HIIT programming review. These support prescription concepts, not final HPR score thresholds.",
+        "corrected_url": "https://pubmed.ncbi.nlm.nih.gov/23539308/"
+      },
+      "haugen_sprint_mechanics": {
+        "status": "mismatched_link_corrected",
+        "note": "The extracted app linked an elite sprint-mechanics claim to PMID 31034252. PMID 31339890 is the verified Haugen elite-athlete sprint mechanical variables paper.",
+        "original_url": "https://pubmed.ncbi.nlm.nih.gov/31034252/",
+        "corrected_url": "https://pubmed.ncbi.nlm.nih.gov/31339890/"
+      }
+    }
+  },
+  "categoryRationale": {
+    "sedentary": {
+      "rationale": "Norms derived from age/sex-matched inactive adult populations. Thresholds represent minimum functional capacity targets. Scores emphasise health-related fitness, fall risk, and ADL performance.",
+      "scoring_note": "A score of 5/10 = meets minimum functional standard. Below 5 = screening concern pending direct threshold validation.",
+      "references": [
+        {
+          "text": "ACSM Guidelines for Exercise Testing & Prescription, 12th Ed.",
+          "url": "https://www.acsm.org/education-resources/books/guidelines-exercise-testing-prescription"
+        },
+        {
+          "text": "Rikli RE & Jones CJ (2013). Senior Fitness Test Manual, 2nd Ed. Human Kinetics.",
+          "url": "https://www.humankinetics.com/products/all-products/senior-fitness-test-manual-2nd-edition"
+        },
+        {
+          "text": "Blackwell JR et al. (2020). DYNAVISION D2 normative data, adults 18–80 yr. AJOT.",
+          "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7018469/"
+        }
+      ]
+    },
+    "trained": {
+      "rationale": "Norms derived from recreational athlete populations. Thresholds represent healthy active adult standards. Scores reflect performance across sport science literature.",
+      "scoring_note": "A score of 7/10 = meets recreational athlete standard. Below 6 = potential training gap.",
+      "references": [
+        {
+          "text": "ACSM Guidelines for Exercise Testing & Prescription, 12th Ed.",
+          "url": "https://www.acsm.org/education-resources/books/guidelines-exercise-testing-prescription"
+        },
+        {
+          "text": "Kenney WL, Wilmore JH, Costill DL (2020). Physiology of Sport and Exercise, 7th Ed. Human Kinetics.",
+          "url": "https://www.humankinetics.com/products/all-products/physiology-of-sport-and-exercise-7th-edition"
+        },
+        {
+          "text": "McMahon JJ et al. (2018). Understanding the key phases of the CMJ force-time curve. Strength Cond J.",
+          "url": "https://journals.lww.com/nsca-scj/fulltext/2018/08000/understanding_the_key_phases_of_the.10.aspx"
+        }
+      ]
+    },
+    "competitive": {
+      "rationale": "Norms derived from competitive athlete databases. Thresholds represent expected ranges for sport-specific performance. Source copy describes sport-demand weighting, but the public client does not expose the weighting formula.",
+      "scoring_note": "A score of 7.5/10 = competitive standard. Below 7 = targeted intervention required.",
+      "references": [
+        {
+          "text": "NSCA — Essentials of Strength Training and Conditioning, 4th Ed.",
+          "url": "https://www.nsca.com/education/books/"
+        },
+        {
+          "text": "Dos'Santos T et al. (2017). Effect of different onset thresholds on IMTP force-time variables. J Strength Cond Res.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/28002178/"
+        },
+        {
+          "text": "Buchheit M & Laursen PB (2013). High-intensity interval training, solutions to the programming puzzle. Part I: cardiopulmonary emphasis. Sports Med.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/23539308/"
+        }
+      ]
+    },
+    "elite": {
+      "rationale": "Norms derived from elite/professional athlete databases. Thresholds represent top-percentile performance. Marginal gains logic applied — small improvements are clinically meaningful.",
+      "scoring_note": "A score of 8.5/10 = elite standard. Any domain below 8 = priority intervention.",
+      "references": [
+        {
+          "text": "Buchheit M (2014). Monitoring training status with HR measures: do all roads lead to Rome? Front Physiol.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/24578692/"
+        },
+        {
+          "text": "Haugen T et al. (2019). Sprint mechanical variables in elite athletes: are force-velocity profiles sport specific or individual? PLoS One.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/31339890/"
+        },
+        {
+          "text": "Squeo MR et al. (2025). Cardiopulmonary Exercise Testing in Elite Athletes: Rethinking Sports Classification. J Clin Med.",
+          "url": "https://www.mdpi.com/2077-0383/14/13/4655"
+        },
+        {
+          "text": "ACSM Guidelines for Exercise Testing & Prescription, 12th Ed.",
+          "url": "https://www.acsm.org/education-resources/books/guidelines-exercise-testing-prescription"
+        }
+      ]
+    }
+  },
+  "metrics": {
+    "strength": {
+      "cmj_peak_force_relative": {
+        "label": "CMJ Peak Force (relative to BM)",
+        "unit": "N/kg",
+        "equipment": "STRENGTHSenses GRFP Force Plates",
+        "direction": "higher_better",
+        "notes": "Peak GRF ÷ body weight (N). Typical range 1.5–2.5× BW. Linthorne (2001); McMahon et al. (2018); Gathercole et al. (2015).",
+        "norms": {
+          "sedentary": {
+            "min": 12,
+            "expected": 16,
+            "high": 19,
+            "elite": 22
+          },
+          "trained": {
+            "min": 16,
+            "expected": 19,
+            "high": 22,
+            "elite": 25
+          },
+          "competitive": {
+            "min": 19,
+            "expected": 22,
+            "high": 26,
+            "elite": 29
+          },
+          "elite": {
+            "min": 22,
+            "expected": 26,
+            "high": 29,
+            "elite": 33
+          }
+        }
+      },
+      "cmj_jump_height": {
+        "label": "CMJ Jump Height",
+        "unit": "cm",
+        "equipment": "STRENGTHSenses GRFP Force Plates",
+        "direction": "higher_better",
+        "notes": "Impulse-momentum method. Mixed sex norms. Sayers et al. (1999); NSCA 2024. M norms ~5–8 cm higher than F.",
+        "norms": {
+          "sedentary": {
+            "min": 12,
+            "expected": 18,
+            "high": 24,
+            "elite": 30
+          },
+          "trained": {
+            "min": 22,
+            "expected": 30,
+            "high": 38,
+            "elite": 45
+          },
+          "competitive": {
+            "min": 34,
+            "expected": 42,
+            "high": 52,
+            "elite": 60
+          },
+          "elite": {
+            "min": 45,
+            "expected": 55,
+            "high": 64,
+            "elite": 74
+          }
+        }
+      },
+      "cmj_eccentric_rfd": {
+        "label": "CMJ Eccentric (Braking) RFD",
+        "unit": "N/s",
+        "equipment": "STRENGTHSenses GRFP Force Plates",
+        "direction": "higher_better",
+        "notes": "Peak braking RFD from CMJ force-time curve. Reflects SSC loading capacity. McMahon et al. (2018).",
+        "norms": {
+          "sedentary": {
+            "min": 500,
+            "expected": 1500,
+            "high": 2500,
+            "elite": 3500
+          },
+          "trained": {
+            "min": 2000,
+            "expected": 4000,
+            "high": 6000,
+            "elite": 8000
+          },
+          "competitive": {
+            "min": 5000,
+            "expected": 8000,
+            "high": 12000,
+            "elite": 16000
+          },
+          "elite": {
+            "min": 10000,
+            "expected": 16000,
+            "high": 22000,
+            "elite": 28000
+          }
+        }
+      },
+      "reactive_strength_index": {
+        "label": "Reactive Strength Index (RSI)",
+        "unit": "m/s",
+        "equipment": "STRENGTHSenses GRFP Force Plates",
+        "direction": "higher_better",
+        "notes": "Drop jump 30 cm box. RSI = jump height (m) ÷ GCT (s). Flanagan & Comyns (2008); Beattie et al. (2017).",
+        "norms": {
+          "sedentary": {
+            "min": 0.3,
+            "expected": 0.6,
+            "high": 0.9,
+            "elite": 1.2
+          },
+          "trained": {
+            "min": 0.8,
+            "expected": 1.2,
+            "high": 1.6,
+            "elite": 2
+          },
+          "competitive": {
+            "min": 1.3,
+            "expected": 1.7,
+            "high": 2.1,
+            "elite": 2.6
+          },
+          "elite": {
+            "min": 1.8,
+            "expected": 2.3,
+            "high": 2.8,
+            "elite": 3.2
+          }
+        }
+      },
+      "imtp_peak_force_relative": {
+        "label": "IMTP Peak Force (relative to BM)",
+        "unit": "N/kg",
+        "equipment": "STRENGTHSenses Force Plates + Isometric Rig",
+        "direction": "higher_better",
+        "notes": "Net peak force ÷ body mass. Hip angle 145°. Dos'Santos et al. (2017); Haff et al. (2015); Comfort et al. (2019).",
+        "norms": {
+          "sedentary": {
+            "min": 10,
+            "expected": 15,
+            "high": 19,
+            "elite": 23
+          },
+          "trained": {
+            "min": 16,
+            "expected": 20,
+            "high": 24,
+            "elite": 28
+          },
+          "competitive": {
+            "min": 21,
+            "expected": 26,
+            "high": 31,
+            "elite": 37
+          },
+          "elite": {
+            "min": 28,
+            "expected": 35,
+            "high": 42,
+            "elite": 50
+          }
+        }
+      },
+      "imtp_rfd_100ms": {
+        "label": "IMTP RFD (0–100 ms)",
+        "unit": "N/s",
+        "equipment": "STRENGTHSenses Force Plates + Isometric Rig",
+        "direction": "higher_better",
+        "notes": "Onset threshold 75 N above BW. Khamoui et al. (2011); Haff et al. (2015); NSCA 2024.",
+        "norms": {
+          "sedentary": {
+            "min": 1500,
+            "expected": 3000,
+            "high": 4500,
+            "elite": 6000
+          },
+          "trained": {
+            "min": 4000,
+            "expected": 6500,
+            "high": 8500,
+            "elite": 11000
+          },
+          "competitive": {
+            "min": 7000,
+            "expected": 10000,
+            "high": 13000,
+            "elite": 17000
+          },
+          "elite": {
+            "min": 11000,
+            "expected": 15000,
+            "high": 19000,
+            "elite": 24000
+          }
+        }
+      },
+      "grip_strength": {
+        "label": "Grip Strength (dominant)",
+        "unit": "kg",
+        "equipment": "Hand Grip Dynamometer",
+        "direction": "higher_better",
+        "notes": "Seated, elbow 90°. ACSM; Norman et al. (2011). <25 kg (F) / <30 kg (M) = dynapenia threshold.",
+        "norms": {
+          "sedentary": {
+            "min": 22,
+            "expected": 30,
+            "high": 38,
+            "elite": 46
+          },
+          "trained": {
+            "min": 32,
+            "expected": 40,
+            "high": 50,
+            "elite": 58
+          },
+          "competitive": {
+            "min": 40,
+            "expected": 48,
+            "high": 56,
+            "elite": 64
+          },
+          "elite": {
+            "min": 48,
+            "expected": 56,
+            "high": 64,
+            "elite": 72
+          }
+        }
+      },
+      "symmetry_index": {
+        "label": "Force Symmetry Index (CMJ bilateral)",
+        "unit": "% symmetry (higher = better, 100 = perfect)",
+        "equipment": "STRENGTHSenses Force Plates",
+        "direction": "higher_better",
+        "notes": "Stored as % symmetry (100 = perfect bilateral). SI% = 100 − (|L−R| / max(L,R)) × 100. CMJ preferred for functional assessment. Impellizzeri et al. (2007).",
+        "norms": {
+          "sedentary": {
+            "min": 78,
+            "expected": 87,
+            "high": 92,
+            "elite": 96
+          },
+          "trained": {
+            "min": 84,
+            "expected": 90,
+            "high": 94,
+            "elite": 97
+          },
+          "competitive": {
+            "min": 88,
+            "expected": 93,
+            "high": 96,
+            "elite": 98
+          },
+          "elite": {
+            "min": 92,
+            "expected": 95,
+            "high": 97,
+            "elite": 99
+          }
+        }
+      },
+      "bilateral_deficit_index": {
+        "label": "Bilateral Deficit Index (SJ)",
+        "unit": "% (negative = deficit, positive = facilitation)",
+        "equipment": "STRENGTHSenses GRFP Force Plates",
+        "direction": "higher_better",
+        "notes": "BDI = (bilateral SJ − 2× unilateral SJ) / (2× unilateral SJ) × 100. Negative = bilateral deficit (neuromuscular inhibition). Jakobi & Chilibeck (2001); Howard & Enoka (1991).",
+        "norms": {
+          "sedentary": {
+            "min": -18,
+            "expected": -8,
+            "high": -2,
+            "elite": 2
+          },
+          "trained": {
+            "min": -12,
+            "expected": -5,
+            "high": 0,
+            "elite": 4
+          },
+          "competitive": {
+            "min": -8,
+            "expected": -2,
+            "high": 2,
+            "elite": 6
+          },
+          "elite": {
+            "min": -5,
+            "expected": 0,
+            "high": 4,
+            "elite": 8
+          }
+        }
+      }
+    },
+    "movement": {
+      "tug_test": {
+        "label": "Timed Up and Go (TUG)",
+        "unit": "s (lower = better)",
+        "equipment": "Stopwatch / NiNox Cameras",
+        "direction": "lower_better",
+        "notes": "Rise from chair, walk 3 m, turn, return and sit. ACSM gold-standard fall-risk screen. >12 s = high fall risk. Podsiadlo & Richardson (1991); ACSM 12th Ed.",
+        "norms": {
+          "sedentary": {
+            "min": 14,
+            "expected": 10,
+            "high": 8,
+            "elite": 6.5
+          },
+          "trained": {
+            "min": 10,
+            "expected": 8,
+            "high": 6.5,
+            "elite": 5.5
+          },
+          "competitive": {
+            "min": 8,
+            "expected": 6,
+            "high": 5,
+            "elite": 4
+          },
+          "elite": {
+            "min": 6,
+            "expected": 5,
+            "high": 4,
+            "elite": 3
+          }
+        }
+      },
+      "single_leg_balance": {
+        "label": "Single-Leg Balance (eyes closed)",
+        "unit": "s (higher = better)",
+        "equipment": "Stopwatch / Force Plates",
+        "direction": "higher_better",
+        "notes": "Unipedal stance, eyes closed, arms folded. <10 s = significant proprioceptive deficit. Hurvitz et al. (2000); ACSM fall-risk protocol. Best of 3 trials per limb.",
+        "norms": {
+          "sedentary": {
+            "min": 4,
+            "expected": 10,
+            "high": 18,
+            "elite": 28
+          },
+          "trained": {
+            "min": 12,
+            "expected": 22,
+            "high": 32,
+            "elite": 42
+          },
+          "competitive": {
+            "min": 22,
+            "expected": 35,
+            "high": 48,
+            "elite": 60
+          },
+          "elite": {
+            "min": 35,
+            "expected": 50,
+            "high": 65,
+            "elite": 80
+          }
+        }
+      },
+      "range_of_motion": {
+        "label": "Joint Range of Motion (hip/knee flexion composite)",
+        "unit": "° (degrees)",
+        "equipment": "Noraxon Ultium 3D / Goniometry",
+        "direction": "higher_better",
+        "notes": "Hip + knee composite ROM. ACSM Guidelines 12th Ed.; Clarkson & Gilewich (2000). Reduced ROM linked to movement dysfunction and fall risk.",
+        "norms": {
+          "sedentary": {
+            "min": 105,
+            "expected": 125,
+            "high": 140,
+            "elite": 155
+          },
+          "trained": {
+            "min": 125,
+            "expected": 140,
+            "high": 152,
+            "elite": 162
+          },
+          "competitive": {
+            "min": 138,
+            "expected": 150,
+            "high": 160,
+            "elite": 168
+          },
+          "elite": {
+            "min": 148,
+            "expected": 158,
+            "high": 166,
+            "elite": 172
+          }
+        }
+      },
+      "movement_velocity": {
+        "label": "Movement / Gait Velocity",
+        "unit": "m/s",
+        "equipment": "Medilogic Insoles / Noraxon Ultium",
+        "direction": "higher_better",
+        "notes": "Self-selected gait speed (10 m walk test). <0.8 m/s = fall-risk threshold (ACSM). Studenski et al. (2011) JAMA — gait speed as vital sign.",
+        "norms": {
+          "sedentary": {
+            "min": 0.7,
+            "expected": 1,
+            "high": 1.2,
+            "elite": 1.4
+          },
+          "trained": {
+            "min": 1.1,
+            "expected": 1.3,
+            "high": 1.5,
+            "elite": 1.7
+          },
+          "competitive": {
+            "min": 1.3,
+            "expected": 1.5,
+            "high": 1.7,
+            "elite": 1.9
+          },
+          "elite": {
+            "min": 1.5,
+            "expected": 1.7,
+            "high": 1.95,
+            "elite": 2.2
+          }
+        }
+      },
+      "temporal_symmetry": {
+        "label": "Temporal Gait Symmetry (step time ratio)",
+        "unit": "ratio (1.0 = perfect)",
+        "equipment": "Medilogic Insoles / NiNox Cameras",
+        "direction": "higher_better",
+        "notes": "Ratio of L:R step times. <0.90 = clinically significant asymmetry (Hodt-Billington et al., 2008). Used in post-injury return-to-sport and fall-risk screening.",
+        "norms": {
+          "sedentary": {
+            "min": 0.88,
+            "expected": 0.93,
+            "high": 0.96,
+            "elite": 0.99
+          },
+          "trained": {
+            "min": 0.92,
+            "expected": 0.96,
+            "high": 0.98,
+            "elite": 0.99
+          },
+          "competitive": {
+            "min": 0.94,
+            "expected": 0.97,
+            "high": 0.98,
+            "elite": 0.99
+          },
+          "elite": {
+            "min": 0.96,
+            "expected": 0.98,
+            "high": 0.99,
+            "elite": 1
+          }
+        }
+      },
+      "cadence": {
+        "label": "Cadence (steps per minute)",
+        "unit": "steps/min",
+        "equipment": "Medilogic Insoles / NiNox Cameras",
+        "direction": "higher_better",
+        "notes": "Steps per minute during preferred gait. WHO physical activity norms; Tudor-Locke et al. (2019). ≥100 steps/min = moderate-intensity walking threshold.",
+        "norms": {
+          "sedentary": {
+            "min": 85,
+            "expected": 98,
+            "high": 108,
+            "elite": 118
+          },
+          "trained": {
+            "min": 100,
+            "expected": 112,
+            "high": 122,
+            "elite": 132
+          },
+          "competitive": {
+            "min": 115,
+            "expected": 126,
+            "high": 136,
+            "elite": 146
+          },
+          "elite": {
+            "min": 130,
+            "expected": 142,
+            "high": 154,
+            "elite": 166
+          }
+        }
+      },
+      "muscle_activation_timing": {
+        "label": "EMG Muscle Onset Timing",
+        "unit": "ms (lower = better)",
+        "equipment": "Noraxon Ultium EMG",
+        "direction": "lower_better",
+        "notes": "Quad/hamstring onset relative to perturbation. Neuromuscular coordination marker. Sport-literature marker; exact score threshold still under audit.",
+        "norms": {
+          "sedentary": {
+            "min": 120,
+            "expected": 90,
+            "high": 70,
+            "elite": 55
+          },
+          "trained": {
+            "min": 90,
+            "expected": 68,
+            "high": 52,
+            "elite": 40
+          },
+          "competitive": {
+            "min": 70,
+            "expected": 52,
+            "high": 40,
+            "elite": 30
+          },
+          "elite": {
+            "min": 55,
+            "expected": 40,
+            "high": 30,
+            "elite": 22
+          }
+        }
+      },
+      "movement_smoothness": {
+        "label": "Movement Smoothness (SPARC)",
+        "unit": "SPARC (less negative = better)",
+        "equipment": "Noraxon Ultium / NiNox Cameras",
+        "direction": "higher_better",
+        "notes": "Spectral arc length metric. Morin & Samozino (2016). 0 = perfect smoothness; more negative = more jerk.",
+        "norms": {
+          "sedentary": {
+            "min": -6,
+            "expected": -4.2,
+            "high": -3,
+            "elite": -2.2
+          },
+          "trained": {
+            "min": -4,
+            "expected": -3,
+            "high": -2.3,
+            "elite": -1.7
+          },
+          "competitive": {
+            "min": -3,
+            "expected": -2.2,
+            "high": -1.7,
+            "elite": -1.3
+          },
+          "elite": {
+            "min": -2.4,
+            "expected": -1.8,
+            "high": -1.3,
+            "elite": -1
+          }
+        }
+      },
+      "reaction_time": {
+        "label": "Reaction Time (DYNAVISION D2, T-Mode)",
+        "unit": "ms (lower = better)",
+        "equipment": "DYNAVISION D2 Light Board",
+        "direction": "lower_better",
+        "notes": "T-Mode, 60 s, all 5 rings. Blackwell et al. (2020) AJOT — adults 18–40 yr median ~377 ms standing.",
+        "norms": {
+          "sedentary": {
+            "min": 580,
+            "expected": 460,
+            "high": 370,
+            "elite": 290
+          },
+          "trained": {
+            "min": 400,
+            "expected": 320,
+            "high": 265,
+            "elite": 215
+          },
+          "competitive": {
+            "min": 300,
+            "expected": 250,
+            "high": 210,
+            "elite": 175
+          },
+          "elite": {
+            "min": 240,
+            "expected": 200,
+            "high": 170,
+            "elite": 145
+          }
+        }
+      },
+      "gait_speed": {
+        "label": "Self-Selected Gait Speed",
+        "unit": "m/s",
+        "equipment": "Medilogic Insoles / Noraxon Ultium",
+        "direction": "higher_better",
+        "notes": "10 m walk test. PubMed spatiotemporal norms (2024). <0.8 m/s = fall-risk threshold (ACSM).",
+        "norms": {
+          "sedentary": {
+            "min": 0.7,
+            "expected": 1,
+            "high": 1.2,
+            "elite": 1.4
+          },
+          "trained": {
+            "min": 1.1,
+            "expected": 1.3,
+            "high": 1.5,
+            "elite": 1.7
+          },
+          "competitive": {
+            "min": 1.3,
+            "expected": 1.5,
+            "high": 1.7,
+            "elite": 1.9
+          },
+          "elite": {
+            "min": 1.5,
+            "expected": 1.7,
+            "high": 1.95,
+            "elite": 2.2
+          }
+        }
+      },
+      "stride_length": {
+        "label": "Stride Length",
+        "unit": "m",
+        "equipment": "Medilogic Insoles / NiNox Cameras",
+        "direction": "higher_better",
+        "notes": "Mean of ≥6 strides. Context-dependent (walking vs running). Spatiotemporal norms (PubMed 2024).",
+        "norms": {
+          "sedentary": {
+            "min": 0.9,
+            "expected": 1.1,
+            "high": 1.25,
+            "elite": 1.4
+          },
+          "trained": {
+            "min": 1.15,
+            "expected": 1.35,
+            "high": 1.5,
+            "elite": 1.65
+          },
+          "competitive": {
+            "min": 1.35,
+            "expected": 1.55,
+            "high": 1.7,
+            "elite": 1.85
+          },
+          "elite": {
+            "min": 1.55,
+            "expected": 1.75,
+            "high": 1.95,
+            "elite": 2.15
+          }
+        }
+      },
+      "ground_contact_time": {
+        "label": "Ground Contact Time (running)",
+        "unit": "ms (lower = better)",
+        "equipment": "Medilogic Insoles",
+        "direction": "lower_better",
+        "notes": "Treadmill running. Lower GCT = better elastic energy utilisation. Haugen et al. (2020). Note: walking GCT ~550–700 ms is normal; this metric applies to running.",
+        "norms": {
+          "sedentary": {
+            "min": 360,
+            "expected": 310,
+            "high": 275,
+            "elite": 245
+          },
+          "trained": {
+            "min": 290,
+            "expected": 255,
+            "high": 225,
+            "elite": 195
+          },
+          "competitive": {
+            "min": 230,
+            "expected": 205,
+            "high": 180,
+            "elite": 155
+          },
+          "elite": {
+            "min": 185,
+            "expected": 160,
+            "high": 140,
+            "elite": 120
+          }
+        }
+      },
+      "emg_onset_timing": {
+        "label": "EMG Muscle Onset Timing",
+        "unit": "ms (lower = better)",
+        "equipment": "Noraxon Ultium EMG",
+        "direction": "lower_better",
+        "notes": "Quad/hamstring onset relative to perturbation. Neuromuscular coordination marker. Sport-literature marker; exact score threshold still under audit.",
+        "norms": {
+          "sedentary": {
+            "min": 120,
+            "expected": 90,
+            "high": 70,
+            "elite": 55
+          },
+          "trained": {
+            "min": 90,
+            "expected": 68,
+            "high": 52,
+            "elite": 40
+          },
+          "competitive": {
+            "min": 70,
+            "expected": 52,
+            "high": 40,
+            "elite": 30
+          },
+          "elite": {
+            "min": 55,
+            "expected": 40,
+            "high": 30,
+            "elite": 22
+          }
+        }
+      }
+    },
+    "cardiovascular": {
+      "vo2max": {
+        "label": "VO2max",
+        "unit": "mL/kg/min",
+        "equipment": "CPET Bike / Treadmill + VO2 Cart",
+        "direction": "higher_better",
+        "notes": "ACSM 12th Ed. norms (18–45 yr mixed sex). Squeo et al. (2025) elite reference. RER ≥1.10 for maximal confirmation.",
+        "norms": {
+          "sedentary": {
+            "min": 18,
+            "expected": 26,
+            "high": 33,
+            "elite": 40
+          },
+          "trained": {
+            "min": 32,
+            "expected": 42,
+            "high": 50,
+            "elite": 58
+          },
+          "competitive": {
+            "min": 46,
+            "expected": 55,
+            "high": 64,
+            "elite": 74
+          },
+          "elite": {
+            "min": 58,
+            "expected": 68,
+            "high": 78,
+            "elite": 90
+          }
+        }
+      },
+      "vt1": {
+        "label": "Ventilatory Threshold 1 (VT1)",
+        "unit": "mL/kg/min",
+        "equipment": "CPET VO2 Cart",
+        "direction": "higher_better",
+        "notes": "V-slope / ventilatory equivalents method. Zone 2 training anchor. Typically 50–65% VO2max. Buchheit & Laursen (2013).",
+        "norms": {
+          "sedentary": {
+            "min": 11,
+            "expected": 16,
+            "high": 20,
+            "elite": 25
+          },
+          "trained": {
+            "min": 20,
+            "expected": 26,
+            "high": 32,
+            "elite": 38
+          },
+          "competitive": {
+            "min": 28,
+            "expected": 36,
+            "high": 44,
+            "elite": 52
+          },
+          "elite": {
+            "min": 38,
+            "expected": 48,
+            "high": 58,
+            "elite": 68
+          }
+        }
+      },
+      "vt2": {
+        "label": "Ventilatory Threshold 2 (VT2 / MLSS)",
+        "unit": "mL/kg/min",
+        "equipment": "CPET VO2 Cart",
+        "direction": "higher_better",
+        "notes": "Second inflection in VE/VCO2. Maximal lactate steady state proxy. Typically 80–90% VO2max. Buchheit & Laursen (2013); Laursen (2019).",
+        "norms": {
+          "sedentary": {
+            "min": 14,
+            "expected": 21,
+            "high": 27,
+            "elite": 33
+          },
+          "trained": {
+            "min": 26,
+            "expected": 34,
+            "high": 42,
+            "elite": 50
+          },
+          "competitive": {
+            "min": 38,
+            "expected": 47,
+            "high": 56,
+            "elite": 65
+          },
+          "elite": {
+            "min": 50,
+            "expected": 60,
+            "high": 70,
+            "elite": 80
+          }
+        }
+      },
+      "hr_recovery": {
+        "label": "HR Recovery (1 min post-exercise)",
+        "unit": "bpm drop (higher = better)",
+        "equipment": "CPET System + HR Monitor",
+        "direction": "higher_better",
+        "notes": "Peak HR − HR at 60 s passive recovery. Cardiac vagal reactivation marker. ACSM; Cole et al. (1999).",
+        "norms": {
+          "sedentary": {
+            "min": 10,
+            "expected": 16,
+            "high": 22,
+            "elite": 28
+          },
+          "trained": {
+            "min": 20,
+            "expected": 28,
+            "high": 36,
+            "elite": 44
+          },
+          "competitive": {
+            "min": 28,
+            "expected": 38,
+            "high": 48,
+            "elite": 58
+          },
+          "elite": {
+            "min": 38,
+            "expected": 50,
+            "high": 60,
+            "elite": 72
+          }
+        }
+      },
+      "submaximal_hr": {
+        "label": "Submaximal HR at Fixed Work Rate",
+        "unit": "bpm (lower = better)",
+        "equipment": "CPET Bike + VO2 Cart",
+        "direction": "lower_better",
+        "notes": "HR at standardised work rate (M: 150 W / F: 100 W trained; M: 200 W / F: 150 W elite). 5 min steady-state. Longitudinal monitoring metric.",
+        "norms": {
+          "sedentary": {
+            "min": 185,
+            "expected": 162,
+            "high": 145,
+            "elite": 130
+          },
+          "trained": {
+            "min": 165,
+            "expected": 145,
+            "high": 128,
+            "elite": 112
+          },
+          "competitive": {
+            "min": 148,
+            "expected": 130,
+            "high": 115,
+            "elite": 100
+          },
+          "elite": {
+            "min": 135,
+            "expected": 118,
+            "high": 105,
+            "elite": 92
+          }
+        }
+      },
+      "o2_pulse": {
+        "label": "O2 Pulse (VO2/HR — stroke volume proxy)",
+        "unit": "mL/beat",
+        "equipment": "CPET VO2 Cart + HR Monitor",
+        "direction": "higher_better",
+        "notes": "VO2 ÷ HR at peak effort. Non-invasive stroke volume proxy. Derived from CPET data. Arena et al. (2007). <10 mL/beat = poor cardiac output reserve.",
+        "norms": {
+          "sedentary": {
+            "min": 8,
+            "expected": 11,
+            "high": 14,
+            "elite": 17
+          },
+          "trained": {
+            "min": 12,
+            "expected": 16,
+            "high": 20,
+            "elite": 24
+          },
+          "competitive": {
+            "min": 16,
+            "expected": 21,
+            "high": 26,
+            "elite": 31
+          },
+          "elite": {
+            "min": 20,
+            "expected": 27,
+            "high": 33,
+            "elite": 40
+          }
+        }
+      },
+      "ve_vco2_slope": {
+        "label": "VE/VCO2 Slope (Ventilatory Efficiency)",
+        "unit": "slope (lower = better)",
+        "equipment": "CPET VO2 Cart",
+        "direction": "lower_better",
+        "notes": "Slope of VE vs VCO2 during incremental exercise. >34 = impaired ventilatory efficiency (possible cardiac/pulmonary limitation). Arena et al. (2007); AHA CPET guidelines.",
+        "norms": {
+          "sedentary": {
+            "min": 42,
+            "expected": 36,
+            "high": 32,
+            "elite": 28
+          },
+          "trained": {
+            "min": 36,
+            "expected": 30,
+            "high": 27,
+            "elite": 24
+          },
+          "competitive": {
+            "min": 31,
+            "expected": 27,
+            "high": 24,
+            "elite": 21
+          },
+          "elite": {
+            "min": 28,
+            "expected": 24,
+            "high": 21,
+            "elite": 18
+          }
+        }
+      }
+    },
+    "cognitive": {
+      "processing_speed": {
+        "label": "Processing Speed",
+        "unit": "NIH Toolbox Standard Score (M=100, SD=15)",
+        "equipment": "NIH Toolbox Cognitive Battery",
+        "direction": "higher_better",
+        "notes": "Pattern Comparison Processing Speed Test. Age/education corrected. NIH Toolbox CB V3 Norming (2025).",
+        "norms": {
+          "sedentary": {
+            "min": 38,
+            "expected": 48,
+            "high": 58,
+            "elite": 68
+          },
+          "trained": {
+            "min": 46,
+            "expected": 57,
+            "high": 67,
+            "elite": 77
+          },
+          "competitive": {
+            "min": 55,
+            "expected": 65,
+            "high": 76,
+            "elite": 86
+          },
+          "elite": {
+            "min": 62,
+            "expected": 73,
+            "high": 84,
+            "elite": 95
+          }
+        }
+      },
+      "executive_function": {
+        "label": "Executive Function (Flanker Inhibitory Control)",
+        "unit": "NIH Toolbox Standard Score",
+        "equipment": "NIH Toolbox Cognitive Battery",
+        "direction": "higher_better",
+        "notes": "Flanker Inhibitory Control & Attention Test. Age-corrected composite. NIH Toolbox CB V3 (2025).",
+        "norms": {
+          "sedentary": {
+            "min": 36,
+            "expected": 46,
+            "high": 56,
+            "elite": 66
+          },
+          "trained": {
+            "min": 44,
+            "expected": 55,
+            "high": 65,
+            "elite": 75
+          },
+          "competitive": {
+            "min": 52,
+            "expected": 63,
+            "high": 73,
+            "elite": 83
+          },
+          "elite": {
+            "min": 60,
+            "expected": 70,
+            "high": 80,
+            "elite": 90
+          }
+        }
+      },
+      "dual_task_cost": {
+        "label": "Dual-Task Cost (D2 + secondary task)",
+        "unit": "% degradation (lower = better)",
+        "equipment": "DYNAVISION D2 + Serial Subtraction",
+        "direction": "lower_better",
+        "notes": "DTC% = (Single RT − Dual RT) / Single RT × 100. Higher = greater attentional resource demand. Strobach et al. (2012); Blackwell et al. (2020).",
+        "norms": {
+          "sedentary": {
+            "min": 45,
+            "expected": 32,
+            "high": 22,
+            "elite": 15
+          },
+          "trained": {
+            "min": 30,
+            "expected": 20,
+            "high": 13,
+            "elite": 8
+          },
+          "competitive": {
+            "min": 20,
+            "expected": 13,
+            "high": 8,
+            "elite": 5
+          },
+          "elite": {
+            "min": 14,
+            "expected": 8,
+            "high": 5,
+            "elite": 3
+          }
+        }
+      },
+      "cognitive_reaction_time": {
+        "label": "Cognitive Reaction Time (Dual-Task Mode)",
+        "unit": "ms (lower = better)",
+        "equipment": "DYNAVISION D2 (Cognitive / Dual-Task Mode)",
+        "direction": "lower_better",
+        "notes": "D2 T-Mode + concurrent cognitive probe (serial subtraction −3). Dual-task cost ≈20–35% above simple RT for sedentary. Blackwell et al. (2020).",
+        "norms": {
+          "sedentary": {
+            "min": 680,
+            "expected": 530,
+            "high": 420,
+            "elite": 330
+          },
+          "trained": {
+            "min": 480,
+            "expected": 380,
+            "high": 310,
+            "elite": 255
+          },
+          "competitive": {
+            "min": 370,
+            "expected": 300,
+            "high": 250,
+            "elite": 210
+          },
+          "elite": {
+            "min": 300,
+            "expected": 245,
+            "high": 205,
+            "elite": 170
+          }
+        }
+      },
+      "prefrontal_oxygenation": {
+        "label": "Prefrontal Oxygenation (ΔHbO)",
+        "unit": "µM change",
+        "equipment": "Artinis Brite MKIV fNIRS",
+        "direction": "higher_better",
+        "notes": "ΔHbO during n-back / Stroop task. Positive ΔHbO = prefrontal engagement. Scholkmann et al. (2014); Artinis validation studies.",
+        "norms": {
+          "sedentary": {
+            "min": -1,
+            "expected": 1.5,
+            "high": 3.5,
+            "elite": 5.5
+          },
+          "trained": {
+            "min": 1,
+            "expected": 3.5,
+            "high": 6,
+            "elite": 8
+          },
+          "competitive": {
+            "min": 2,
+            "expected": 5,
+            "high": 8,
+            "elite": 10.5
+          },
+          "elite": {
+            "min": 4,
+            "expected": 7,
+            "high": 10,
+            "elite": 13
+          }
+        }
+      },
+      "working_memory": {
+        "label": "Working Memory (NIH List Sorting)",
+        "unit": "NIH Toolbox Standard Score",
+        "equipment": "NIH Toolbox Cognitive Battery",
+        "direction": "higher_better",
+        "notes": "List Sorting Working Memory Test. Age/education corrected. Sensitive to hippocampal integrity and prefrontal function. NIH Toolbox CB V3 (2025).",
+        "norms": {
+          "sedentary": {
+            "min": 35,
+            "expected": 45,
+            "high": 55,
+            "elite": 65
+          },
+          "trained": {
+            "min": 43,
+            "expected": 54,
+            "high": 64,
+            "elite": 74
+          },
+          "competitive": {
+            "min": 50,
+            "expected": 62,
+            "high": 72,
+            "elite": 82
+          },
+          "elite": {
+            "min": 58,
+            "expected": 68,
+            "high": 78,
+            "elite": 88
+          }
+        }
+      },
+      "rt_variability": {
+        "label": "Reaction Time Variability (CoV)",
+        "unit": "% coefficient of variation (lower = better)",
+        "equipment": "DYNAVISION D2 Light Board",
+        "direction": "lower_better",
+        "notes": "CoV = (SD of RT / mean RT) × 100. Intraindividual variability is more sensitive to neurological change than mean RT alone. MacDonald et al. (2006); Stuss et al. (2003).",
+        "norms": {
+          "sedentary": {
+            "min": 35,
+            "expected": 25,
+            "high": 18,
+            "elite": 12
+          },
+          "trained": {
+            "min": 25,
+            "expected": 18,
+            "high": 13,
+            "elite": 9
+          },
+          "competitive": {
+            "min": 18,
+            "expected": 13,
+            "high": 9,
+            "elite": 6
+          },
+          "elite": {
+            "min": 14,
+            "expected": 9,
+            "high": 6,
+            "elite": 4
+          }
+        }
+      }
+    }
+  },
+  "equipment": {
+    "strength": [
+      {
+        "name": "STRENGTHSenses GRFP Force Plates",
+        "metrics": [
+          "CMJ Peak Force (N/kg)",
+          "CMJ Jump Height (cm)",
+          "CMJ Eccentric RFD (N/s)",
+          "CMJ Concentric Impulse (N·s)",
+          "RSI — Drop Jump (m/s)",
+          "SJ Peak Force (N/kg)",
+          "Force Symmetry Index (%)"
+        ],
+        "unit": "N, N/kg, N/s, N·s, m/s, cm",
+        "position": "Standing / Jumping"
+      },
+      {
+        "name": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+        "metrics": [
+          "IMTP Peak Force (N/kg)",
+          "IMTP RFD 0–100 ms (N/s)",
+          "IMTP RFD 0–200 ms (N/s)",
+          "IMTP Concentric Impulse (N·s)"
+        ],
+        "unit": "N, N/kg, N/s, N·s",
+        "position": "Isometric (hip 145°, knee ~120°)"
+      },
+      {
+        "name": "Hand Grip Dynamometer",
+        "metrics": [
+          "Grip strength absolute (kg)",
+          "Grip strength relative (kg/kg)"
+        ],
+        "unit": "kg",
+        "position": "Seated, elbow 90°"
+      },
+      {
+        "name": "Perch P2 / Leonardo Mechanograph",
+        "metrics": [
+          "Pinch strength (kg)",
+          "Grip force steadiness"
+        ],
+        "unit": "kg / N",
+        "position": "Seated"
+      },
+      {
+        "name": "Proteus 2.0",
+        "metrics": [
+          "Dynamic power (W)",
+          "3D push/pull force (N)",
+          "Force-velocity profile"
+        ],
+        "unit": "W, N",
+        "position": "Standing"
+      },
+      {
+        "name": "LIFTER",
+        "metrics": [
+          "Functional lifting force (N)",
+          "Bar velocity (m/s)"
+        ],
+        "unit": "N, m/s",
+        "position": "Standing"
+      }
+    ],
+    "movement": [
+      {
+        "name": "Noraxon Ultium 3D Motion Capture",
+        "metrics": [
+          "Joint angles (°)",
+          "Movement smoothness (SPARC)",
+          "Segment velocity (m/s)",
+          "Coordination index"
+        ],
+        "unit": "Degrees / SPARC / m·s⁻¹",
+        "position": "Walking, running, task-specific"
+      },
+      {
+        "name": "DYNAVISION D2 Light Board",
+        "metrics": [
+          "Simple reaction time (ms)",
+          "Choice reaction time (ms)",
+          "Peripheral accuracy (%)"
+        ],
+        "unit": "ms / %",
+        "position": "Standing"
+      },
+      {
+        "name": "Medilogic Insoles",
+        "metrics": [
+          "Ground contact time (ms)",
+          "Loading asymmetry (%)",
+          "Cadence (steps/min)",
+          "Stride time (ms)"
+        ],
+        "unit": "ms / % / steps·min⁻¹",
+        "position": "Walking or running"
+      },
+      {
+        "name": "Noraxon Ultium EMG",
+        "metrics": [
+          "Muscle onset timing (ms)",
+          "Co-contraction index",
+          "Normalised amplitude (%MVC)"
+        ],
+        "unit": "ms / normalised",
+        "position": "Task-specific"
+      },
+      {
+        "name": "NiNox Cameras (2D Markerless)",
+        "metrics": [
+          "Stride length (m)",
+          "Step width (m)",
+          "2D joint kinematics (°)"
+        ],
+        "unit": "m / °",
+        "position": "Walking or running"
+      }
+    ],
+    "cardiovascular": [
+      {
+        "name": "CPET Bike + VO2 Cart",
+        "metrics": [
+          "VO2max (mL/kg/min)",
+          "VT1 (mL/kg/min)",
+          "VT2 (mL/kg/min)",
+          "RER",
+          "Work rate at threshold (W)"
+        ],
+        "unit": "mL/kg/min, W, dimensionless",
+        "position": "Cycling"
+      },
+      {
+        "name": "CPET Treadmill + VO2 Cart",
+        "metrics": [
+          "VO2max (mL/kg/min)",
+          "Time to exhaustion (min)",
+          "Running economy (mL/kg/km)"
+        ],
+        "unit": "mL/kg/min, min",
+        "position": "Running / walking"
+      },
+      {
+        "name": "HR Monitor (integrated with CPET)",
+        "metrics": [
+          "HRmax (bpm)",
+          "HR at VT1/VT2 (bpm)",
+          "HR recovery 1 min (bpm)",
+          "Submaximal HR at fixed load (bpm)"
+        ],
+        "unit": "bpm",
+        "position": "Cycling / running"
+      }
+    ],
+    "cognitive": [
+      {
+        "name": "NIH Toolbox Cognitive Battery (tablet)",
+        "metrics": [
+          "Processing speed (standard score)",
+          "Executive function — Flanker (standard score)",
+          "Working memory — List Sorting (standard score)",
+          "Episodic memory (standard score)"
+        ],
+        "unit": "Standard score (mean 100, SD 15)",
+        "position": "Seated, tablet-based"
+      },
+      {
+        "name": "DYNAVISION D2 (Cognitive / Dual-Task Mode)",
+        "metrics": [
+          "Simple RT (ms)",
+          "Dual-task RT (ms)",
+          "Dual-task cost (%)",
+          "Peripheral accuracy (%)"
+        ],
+        "unit": "ms / %",
+        "position": "Standing"
+      },
+      {
+        "name": "Artinis Brite MKIV fNIRS",
+        "metrics": [
+          "ΔHbO prefrontal (µM)",
+          "ΔHbR prefrontal (µM)",
+          "Cognitive load index"
+        ],
+        "unit": "µM",
+        "position": "Seated or standing"
+      }
+    ]
+  },
+  "baselineAssessment": {
+    "patient_name": "Alex Morgan",
+    "patient_id": "IHL-2026-0042",
+    "assessment_date": "2026-04-14",
+    "category": "trained",
+    "status": "in_progress",
+    "clinician": "JP",
+    "overall_score": 6.8,
+    "strength_score": 7.2,
+    "movement_score": 6.5,
+    "cardiovascular_score": 7.4,
+    "cognitive_score": 6.1,
+    "strength_confidence": 0.92,
+    "movement_confidence": 0.85,
+    "cardiovascular_confidence": 0.88,
+    "cognitive_confidence": 0.78,
+    "overall_confidence": 0.86,
+    "strength_trend": "improving",
+    "movement_trend": "stable",
+    "cardiovascular_trend": "improving",
+    "cognitive_trend": "declining",
+    "red_flags": [
+      {
+        "domain": "cognitive",
+        "metric": "dual-task cost",
+        "note": "Dual-task cost increased 18% from baseline",
+        "severity": "moderate"
+      },
+      {
+        "domain": "movement",
+        "metric": "symmetry",
+        "note": "Right-side asymmetry detected in lateral step",
+        "severity": "low"
+      }
+    ],
+    "strength_data": {
+      "peak_force": {
+        "value": 1820,
+        "unit": "N",
+        "threshold": 1600,
+        "norm_percentile": 72
+      },
+      "relative_force": {
+        "value": 22.1,
+        "unit": "N/kg",
+        "threshold": 18,
+        "norm_percentile": 68
+      },
+      "rate_of_force_development": {
+        "value": 8400,
+        "unit": "N/s",
+        "threshold": 7000,
+        "norm_percentile": 65
+      },
+      "impulse": {
+        "value": 285,
+        "unit": "N·s",
+        "threshold": 250,
+        "norm_percentile": 70
+      },
+      "symmetry_index": {
+        "value": 94,
+        "unit": "%",
+        "threshold": 90,
+        "norm_percentile": 80
+      },
+      "grip_strength": {
+        "value": 52,
+        "unit": "kg",
+        "threshold": 45,
+        "norm_percentile": 75
+      }
+    },
+    "movement_data": {
+      "range_of_motion": {
+        "value": 142,
+        "unit": "°",
+        "threshold": 135,
+        "norm_percentile": 60
+      },
+      "movement_velocity": {
+        "value": 1.8,
+        "unit": "m/s",
+        "threshold": 1.5,
+        "norm_percentile": 62
+      },
+      "movement_smoothness": {
+        "value": -2.1,
+        "unit": "SPARC",
+        "threshold": -2.5,
+        "norm_percentile": 58
+      },
+      "temporal_symmetry": {
+        "value": 0.96,
+        "unit": "ratio",
+        "threshold": 0.95,
+        "norm_percentile": 65
+      },
+      "stride_length": {
+        "value": 1.42,
+        "unit": "m",
+        "threshold": 1.35,
+        "norm_percentile": 55
+      },
+      "cadence": {
+        "value": 112,
+        "unit": "steps/min",
+        "threshold": 100,
+        "norm_percentile": 70
+      },
+      "ground_contact_time": {
+        "value": 245,
+        "unit": "ms",
+        "threshold": 260,
+        "norm_percentile": 68
+      },
+      "muscle_activation_timing": {
+        "value": 38,
+        "unit": "ms",
+        "threshold": 45,
+        "norm_percentile": 72
+      },
+      "reaction_time": {
+        "value": 285,
+        "unit": "ms",
+        "threshold": 300,
+        "norm_percentile": 60
+      }
+    },
+    "cardiovascular_data": {
+      "vo2max": {
+        "value": 48.2,
+        "unit": "mL/kg/min",
+        "threshold": 42,
+        "norm_percentile": 75
+      },
+      "vt1": {
+        "value": 32.5,
+        "unit": "mL/kg/min",
+        "threshold": 28,
+        "norm_percentile": 70
+      },
+      "vt2": {
+        "value": 41.8,
+        "unit": "mL/kg/min",
+        "threshold": 36,
+        "norm_percentile": 72
+      },
+      "hr_recovery": {
+        "value": 38,
+        "unit": "bpm",
+        "threshold": 30,
+        "norm_percentile": 78
+      },
+      "rer": {
+        "value": 1.15,
+        "unit": "ratio",
+        "threshold": 1.1,
+        "norm_percentile": 65
+      },
+      "time_to_exhaustion": {
+        "value": 14.2,
+        "unit": "min",
+        "threshold": 12,
+        "norm_percentile": 70
+      },
+      "work_rate_at_threshold": {
+        "value": 245,
+        "unit": "W",
+        "threshold": 200,
+        "norm_percentile": 74
+      }
+    },
+    "cognitive_data": {
+      "processing_speed": {
+        "value": 62,
+        "unit": "score",
+        "threshold": 55,
+        "norm_percentile": 58
+      },
+      "attention": {
+        "value": 71,
+        "unit": "score",
+        "threshold": 65,
+        "norm_percentile": 55
+      },
+      "executive_function": {
+        "value": 58,
+        "unit": "score",
+        "threshold": 55,
+        "norm_percentile": 52
+      },
+      "working_memory": {
+        "value": 65,
+        "unit": "score",
+        "threshold": 60,
+        "norm_percentile": 56
+      },
+      "reaction_time": {
+        "value": 312,
+        "unit": "ms",
+        "threshold": 320,
+        "norm_percentile": 60
+      },
+      "accuracy": {
+        "value": 88,
+        "unit": "%",
+        "threshold": 85,
+        "norm_percentile": 58
+      },
+      "dual_task_cost": {
+        "value": 22,
+        "unit": "%",
+        "threshold": 15,
+        "norm_percentile": 35
+      },
+      "fnirs_oxygenation": {
+        "value": 4.2,
+        "unit": "µM",
+        "threshold": 3.5,
+        "norm_percentile": 50
+      }
+    },
+    "workflow_steps": [
+      {
+        "id": 1,
+        "name": "Intake & Screening",
+        "status": "completed",
+        "completedBy": "JP",
+        "completedAt": "2026-04-14T08:30:00",
+        "checklist": [
+          {
+            "item": "Verify identity",
+            "done": true
+          },
+          {
+            "item": "Review referral reason",
+            "done": true
+          },
+          {
+            "item": "Check red flags",
+            "done": true
+          },
+          {
+            "item": "Confirm consent",
+            "done": true
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "Questionnaire",
+        "status": "completed",
+        "completedBy": "JP",
+        "completedAt": "2026-04-14T08:45:00",
+        "checklist": [
+          {
+            "item": "Confirm patient identity",
+            "done": true
+          },
+          {
+            "item": "Confirm consent",
+            "done": true
+          },
+          {
+            "item": "Confirm testing category",
+            "done": true
+          },
+          {
+            "item": "Confirm risk screening",
+            "done": true
+          },
+          {
+            "item": "Confirm medications",
+            "done": true
+          },
+          {
+            "item": "Confirm recent injury or illness",
+            "done": true
+          },
+          {
+            "item": "Confirm sleep quality",
+            "done": true
+          },
+          {
+            "item": "Confirm training load",
+            "done": true
+          },
+          {
+            "item": "Confirm fatigue level",
+            "done": true
+          },
+          {
+            "item": "Confirm pain status",
+            "done": true
+          },
+          {
+            "item": "Confirm readiness to test",
+            "done": true
+          },
+          {
+            "item": "Confirm testing order",
+            "done": true
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "name": "Movement Testing",
+        "status": "completed",
+        "completedBy": "Phoebe",
+        "completedAt": "2026-04-14T09:30:00",
+        "checklist": [
+          {
+            "item": "Confirm setup",
+            "done": true
+          },
+          {
+            "item": "Calibrate equipment",
+            "done": true
+          },
+          {
+            "item": "Record baseline trial",
+            "done": true
+          },
+          {
+            "item": "Capture primary movement trials",
+            "done": true
+          },
+          {
+            "item": "Review signal quality",
+            "done": true
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "name": "Strength Testing",
+        "status": "completed",
+        "completedBy": "JP",
+        "completedAt": "2026-04-14T10:15:00",
+        "checklist": [
+          {
+            "item": "Verify positioning",
+            "done": true
+          },
+          {
+            "item": "Confirm warm-up",
+            "done": true
+          },
+          {
+            "item": "Record maximal trials",
+            "done": true
+          },
+          {
+            "item": "Review symmetry",
+            "done": true
+          },
+          {
+            "item": "Review effort quality",
+            "done": true
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "name": "Cognitive Testing",
+        "status": "active",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": [
+          {
+            "item": "Confirm instructions",
+            "done": true
+          },
+          {
+            "item": "Verify stimulus settings",
+            "done": true
+          },
+          {
+            "item": "Check reaction time capture",
+            "done": true
+          },
+          {
+            "item": "Review accuracy",
+            "done": false
+          },
+          {
+            "item": "Review dual-task performance",
+            "done": false
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "name": "Cardiovascular Testing",
+        "status": "completed",
+        "completedBy": "Phoebe",
+        "completedAt": "2026-04-14T11:30:00",
+        "checklist": [
+          {
+            "item": "Confirm protocol",
+            "done": true
+          },
+          {
+            "item": "Verify equipment calibration",
+            "done": true
+          },
+          {
+            "item": "Record workload stages",
+            "done": true
+          },
+          {
+            "item": "Record thresholds",
+            "done": true
+          },
+          {
+            "item": "Review recovery values",
+            "done": true
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "name": "Scoring & Interpretation",
+        "status": "active",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": [
+          {
+            "item": "Calculate domain scores",
+            "done": true
+          },
+          {
+            "item": "Apply composite scoring",
+            "done": true
+          },
+          {
+            "item": "Review red flags",
+            "done": false
+          },
+          {
+            "item": "Generate interpretation",
+            "done": false
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "name": "Exercise Prescription",
+        "status": "pending",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": []
+      },
+      {
+        "id": 9,
+        "name": "Trend Review",
+        "status": "pending",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": []
+      },
+      {
+        "id": 10,
+        "name": "Audio Summary",
+        "status": "pending",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": []
+      },
+      {
+        "id": 11,
+        "name": "PDF Export",
+        "status": "pending",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": []
+      },
+      {
+        "id": 12,
+        "name": "Wearables Sync",
+        "status": "pending",
+        "completedBy": null,
+        "completedAt": null,
+        "checklist": []
+      }
+    ],
+    "prescriptions": {
+      "strength": {
+        "goal": "Increase relative force output and maintain symmetry",
+        "principle": "Progressive overload with bilateral emphasis",
+        "fitt": {
+          "frequency": "3x/week",
+          "intensity": "70-85% 1RM",
+          "time": "45 min",
+          "type": "Compound resistance"
+        },
+        "progression": "Increase load 2.5-5% every 2 weeks when completing all prescribed reps",
+        "periodization": "Undulating",
+        "safety": "Monitor symmetry index each session. Stop if index drops below 85%.",
+        "monitoring_metric": "Peak force, symmetry index",
+        "retest_trigger": "8 weeks or if symmetry index drops below 88%",
+        "phases": {
+          "early": "Hypertrophy focus, 3x10-12",
+          "development": "Strength focus, 4x6-8",
+          "peak": "Power focus, 5x3-5",
+          "deload": "50% volume, 2x8-10"
+        }
+      },
+      "movement": {
+        "goal": "Improve movement smoothness and address right-side asymmetry",
+        "principle": "Motor learning with variability and feedback",
+        "fitt": {
+          "frequency": "4x/week",
+          "intensity": "Low-moderate",
+          "time": "30 min",
+          "type": "Mobility and corrective exercise"
+        },
+        "progression": "Progress from isolated corrections to integrated movement patterns",
+        "periodization": "Linear",
+        "safety": "Avoid end-range loading until symmetry improves. Monitor pain levels.",
+        "monitoring_metric": "Movement smoothness (SPARC), temporal symmetry",
+        "retest_trigger": "6 weeks or if asymmetry worsens",
+        "phases": {
+          "early": "Isolated mobility, corrective drills",
+          "development": "Integrated patterns, dynamic drills",
+          "peak": "Sport-specific movement",
+          "deload": "Maintenance mobility only"
+        }
+      },
+      "cardiovascular": {
+        "goal": "Maintain VO2max and improve ventilatory threshold efficiency",
+        "principle": "Polarized training with threshold intervals",
+        "fitt": {
+          "frequency": "4x/week",
+          "intensity": "Zone 2 (80%) + Zone 4 (20%)",
+          "time": "30-60 min",
+          "type": "Cycling / running"
+        },
+        "progression": "Increase interval duration by 1 min every 2 weeks",
+        "periodization": "Block",
+        "safety": "Monitor HR recovery. Flag if recovery drops below 25 bpm at 1 min.",
+        "monitoring_metric": "VO2max, VT1, HR recovery",
+        "retest_trigger": "10 weeks or if HR recovery declines",
+        "phases": {
+          "early": "Aerobic base, Zone 2 focus",
+          "development": "Threshold intervals, mixed zones",
+          "peak": "High-intensity blocks",
+          "deload": "Active recovery, Zone 1-2"
+        }
+      },
+      "cognitive": {
+        "goal": "Reduce dual-task cost and improve executive function",
+        "principle": "Cognitive-motor integration training",
+        "fitt": {
+          "frequency": "3x/week",
+          "intensity": "Progressive complexity",
+          "time": "20 min",
+          "type": "Dual-task and cognitive drills"
+        },
+        "progression": "Increase task complexity and speed demands every 2 weeks",
+        "periodization": "Linear",
+        "safety": "Monitor fatigue. Stop if accuracy drops below 75% during session.",
+        "monitoring_metric": "Dual-task cost, processing speed, accuracy",
+        "retest_trigger": "6 weeks or if dual-task cost exceeds 25%",
+        "phases": {
+          "early": "Single-task baseline, simple dual-task",
+          "development": "Complex dual-task, speed emphasis",
+          "peak": "Sport-specific cognitive-motor",
+          "deload": "Single-task maintenance"
+        }
+      }
+    },
+    "audit_trail": [
+      {
+        "action": "Assessment created",
+        "user": "JP",
+        "timestamp": "2026-04-14T08:15:00"
+      },
+      {
+        "action": "Intake completed",
+        "user": "JP",
+        "timestamp": "2026-04-14T08:30:00"
+      },
+      {
+        "action": "Questionnaire completed",
+        "user": "JP",
+        "timestamp": "2026-04-14T08:45:00"
+      },
+      {
+        "action": "Movement testing completed",
+        "user": "Phoebe",
+        "timestamp": "2026-04-14T09:30:00"
+      },
+      {
+        "action": "Strength testing completed",
+        "user": "JP",
+        "timestamp": "2026-04-14T10:15:00"
+      },
+      {
+        "action": "Cardiovascular testing completed",
+        "user": "Phoebe",
+        "timestamp": "2026-04-14T11:30:00"
+      },
+      {
+        "action": "Cognitive testing started",
+        "user": "JP",
+        "timestamp": "2026-04-14T12:00:00"
+      },
+      {
+        "action": "Scoring initiated",
+        "user": "JP",
+        "timestamp": "2026-04-14T12:30:00"
+      }
+    ],
+    "trend_history": [
+      {
+        "date": "2025-10-15",
+        "overall": 5.8,
+        "strength": 6,
+        "movement": 5.5,
+        "cardiovascular": 6.2,
+        "cognitive": 5.5
+      },
+      {
+        "date": "2026-01-10",
+        "overall": 6.2,
+        "strength": 6.5,
+        "movement": 6,
+        "cardiovascular": 6.8,
+        "cognitive": 5.5
+      },
+      {
+        "date": "2026-04-14",
+        "overall": 6.8,
+        "strength": 7.2,
+        "movement": 6.5,
+        "cardiovascular": 7.4,
+        "cognitive": 6.1
+      }
+    ],
+    "wearables_data": {
+      "sleep": {
+        "value": 7.2,
+        "unit": "hrs",
+        "quality": "Good",
+        "trend": "stable"
+      },
+      "recovery": {
+        "value": 78,
+        "unit": "%",
+        "status": "Ready",
+        "trend": "improving"
+      },
+      "resting_hr": {
+        "value": 58,
+        "unit": "bpm",
+        "trend": "stable"
+      },
+      "activity_load": {
+        "value": 620,
+        "unit": "AU",
+        "trend": "improving"
+      },
+      "readiness": {
+        "value": 82,
+        "unit": "score",
+        "trend": "stable"
+      }
+    },
+    "recordings": [],
+    "notes": ""
+  },
+  "sampleAssessments": {
+    "sedentary": {
+      "patient_name": "Margaret Chen",
+      "patient_id": "IHL-2026-0038",
+      "assessment_date": "2026-04-10",
+      "category": "sedentary",
+      "status": "in_progress",
+      "clinician": "JP",
+      "overall_score": 4.8,
+      "strength_score": 4.2,
+      "movement_score": 5.1,
+      "cardiovascular_score": 4.5,
+      "cognitive_score": 5.4,
+      "strength_confidence": 0.9,
+      "movement_confidence": 0.88,
+      "cardiovascular_confidence": 0.85,
+      "cognitive_confidence": 0.82,
+      "overall_confidence": 0.86,
+      "strength_trend": "stable",
+      "movement_trend": "stable",
+      "cardiovascular_trend": "declining",
+      "cognitive_trend": "stable",
+      "red_flags": [
+        {
+          "domain": "cardiovascular",
+          "metric": "VO2max",
+          "note": "VO2max below minimum functional standard for age/sex",
+          "severity": "high"
+        },
+        {
+          "domain": "strength",
+          "metric": "peak_force",
+          "note": "Relative force below ADL threshold",
+          "severity": "moderate"
+        }
+      ],
+      "strength_data": {
+        "peak_force": {
+          "value": 11.2,
+          "unit": "N/kg",
+          "threshold": 13,
+          "norm_percentile": 28
+        },
+        "relative_force": {
+          "value": 11.2,
+          "unit": "N/kg",
+          "threshold": 13,
+          "norm_percentile": 28
+        },
+        "rate_of_force_development": {
+          "value": 3200,
+          "unit": "N/s",
+          "threshold": 4000,
+          "norm_percentile": 30
+        },
+        "impulse": {
+          "value": 165,
+          "unit": "N·s",
+          "threshold": 200,
+          "norm_percentile": 25
+        },
+        "symmetry_index": {
+          "value": 88,
+          "unit": "%",
+          "threshold": 85,
+          "norm_percentile": 55
+        },
+        "grip_strength": {
+          "value": 28,
+          "unit": "kg",
+          "threshold": 32,
+          "norm_percentile": 35
+        }
+      },
+      "movement_data": {
+        "range_of_motion": {
+          "value": 128,
+          "unit": "°",
+          "threshold": 135,
+          "norm_percentile": 35
+        },
+        "movement_velocity": {
+          "value": 0.98,
+          "unit": "m/s",
+          "threshold": 1.1,
+          "norm_percentile": 28
+        },
+        "movement_smoothness": {
+          "value": -4.1,
+          "unit": "SPARC",
+          "threshold": -3.5,
+          "norm_percentile": 30
+        },
+        "temporal_symmetry": {
+          "value": 0.92,
+          "unit": "ratio",
+          "threshold": 0.95,
+          "norm_percentile": 32
+        },
+        "stride_length": {
+          "value": 1.08,
+          "unit": "m",
+          "threshold": 1.1,
+          "norm_percentile": 30
+        },
+        "cadence": {
+          "value": 98,
+          "unit": "steps/min",
+          "threshold": 100,
+          "norm_percentile": 38
+        },
+        "ground_contact_time": {
+          "value": 340,
+          "unit": "ms",
+          "threshold": 310,
+          "norm_percentile": 30
+        },
+        "muscle_activation_timing": {
+          "value": 72,
+          "unit": "ms",
+          "threshold": 65,
+          "norm_percentile": 28
+        },
+        "reaction_time": {
+          "value": 455,
+          "unit": "ms",
+          "threshold": 460,
+          "norm_percentile": 52
+        }
+      },
+      "cardiovascular_data": {
+        "vo2max": {
+          "value": 22.4,
+          "unit": "mL/kg/min",
+          "threshold": 28,
+          "norm_percentile": 22
+        },
+        "vt1": {
+          "value": 15.8,
+          "unit": "mL/kg/min",
+          "threshold": 20,
+          "norm_percentile": 28
+        },
+        "vt2": {
+          "value": 19.2,
+          "unit": "mL/kg/min",
+          "threshold": 24,
+          "norm_percentile": 25
+        },
+        "hr_recovery": {
+          "value": 14,
+          "unit": "bpm",
+          "threshold": 18,
+          "norm_percentile": 30
+        },
+        "rer": {
+          "value": 1.12,
+          "unit": "ratio",
+          "threshold": 1.1,
+          "norm_percentile": 60
+        },
+        "time_to_exhaustion": {
+          "value": 6.5,
+          "unit": "min",
+          "threshold": 7,
+          "norm_percentile": 38
+        },
+        "work_rate_at_threshold": {
+          "value": 85,
+          "unit": "W",
+          "threshold": 110,
+          "norm_percentile": 30
+        }
+      },
+      "cognitive_data": {
+        "processing_speed": {
+          "value": 52,
+          "unit": "score",
+          "threshold": 50,
+          "norm_percentile": 52
+        },
+        "attention": {
+          "value": 55,
+          "unit": "score",
+          "threshold": 50,
+          "norm_percentile": 55
+        },
+        "executive_function": {
+          "value": 50,
+          "unit": "score",
+          "threshold": 48,
+          "norm_percentile": 50
+        },
+        "working_memory": {
+          "value": 58,
+          "unit": "score",
+          "threshold": 55,
+          "norm_percentile": 55
+        },
+        "reaction_time": {
+          "value": 445,
+          "unit": "ms",
+          "threshold": 460,
+          "norm_percentile": 55
+        },
+        "accuracy": {
+          "value": 82,
+          "unit": "%",
+          "threshold": 78,
+          "norm_percentile": 58
+        },
+        "dual_task_cost": {
+          "value": 28,
+          "unit": "%",
+          "threshold": 30,
+          "norm_percentile": 52
+        },
+        "fnirs_oxygenation": {
+          "value": 2.8,
+          "unit": "µM",
+          "threshold": 2.5,
+          "norm_percentile": 52
+        }
+      },
+      "workflow_steps": [
+        {
+          "id": 1,
+          "name": "Intake & Screening",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:30:00",
+          "checklist": [
+            {
+              "item": "Verify identity",
+              "done": true
+            },
+            {
+              "item": "Review referral reason",
+              "done": true
+            },
+            {
+              "item": "Check red flags",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Questionnaire",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:45:00",
+          "checklist": [
+            {
+              "item": "Confirm patient identity",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            },
+            {
+              "item": "Confirm testing category",
+              "done": true
+            },
+            {
+              "item": "Confirm risk screening",
+              "done": true
+            },
+            {
+              "item": "Confirm medications",
+              "done": true
+            },
+            {
+              "item": "Confirm recent injury or illness",
+              "done": true
+            },
+            {
+              "item": "Confirm sleep quality",
+              "done": true
+            },
+            {
+              "item": "Confirm training load",
+              "done": true
+            },
+            {
+              "item": "Confirm fatigue level",
+              "done": true
+            },
+            {
+              "item": "Confirm pain status",
+              "done": true
+            },
+            {
+              "item": "Confirm readiness to test",
+              "done": true
+            },
+            {
+              "item": "Confirm testing order",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "Movement Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T09:30:00",
+          "checklist": [
+            {
+              "item": "Confirm setup",
+              "done": true
+            },
+            {
+              "item": "Calibrate equipment",
+              "done": true
+            },
+            {
+              "item": "Record baseline trial",
+              "done": true
+            },
+            {
+              "item": "Capture primary movement trials",
+              "done": true
+            },
+            {
+              "item": "Review signal quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Strength Testing",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T10:15:00",
+          "checklist": [
+            {
+              "item": "Verify positioning",
+              "done": true
+            },
+            {
+              "item": "Confirm warm-up",
+              "done": true
+            },
+            {
+              "item": "Record maximal trials",
+              "done": true
+            },
+            {
+              "item": "Review symmetry",
+              "done": true
+            },
+            {
+              "item": "Review effort quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "Cognitive Testing",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Confirm instructions",
+              "done": true
+            },
+            {
+              "item": "Verify stimulus settings",
+              "done": true
+            },
+            {
+              "item": "Check reaction time capture",
+              "done": true
+            },
+            {
+              "item": "Review accuracy",
+              "done": false
+            },
+            {
+              "item": "Review dual-task performance",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "Cardiovascular Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T11:30:00",
+          "checklist": [
+            {
+              "item": "Confirm protocol",
+              "done": true
+            },
+            {
+              "item": "Verify equipment calibration",
+              "done": true
+            },
+            {
+              "item": "Record workload stages",
+              "done": true
+            },
+            {
+              "item": "Record thresholds",
+              "done": true
+            },
+            {
+              "item": "Review recovery values",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "Scoring & Interpretation",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Calculate domain scores",
+              "done": true
+            },
+            {
+              "item": "Apply composite scoring",
+              "done": true
+            },
+            {
+              "item": "Review red flags",
+              "done": false
+            },
+            {
+              "item": "Generate interpretation",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "Exercise Prescription",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 9,
+          "name": "Trend Review",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 10,
+          "name": "Audio Summary",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 11,
+          "name": "PDF Export",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 12,
+          "name": "Wearables Sync",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        }
+      ],
+      "prescriptions": {
+        "strength": {
+          "goal": "Increase relative force output and maintain symmetry",
+          "principle": "Progressive overload with bilateral emphasis",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "70-85% 1RM",
+            "time": "45 min",
+            "type": "Compound resistance"
+          },
+          "progression": "Increase load 2.5-5% every 2 weeks when completing all prescribed reps",
+          "periodization": "Undulating",
+          "safety": "Monitor symmetry index each session. Stop if index drops below 85%.",
+          "monitoring_metric": "Peak force, symmetry index",
+          "retest_trigger": "8 weeks or if symmetry index drops below 88%",
+          "phases": {
+            "early": "Hypertrophy focus, 3x10-12",
+            "development": "Strength focus, 4x6-8",
+            "peak": "Power focus, 5x3-5",
+            "deload": "50% volume, 2x8-10"
+          }
+        },
+        "movement": {
+          "goal": "Improve movement smoothness and address right-side asymmetry",
+          "principle": "Motor learning with variability and feedback",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Low-moderate",
+            "time": "30 min",
+            "type": "Mobility and corrective exercise"
+          },
+          "progression": "Progress from isolated corrections to integrated movement patterns",
+          "periodization": "Linear",
+          "safety": "Avoid end-range loading until symmetry improves. Monitor pain levels.",
+          "monitoring_metric": "Movement smoothness (SPARC), temporal symmetry",
+          "retest_trigger": "6 weeks or if asymmetry worsens",
+          "phases": {
+            "early": "Isolated mobility, corrective drills",
+            "development": "Integrated patterns, dynamic drills",
+            "peak": "Sport-specific movement",
+            "deload": "Maintenance mobility only"
+          }
+        },
+        "cardiovascular": {
+          "goal": "Maintain VO2max and improve ventilatory threshold efficiency",
+          "principle": "Polarized training with threshold intervals",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Zone 2 (80%) + Zone 4 (20%)",
+            "time": "30-60 min",
+            "type": "Cycling / running"
+          },
+          "progression": "Increase interval duration by 1 min every 2 weeks",
+          "periodization": "Block",
+          "safety": "Monitor HR recovery. Flag if recovery drops below 25 bpm at 1 min.",
+          "monitoring_metric": "VO2max, VT1, HR recovery",
+          "retest_trigger": "10 weeks or if HR recovery declines",
+          "phases": {
+            "early": "Aerobic base, Zone 2 focus",
+            "development": "Threshold intervals, mixed zones",
+            "peak": "High-intensity blocks",
+            "deload": "Active recovery, Zone 1-2"
+          }
+        },
+        "cognitive": {
+          "goal": "Reduce dual-task cost and improve executive function",
+          "principle": "Cognitive-motor integration training",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "Progressive complexity",
+            "time": "20 min",
+            "type": "Dual-task and cognitive drills"
+          },
+          "progression": "Increase task complexity and speed demands every 2 weeks",
+          "periodization": "Linear",
+          "safety": "Monitor fatigue. Stop if accuracy drops below 75% during session.",
+          "monitoring_metric": "Dual-task cost, processing speed, accuracy",
+          "retest_trigger": "6 weeks or if dual-task cost exceeds 25%",
+          "phases": {
+            "early": "Single-task baseline, simple dual-task",
+            "development": "Complex dual-task, speed emphasis",
+            "peak": "Sport-specific cognitive-motor",
+            "deload": "Single-task maintenance"
+          }
+        }
+      },
+      "audit_trail": [
+        {
+          "action": "Assessment created",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:15:00"
+        },
+        {
+          "action": "Intake completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:30:00"
+        },
+        {
+          "action": "Questionnaire completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:45:00"
+        },
+        {
+          "action": "Movement testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T09:30:00"
+        },
+        {
+          "action": "Strength testing completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T10:15:00"
+        },
+        {
+          "action": "Cardiovascular testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T11:30:00"
+        },
+        {
+          "action": "Cognitive testing started",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:00:00"
+        },
+        {
+          "action": "Scoring initiated",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:30:00"
+        }
+      ],
+      "trend_history": [
+        {
+          "date": "2025-10-10",
+          "overall": 4.5,
+          "strength": 4,
+          "movement": 4.8,
+          "cardiovascular": 4.2,
+          "cognitive": 5.2
+        },
+        {
+          "date": "2026-01-15",
+          "overall": 4.7,
+          "strength": 4.1,
+          "movement": 5,
+          "cardiovascular": 4.3,
+          "cognitive": 5.3
+        },
+        {
+          "date": "2026-04-10",
+          "overall": 4.8,
+          "strength": 4.2,
+          "movement": 5.1,
+          "cardiovascular": 4.5,
+          "cognitive": 5.4
+        }
+      ],
+      "wearables_data": {
+        "sleep": {
+          "value": 7.2,
+          "unit": "hrs",
+          "quality": "Good",
+          "trend": "stable"
+        },
+        "recovery": {
+          "value": 78,
+          "unit": "%",
+          "status": "Ready",
+          "trend": "improving"
+        },
+        "resting_hr": {
+          "value": 58,
+          "unit": "bpm",
+          "trend": "stable"
+        },
+        "activity_load": {
+          "value": 620,
+          "unit": "AU",
+          "trend": "improving"
+        },
+        "readiness": {
+          "value": 82,
+          "unit": "score",
+          "trend": "stable"
+        }
+      },
+      "recordings": [],
+      "notes": ""
+    },
+    "trained": {
+      "patient_name": "Alex Morgan",
+      "patient_id": "IHL-2026-0042",
+      "assessment_date": "2026-04-14",
+      "category": "trained",
+      "status": "in_progress",
+      "clinician": "JP",
+      "overall_score": 6.8,
+      "strength_score": 7.2,
+      "movement_score": 6.5,
+      "cardiovascular_score": 7.4,
+      "cognitive_score": 6.1,
+      "strength_confidence": 0.92,
+      "movement_confidence": 0.85,
+      "cardiovascular_confidence": 0.88,
+      "cognitive_confidence": 0.78,
+      "overall_confidence": 0.86,
+      "strength_trend": "improving",
+      "movement_trend": "stable",
+      "cardiovascular_trend": "improving",
+      "cognitive_trend": "declining",
+      "red_flags": [
+        {
+          "domain": "cognitive",
+          "metric": "dual-task cost",
+          "note": "Dual-task cost increased 18% from baseline",
+          "severity": "moderate"
+        },
+        {
+          "domain": "movement",
+          "metric": "symmetry",
+          "note": "Right-side asymmetry detected in lateral step",
+          "severity": "low"
+        }
+      ],
+      "strength_data": {
+        "peak_force": {
+          "value": 1820,
+          "unit": "N",
+          "threshold": 1600,
+          "norm_percentile": 72
+        },
+        "relative_force": {
+          "value": 22.1,
+          "unit": "N/kg",
+          "threshold": 18,
+          "norm_percentile": 68
+        },
+        "rate_of_force_development": {
+          "value": 8400,
+          "unit": "N/s",
+          "threshold": 7000,
+          "norm_percentile": 65
+        },
+        "impulse": {
+          "value": 285,
+          "unit": "N·s",
+          "threshold": 250,
+          "norm_percentile": 70
+        },
+        "symmetry_index": {
+          "value": 94,
+          "unit": "%",
+          "threshold": 90,
+          "norm_percentile": 80
+        },
+        "grip_strength": {
+          "value": 52,
+          "unit": "kg",
+          "threshold": 45,
+          "norm_percentile": 75
+        }
+      },
+      "movement_data": {
+        "range_of_motion": {
+          "value": 142,
+          "unit": "°",
+          "threshold": 135,
+          "norm_percentile": 60
+        },
+        "movement_velocity": {
+          "value": 1.8,
+          "unit": "m/s",
+          "threshold": 1.5,
+          "norm_percentile": 62
+        },
+        "movement_smoothness": {
+          "value": -2.1,
+          "unit": "SPARC",
+          "threshold": -2.5,
+          "norm_percentile": 58
+        },
+        "temporal_symmetry": {
+          "value": 0.96,
+          "unit": "ratio",
+          "threshold": 0.95,
+          "norm_percentile": 65
+        },
+        "stride_length": {
+          "value": 1.42,
+          "unit": "m",
+          "threshold": 1.35,
+          "norm_percentile": 55
+        },
+        "cadence": {
+          "value": 112,
+          "unit": "steps/min",
+          "threshold": 100,
+          "norm_percentile": 70
+        },
+        "ground_contact_time": {
+          "value": 245,
+          "unit": "ms",
+          "threshold": 260,
+          "norm_percentile": 68
+        },
+        "muscle_activation_timing": {
+          "value": 38,
+          "unit": "ms",
+          "threshold": 45,
+          "norm_percentile": 72
+        },
+        "reaction_time": {
+          "value": 285,
+          "unit": "ms",
+          "threshold": 300,
+          "norm_percentile": 60
+        }
+      },
+      "cardiovascular_data": {
+        "vo2max": {
+          "value": 48.2,
+          "unit": "mL/kg/min",
+          "threshold": 42,
+          "norm_percentile": 75
+        },
+        "vt1": {
+          "value": 32.5,
+          "unit": "mL/kg/min",
+          "threshold": 28,
+          "norm_percentile": 70
+        },
+        "vt2": {
+          "value": 41.8,
+          "unit": "mL/kg/min",
+          "threshold": 36,
+          "norm_percentile": 72
+        },
+        "hr_recovery": {
+          "value": 38,
+          "unit": "bpm",
+          "threshold": 30,
+          "norm_percentile": 78
+        },
+        "rer": {
+          "value": 1.15,
+          "unit": "ratio",
+          "threshold": 1.1,
+          "norm_percentile": 65
+        },
+        "time_to_exhaustion": {
+          "value": 14.2,
+          "unit": "min",
+          "threshold": 12,
+          "norm_percentile": 70
+        },
+        "work_rate_at_threshold": {
+          "value": 245,
+          "unit": "W",
+          "threshold": 200,
+          "norm_percentile": 74
+        }
+      },
+      "cognitive_data": {
+        "processing_speed": {
+          "value": 62,
+          "unit": "score",
+          "threshold": 55,
+          "norm_percentile": 58
+        },
+        "attention": {
+          "value": 71,
+          "unit": "score",
+          "threshold": 65,
+          "norm_percentile": 55
+        },
+        "executive_function": {
+          "value": 58,
+          "unit": "score",
+          "threshold": 55,
+          "norm_percentile": 52
+        },
+        "working_memory": {
+          "value": 65,
+          "unit": "score",
+          "threshold": 60,
+          "norm_percentile": 56
+        },
+        "reaction_time": {
+          "value": 312,
+          "unit": "ms",
+          "threshold": 320,
+          "norm_percentile": 60
+        },
+        "accuracy": {
+          "value": 88,
+          "unit": "%",
+          "threshold": 85,
+          "norm_percentile": 58
+        },
+        "dual_task_cost": {
+          "value": 22,
+          "unit": "%",
+          "threshold": 15,
+          "norm_percentile": 35
+        },
+        "fnirs_oxygenation": {
+          "value": 4.2,
+          "unit": "µM",
+          "threshold": 3.5,
+          "norm_percentile": 50
+        }
+      },
+      "workflow_steps": [
+        {
+          "id": 1,
+          "name": "Intake & Screening",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:30:00",
+          "checklist": [
+            {
+              "item": "Verify identity",
+              "done": true
+            },
+            {
+              "item": "Review referral reason",
+              "done": true
+            },
+            {
+              "item": "Check red flags",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Questionnaire",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:45:00",
+          "checklist": [
+            {
+              "item": "Confirm patient identity",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            },
+            {
+              "item": "Confirm testing category",
+              "done": true
+            },
+            {
+              "item": "Confirm risk screening",
+              "done": true
+            },
+            {
+              "item": "Confirm medications",
+              "done": true
+            },
+            {
+              "item": "Confirm recent injury or illness",
+              "done": true
+            },
+            {
+              "item": "Confirm sleep quality",
+              "done": true
+            },
+            {
+              "item": "Confirm training load",
+              "done": true
+            },
+            {
+              "item": "Confirm fatigue level",
+              "done": true
+            },
+            {
+              "item": "Confirm pain status",
+              "done": true
+            },
+            {
+              "item": "Confirm readiness to test",
+              "done": true
+            },
+            {
+              "item": "Confirm testing order",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "Movement Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T09:30:00",
+          "checklist": [
+            {
+              "item": "Confirm setup",
+              "done": true
+            },
+            {
+              "item": "Calibrate equipment",
+              "done": true
+            },
+            {
+              "item": "Record baseline trial",
+              "done": true
+            },
+            {
+              "item": "Capture primary movement trials",
+              "done": true
+            },
+            {
+              "item": "Review signal quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Strength Testing",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T10:15:00",
+          "checklist": [
+            {
+              "item": "Verify positioning",
+              "done": true
+            },
+            {
+              "item": "Confirm warm-up",
+              "done": true
+            },
+            {
+              "item": "Record maximal trials",
+              "done": true
+            },
+            {
+              "item": "Review symmetry",
+              "done": true
+            },
+            {
+              "item": "Review effort quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "Cognitive Testing",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Confirm instructions",
+              "done": true
+            },
+            {
+              "item": "Verify stimulus settings",
+              "done": true
+            },
+            {
+              "item": "Check reaction time capture",
+              "done": true
+            },
+            {
+              "item": "Review accuracy",
+              "done": false
+            },
+            {
+              "item": "Review dual-task performance",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "Cardiovascular Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T11:30:00",
+          "checklist": [
+            {
+              "item": "Confirm protocol",
+              "done": true
+            },
+            {
+              "item": "Verify equipment calibration",
+              "done": true
+            },
+            {
+              "item": "Record workload stages",
+              "done": true
+            },
+            {
+              "item": "Record thresholds",
+              "done": true
+            },
+            {
+              "item": "Review recovery values",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "Scoring & Interpretation",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Calculate domain scores",
+              "done": true
+            },
+            {
+              "item": "Apply composite scoring",
+              "done": true
+            },
+            {
+              "item": "Review red flags",
+              "done": false
+            },
+            {
+              "item": "Generate interpretation",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "Exercise Prescription",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 9,
+          "name": "Trend Review",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 10,
+          "name": "Audio Summary",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 11,
+          "name": "PDF Export",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 12,
+          "name": "Wearables Sync",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        }
+      ],
+      "prescriptions": {
+        "strength": {
+          "goal": "Increase relative force output and maintain symmetry",
+          "principle": "Progressive overload with bilateral emphasis",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "70-85% 1RM",
+            "time": "45 min",
+            "type": "Compound resistance"
+          },
+          "progression": "Increase load 2.5-5% every 2 weeks when completing all prescribed reps",
+          "periodization": "Undulating",
+          "safety": "Monitor symmetry index each session. Stop if index drops below 85%.",
+          "monitoring_metric": "Peak force, symmetry index",
+          "retest_trigger": "8 weeks or if symmetry index drops below 88%",
+          "phases": {
+            "early": "Hypertrophy focus, 3x10-12",
+            "development": "Strength focus, 4x6-8",
+            "peak": "Power focus, 5x3-5",
+            "deload": "50% volume, 2x8-10"
+          }
+        },
+        "movement": {
+          "goal": "Improve movement smoothness and address right-side asymmetry",
+          "principle": "Motor learning with variability and feedback",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Low-moderate",
+            "time": "30 min",
+            "type": "Mobility and corrective exercise"
+          },
+          "progression": "Progress from isolated corrections to integrated movement patterns",
+          "periodization": "Linear",
+          "safety": "Avoid end-range loading until symmetry improves. Monitor pain levels.",
+          "monitoring_metric": "Movement smoothness (SPARC), temporal symmetry",
+          "retest_trigger": "6 weeks or if asymmetry worsens",
+          "phases": {
+            "early": "Isolated mobility, corrective drills",
+            "development": "Integrated patterns, dynamic drills",
+            "peak": "Sport-specific movement",
+            "deload": "Maintenance mobility only"
+          }
+        },
+        "cardiovascular": {
+          "goal": "Maintain VO2max and improve ventilatory threshold efficiency",
+          "principle": "Polarized training with threshold intervals",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Zone 2 (80%) + Zone 4 (20%)",
+            "time": "30-60 min",
+            "type": "Cycling / running"
+          },
+          "progression": "Increase interval duration by 1 min every 2 weeks",
+          "periodization": "Block",
+          "safety": "Monitor HR recovery. Flag if recovery drops below 25 bpm at 1 min.",
+          "monitoring_metric": "VO2max, VT1, HR recovery",
+          "retest_trigger": "10 weeks or if HR recovery declines",
+          "phases": {
+            "early": "Aerobic base, Zone 2 focus",
+            "development": "Threshold intervals, mixed zones",
+            "peak": "High-intensity blocks",
+            "deload": "Active recovery, Zone 1-2"
+          }
+        },
+        "cognitive": {
+          "goal": "Reduce dual-task cost and improve executive function",
+          "principle": "Cognitive-motor integration training",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "Progressive complexity",
+            "time": "20 min",
+            "type": "Dual-task and cognitive drills"
+          },
+          "progression": "Increase task complexity and speed demands every 2 weeks",
+          "periodization": "Linear",
+          "safety": "Monitor fatigue. Stop if accuracy drops below 75% during session.",
+          "monitoring_metric": "Dual-task cost, processing speed, accuracy",
+          "retest_trigger": "6 weeks or if dual-task cost exceeds 25%",
+          "phases": {
+            "early": "Single-task baseline, simple dual-task",
+            "development": "Complex dual-task, speed emphasis",
+            "peak": "Sport-specific cognitive-motor",
+            "deload": "Single-task maintenance"
+          }
+        }
+      },
+      "audit_trail": [
+        {
+          "action": "Assessment created",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:15:00"
+        },
+        {
+          "action": "Intake completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:30:00"
+        },
+        {
+          "action": "Questionnaire completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:45:00"
+        },
+        {
+          "action": "Movement testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T09:30:00"
+        },
+        {
+          "action": "Strength testing completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T10:15:00"
+        },
+        {
+          "action": "Cardiovascular testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T11:30:00"
+        },
+        {
+          "action": "Cognitive testing started",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:00:00"
+        },
+        {
+          "action": "Scoring initiated",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:30:00"
+        }
+      ],
+      "trend_history": [
+        {
+          "date": "2025-10-15",
+          "overall": 5.8,
+          "strength": 6,
+          "movement": 5.5,
+          "cardiovascular": 6.2,
+          "cognitive": 5.5
+        },
+        {
+          "date": "2026-01-10",
+          "overall": 6.2,
+          "strength": 6.5,
+          "movement": 6,
+          "cardiovascular": 6.8,
+          "cognitive": 5.5
+        },
+        {
+          "date": "2026-04-14",
+          "overall": 6.8,
+          "strength": 7.2,
+          "movement": 6.5,
+          "cardiovascular": 7.4,
+          "cognitive": 6.1
+        }
+      ],
+      "wearables_data": {
+        "sleep": {
+          "value": 7.2,
+          "unit": "hrs",
+          "quality": "Good",
+          "trend": "stable"
+        },
+        "recovery": {
+          "value": 78,
+          "unit": "%",
+          "status": "Ready",
+          "trend": "improving"
+        },
+        "resting_hr": {
+          "value": 58,
+          "unit": "bpm",
+          "trend": "stable"
+        },
+        "activity_load": {
+          "value": 620,
+          "unit": "AU",
+          "trend": "improving"
+        },
+        "readiness": {
+          "value": 82,
+          "unit": "score",
+          "trend": "stable"
+        }
+      },
+      "recordings": [],
+      "notes": ""
+    },
+    "competitive": {
+      "patient_name": "Jordan Reyes",
+      "patient_id": "IHL-2026-0044",
+      "assessment_date": "2026-04-12",
+      "category": "competitive",
+      "status": "in_progress",
+      "clinician": "Phoebe",
+      "overall_score": 7.5,
+      "strength_score": 7.8,
+      "movement_score": 7.2,
+      "cardiovascular_score": 8.1,
+      "cognitive_score": 6.9,
+      "strength_confidence": 0.94,
+      "movement_confidence": 0.91,
+      "cardiovascular_confidence": 0.95,
+      "cognitive_confidence": 0.85,
+      "overall_confidence": 0.91,
+      "strength_trend": "improving",
+      "movement_trend": "improving",
+      "cardiovascular_trend": "stable",
+      "cognitive_trend": "declining",
+      "red_flags": [
+        {
+          "domain": "cognitive",
+          "metric": "dual_task_cost",
+          "note": "Dual-task cost 22% — elevated for competitive category",
+          "severity": "moderate"
+        }
+      ],
+      "strength_data": {
+        "peak_force": {
+          "value": 26.8,
+          "unit": "N/kg",
+          "threshold": 25,
+          "norm_percentile": 72
+        },
+        "relative_force": {
+          "value": 26.8,
+          "unit": "N/kg",
+          "threshold": 25,
+          "norm_percentile": 72
+        },
+        "rate_of_force_development": {
+          "value": 12200,
+          "unit": "N/s",
+          "threshold": 11000,
+          "norm_percentile": 68
+        },
+        "impulse": {
+          "value": 318,
+          "unit": "N·s",
+          "threshold": 300,
+          "norm_percentile": 70
+        },
+        "symmetry_index": {
+          "value": 95,
+          "unit": "%",
+          "threshold": 93,
+          "norm_percentile": 72
+        },
+        "grip_strength": {
+          "value": 56,
+          "unit": "kg",
+          "threshold": 50,
+          "norm_percentile": 75
+        }
+      },
+      "movement_data": {
+        "range_of_motion": {
+          "value": 148,
+          "unit": "°",
+          "threshold": 135,
+          "norm_percentile": 72
+        },
+        "movement_velocity": {
+          "value": 2.1,
+          "unit": "m/s",
+          "threshold": 1.8,
+          "norm_percentile": 70
+        },
+        "movement_smoothness": {
+          "value": -2.4,
+          "unit": "SPARC",
+          "threshold": -2.8,
+          "norm_percentile": 68
+        },
+        "temporal_symmetry": {
+          "value": 0.97,
+          "unit": "ratio",
+          "threshold": 0.95,
+          "norm_percentile": 72
+        },
+        "stride_length": {
+          "value": 1.58,
+          "unit": "m",
+          "threshold": 1.45,
+          "norm_percentile": 70
+        },
+        "cadence": {
+          "value": 128,
+          "unit": "steps/min",
+          "threshold": 120,
+          "norm_percentile": 74
+        },
+        "ground_contact_time": {
+          "value": 212,
+          "unit": "ms",
+          "threshold": 230,
+          "norm_percentile": 70
+        },
+        "muscle_activation_timing": {
+          "value": 52,
+          "unit": "ms",
+          "threshold": 58,
+          "norm_percentile": 68
+        },
+        "reaction_time": {
+          "value": 240,
+          "unit": "ms",
+          "threshold": 250,
+          "norm_percentile": 65
+        }
+      },
+      "cardiovascular_data": {
+        "vo2max": {
+          "value": 58.4,
+          "unit": "mL/kg/min",
+          "threshold": 57,
+          "norm_percentile": 72
+        },
+        "vt1": {
+          "value": 41.2,
+          "unit": "mL/kg/min",
+          "threshold": 42,
+          "norm_percentile": 62
+        },
+        "vt2": {
+          "value": 52.8,
+          "unit": "mL/kg/min",
+          "threshold": 50,
+          "norm_percentile": 68
+        },
+        "hr_recovery": {
+          "value": 42,
+          "unit": "bpm",
+          "threshold": 40,
+          "norm_percentile": 72
+        },
+        "rer": {
+          "value": 1.18,
+          "unit": "ratio",
+          "threshold": 1.1,
+          "norm_percentile": 80
+        },
+        "time_to_exhaustion": {
+          "value": 19.8,
+          "unit": "min",
+          "threshold": 16,
+          "norm_percentile": 82
+        },
+        "work_rate_at_threshold": {
+          "value": 310,
+          "unit": "W",
+          "threshold": 290,
+          "norm_percentile": 70
+        }
+      },
+      "cognitive_data": {
+        "processing_speed": {
+          "value": 68,
+          "unit": "score",
+          "threshold": 68,
+          "norm_percentile": 50
+        },
+        "attention": {
+          "value": 74,
+          "unit": "score",
+          "threshold": 70,
+          "norm_percentile": 60
+        },
+        "executive_function": {
+          "value": 65,
+          "unit": "score",
+          "threshold": 65,
+          "norm_percentile": 50
+        },
+        "working_memory": {
+          "value": 70,
+          "unit": "score",
+          "threshold": 68,
+          "norm_percentile": 55
+        },
+        "reaction_time": {
+          "value": 242,
+          "unit": "ms",
+          "threshold": 240,
+          "norm_percentile": 52
+        },
+        "accuracy": {
+          "value": 90,
+          "unit": "%",
+          "threshold": 88,
+          "norm_percentile": 58
+        },
+        "dual_task_cost": {
+          "value": 22,
+          "unit": "%",
+          "threshold": 13,
+          "norm_percentile": 28
+        },
+        "fnirs_oxygenation": {
+          "value": 5.1,
+          "unit": "µM",
+          "threshold": 4.5,
+          "norm_percentile": 60
+        }
+      },
+      "workflow_steps": [
+        {
+          "id": 1,
+          "name": "Intake & Screening",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:30:00",
+          "checklist": [
+            {
+              "item": "Verify identity",
+              "done": true
+            },
+            {
+              "item": "Review referral reason",
+              "done": true
+            },
+            {
+              "item": "Check red flags",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Questionnaire",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:45:00",
+          "checklist": [
+            {
+              "item": "Confirm patient identity",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            },
+            {
+              "item": "Confirm testing category",
+              "done": true
+            },
+            {
+              "item": "Confirm risk screening",
+              "done": true
+            },
+            {
+              "item": "Confirm medications",
+              "done": true
+            },
+            {
+              "item": "Confirm recent injury or illness",
+              "done": true
+            },
+            {
+              "item": "Confirm sleep quality",
+              "done": true
+            },
+            {
+              "item": "Confirm training load",
+              "done": true
+            },
+            {
+              "item": "Confirm fatigue level",
+              "done": true
+            },
+            {
+              "item": "Confirm pain status",
+              "done": true
+            },
+            {
+              "item": "Confirm readiness to test",
+              "done": true
+            },
+            {
+              "item": "Confirm testing order",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "Movement Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T09:30:00",
+          "checklist": [
+            {
+              "item": "Confirm setup",
+              "done": true
+            },
+            {
+              "item": "Calibrate equipment",
+              "done": true
+            },
+            {
+              "item": "Record baseline trial",
+              "done": true
+            },
+            {
+              "item": "Capture primary movement trials",
+              "done": true
+            },
+            {
+              "item": "Review signal quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Strength Testing",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T10:15:00",
+          "checklist": [
+            {
+              "item": "Verify positioning",
+              "done": true
+            },
+            {
+              "item": "Confirm warm-up",
+              "done": true
+            },
+            {
+              "item": "Record maximal trials",
+              "done": true
+            },
+            {
+              "item": "Review symmetry",
+              "done": true
+            },
+            {
+              "item": "Review effort quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "Cognitive Testing",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Confirm instructions",
+              "done": true
+            },
+            {
+              "item": "Verify stimulus settings",
+              "done": true
+            },
+            {
+              "item": "Check reaction time capture",
+              "done": true
+            },
+            {
+              "item": "Review accuracy",
+              "done": false
+            },
+            {
+              "item": "Review dual-task performance",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "Cardiovascular Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T11:30:00",
+          "checklist": [
+            {
+              "item": "Confirm protocol",
+              "done": true
+            },
+            {
+              "item": "Verify equipment calibration",
+              "done": true
+            },
+            {
+              "item": "Record workload stages",
+              "done": true
+            },
+            {
+              "item": "Record thresholds",
+              "done": true
+            },
+            {
+              "item": "Review recovery values",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "Scoring & Interpretation",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Calculate domain scores",
+              "done": true
+            },
+            {
+              "item": "Apply composite scoring",
+              "done": true
+            },
+            {
+              "item": "Review red flags",
+              "done": false
+            },
+            {
+              "item": "Generate interpretation",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "Exercise Prescription",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 9,
+          "name": "Trend Review",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 10,
+          "name": "Audio Summary",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 11,
+          "name": "PDF Export",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 12,
+          "name": "Wearables Sync",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        }
+      ],
+      "prescriptions": {
+        "strength": {
+          "goal": "Increase relative force output and maintain symmetry",
+          "principle": "Progressive overload with bilateral emphasis",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "70-85% 1RM",
+            "time": "45 min",
+            "type": "Compound resistance"
+          },
+          "progression": "Increase load 2.5-5% every 2 weeks when completing all prescribed reps",
+          "periodization": "Undulating",
+          "safety": "Monitor symmetry index each session. Stop if index drops below 85%.",
+          "monitoring_metric": "Peak force, symmetry index",
+          "retest_trigger": "8 weeks or if symmetry index drops below 88%",
+          "phases": {
+            "early": "Hypertrophy focus, 3x10-12",
+            "development": "Strength focus, 4x6-8",
+            "peak": "Power focus, 5x3-5",
+            "deload": "50% volume, 2x8-10"
+          }
+        },
+        "movement": {
+          "goal": "Improve movement smoothness and address right-side asymmetry",
+          "principle": "Motor learning with variability and feedback",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Low-moderate",
+            "time": "30 min",
+            "type": "Mobility and corrective exercise"
+          },
+          "progression": "Progress from isolated corrections to integrated movement patterns",
+          "periodization": "Linear",
+          "safety": "Avoid end-range loading until symmetry improves. Monitor pain levels.",
+          "monitoring_metric": "Movement smoothness (SPARC), temporal symmetry",
+          "retest_trigger": "6 weeks or if asymmetry worsens",
+          "phases": {
+            "early": "Isolated mobility, corrective drills",
+            "development": "Integrated patterns, dynamic drills",
+            "peak": "Sport-specific movement",
+            "deload": "Maintenance mobility only"
+          }
+        },
+        "cardiovascular": {
+          "goal": "Maintain VO2max and improve ventilatory threshold efficiency",
+          "principle": "Polarized training with threshold intervals",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Zone 2 (80%) + Zone 4 (20%)",
+            "time": "30-60 min",
+            "type": "Cycling / running"
+          },
+          "progression": "Increase interval duration by 1 min every 2 weeks",
+          "periodization": "Block",
+          "safety": "Monitor HR recovery. Flag if recovery drops below 25 bpm at 1 min.",
+          "monitoring_metric": "VO2max, VT1, HR recovery",
+          "retest_trigger": "10 weeks or if HR recovery declines",
+          "phases": {
+            "early": "Aerobic base, Zone 2 focus",
+            "development": "Threshold intervals, mixed zones",
+            "peak": "High-intensity blocks",
+            "deload": "Active recovery, Zone 1-2"
+          }
+        },
+        "cognitive": {
+          "goal": "Reduce dual-task cost and improve executive function",
+          "principle": "Cognitive-motor integration training",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "Progressive complexity",
+            "time": "20 min",
+            "type": "Dual-task and cognitive drills"
+          },
+          "progression": "Increase task complexity and speed demands every 2 weeks",
+          "periodization": "Linear",
+          "safety": "Monitor fatigue. Stop if accuracy drops below 75% during session.",
+          "monitoring_metric": "Dual-task cost, processing speed, accuracy",
+          "retest_trigger": "6 weeks or if dual-task cost exceeds 25%",
+          "phases": {
+            "early": "Single-task baseline, simple dual-task",
+            "development": "Complex dual-task, speed emphasis",
+            "peak": "Sport-specific cognitive-motor",
+            "deload": "Single-task maintenance"
+          }
+        }
+      },
+      "audit_trail": [
+        {
+          "action": "Assessment created",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:15:00"
+        },
+        {
+          "action": "Intake completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:30:00"
+        },
+        {
+          "action": "Questionnaire completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:45:00"
+        },
+        {
+          "action": "Movement testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T09:30:00"
+        },
+        {
+          "action": "Strength testing completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T10:15:00"
+        },
+        {
+          "action": "Cardiovascular testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T11:30:00"
+        },
+        {
+          "action": "Cognitive testing started",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:00:00"
+        },
+        {
+          "action": "Scoring initiated",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:30:00"
+        }
+      ],
+      "trend_history": [
+        {
+          "date": "2025-10-12",
+          "overall": 6.8,
+          "strength": 7,
+          "movement": 6.5,
+          "cardiovascular": 7.5,
+          "cognitive": 6.4
+        },
+        {
+          "date": "2026-01-08",
+          "overall": 7.2,
+          "strength": 7.5,
+          "movement": 6.9,
+          "cardiovascular": 7.8,
+          "cognitive": 6.7
+        },
+        {
+          "date": "2026-04-12",
+          "overall": 7.5,
+          "strength": 7.8,
+          "movement": 7.2,
+          "cardiovascular": 8.1,
+          "cognitive": 6.9
+        }
+      ],
+      "wearables_data": {
+        "sleep": {
+          "value": 7.2,
+          "unit": "hrs",
+          "quality": "Good",
+          "trend": "stable"
+        },
+        "recovery": {
+          "value": 78,
+          "unit": "%",
+          "status": "Ready",
+          "trend": "improving"
+        },
+        "resting_hr": {
+          "value": 58,
+          "unit": "bpm",
+          "trend": "stable"
+        },
+        "activity_load": {
+          "value": 620,
+          "unit": "AU",
+          "trend": "improving"
+        },
+        "readiness": {
+          "value": 82,
+          "unit": "score",
+          "trend": "stable"
+        }
+      },
+      "recordings": [],
+      "notes": ""
+    },
+    "elite": {
+      "patient_name": "Sam Volkov",
+      "patient_id": "IHL-2026-0047",
+      "assessment_date": "2026-04-15",
+      "category": "elite",
+      "status": "in_progress",
+      "clinician": "JP",
+      "overall_score": 8.6,
+      "strength_score": 8.9,
+      "movement_score": 8.4,
+      "cardiovascular_score": 9.1,
+      "cognitive_score": 8,
+      "strength_confidence": 0.96,
+      "movement_confidence": 0.94,
+      "cardiovascular_confidence": 0.97,
+      "cognitive_confidence": 0.9,
+      "overall_confidence": 0.94,
+      "strength_trend": "stable",
+      "movement_trend": "improving",
+      "cardiovascular_trend": "stable",
+      "cognitive_trend": "improving",
+      "red_flags": [],
+      "strength_data": {
+        "peak_force": {
+          "value": 38.5,
+          "unit": "N/kg",
+          "threshold": 33,
+          "norm_percentile": 82
+        },
+        "relative_force": {
+          "value": 38.5,
+          "unit": "N/kg",
+          "threshold": 33,
+          "norm_percentile": 82
+        },
+        "rate_of_force_development": {
+          "value": 19500,
+          "unit": "N/s",
+          "threshold": 16000,
+          "norm_percentile": 78
+        },
+        "impulse": {
+          "value": 412,
+          "unit": "N·s",
+          "threshold": 380,
+          "norm_percentile": 80
+        },
+        "symmetry_index": {
+          "value": 97.5,
+          "unit": "%",
+          "threshold": 95,
+          "norm_percentile": 85
+        },
+        "grip_strength": {
+          "value": 68,
+          "unit": "kg",
+          "threshold": 58,
+          "norm_percentile": 82
+        }
+      },
+      "movement_data": {
+        "range_of_motion": {
+          "value": 156,
+          "unit": "°",
+          "threshold": 140,
+          "norm_percentile": 82
+        },
+        "movement_velocity": {
+          "value": 2.8,
+          "unit": "m/s",
+          "threshold": 2.5,
+          "norm_percentile": 80
+        },
+        "movement_smoothness": {
+          "value": -1.6,
+          "unit": "SPARC",
+          "threshold": -2,
+          "norm_percentile": 82
+        },
+        "temporal_symmetry": {
+          "value": 0.98,
+          "unit": "ratio",
+          "threshold": 0.97,
+          "norm_percentile": 85
+        },
+        "stride_length": {
+          "value": 2.02,
+          "unit": "m",
+          "threshold": 1.88,
+          "norm_percentile": 82
+        },
+        "cadence": {
+          "value": 142,
+          "unit": "steps/min",
+          "threshold": 138,
+          "norm_percentile": 80
+        },
+        "ground_contact_time": {
+          "value": 138,
+          "unit": "ms",
+          "threshold": 150,
+          "norm_percentile": 84
+        },
+        "muscle_activation_timing": {
+          "value": 34,
+          "unit": "ms",
+          "threshold": 40,
+          "norm_percentile": 82
+        },
+        "reaction_time": {
+          "value": 188,
+          "unit": "ms",
+          "threshold": 200,
+          "norm_percentile": 78
+        }
+      },
+      "cardiovascular_data": {
+        "vo2max": {
+          "value": 76.8,
+          "unit": "mL/kg/min",
+          "threshold": 70,
+          "norm_percentile": 82
+        },
+        "vt1": {
+          "value": 56.2,
+          "unit": "mL/kg/min",
+          "threshold": 54,
+          "norm_percentile": 72
+        },
+        "vt2": {
+          "value": 68.4,
+          "unit": "mL/kg/min",
+          "threshold": 63,
+          "norm_percentile": 78
+        },
+        "hr_recovery": {
+          "value": 58,
+          "unit": "bpm",
+          "threshold": 52,
+          "norm_percentile": 80
+        },
+        "rer": {
+          "value": 1.22,
+          "unit": "ratio",
+          "threshold": 1.1,
+          "norm_percentile": 90
+        },
+        "time_to_exhaustion": {
+          "value": 26.5,
+          "unit": "min",
+          "threshold": 22,
+          "norm_percentile": 82
+        },
+        "work_rate_at_threshold": {
+          "value": 420,
+          "unit": "W",
+          "threshold": 390,
+          "norm_percentile": 78
+        }
+      },
+      "cognitive_data": {
+        "processing_speed": {
+          "value": 78,
+          "unit": "score",
+          "threshold": 75,
+          "norm_percentile": 68
+        },
+        "attention": {
+          "value": 82,
+          "unit": "score",
+          "threshold": 78,
+          "norm_percentile": 72
+        },
+        "executive_function": {
+          "value": 75,
+          "unit": "score",
+          "threshold": 72,
+          "norm_percentile": 65
+        },
+        "working_memory": {
+          "value": 80,
+          "unit": "score",
+          "threshold": 76,
+          "norm_percentile": 70
+        },
+        "reaction_time": {
+          "value": 188,
+          "unit": "ms",
+          "threshold": 190,
+          "norm_percentile": 72
+        },
+        "accuracy": {
+          "value": 96,
+          "unit": "%",
+          "threshold": 93,
+          "norm_percentile": 78
+        },
+        "dual_task_cost": {
+          "value": 8,
+          "unit": "%",
+          "threshold": 9,
+          "norm_percentile": 72
+        },
+        "fnirs_oxygenation": {
+          "value": 7.2,
+          "unit": "µM",
+          "threshold": 6.5,
+          "norm_percentile": 75
+        }
+      },
+      "workflow_steps": [
+        {
+          "id": 1,
+          "name": "Intake & Screening",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:30:00",
+          "checklist": [
+            {
+              "item": "Verify identity",
+              "done": true
+            },
+            {
+              "item": "Review referral reason",
+              "done": true
+            },
+            {
+              "item": "Check red flags",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 2,
+          "name": "Questionnaire",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T08:45:00",
+          "checklist": [
+            {
+              "item": "Confirm patient identity",
+              "done": true
+            },
+            {
+              "item": "Confirm consent",
+              "done": true
+            },
+            {
+              "item": "Confirm testing category",
+              "done": true
+            },
+            {
+              "item": "Confirm risk screening",
+              "done": true
+            },
+            {
+              "item": "Confirm medications",
+              "done": true
+            },
+            {
+              "item": "Confirm recent injury or illness",
+              "done": true
+            },
+            {
+              "item": "Confirm sleep quality",
+              "done": true
+            },
+            {
+              "item": "Confirm training load",
+              "done": true
+            },
+            {
+              "item": "Confirm fatigue level",
+              "done": true
+            },
+            {
+              "item": "Confirm pain status",
+              "done": true
+            },
+            {
+              "item": "Confirm readiness to test",
+              "done": true
+            },
+            {
+              "item": "Confirm testing order",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 3,
+          "name": "Movement Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T09:30:00",
+          "checklist": [
+            {
+              "item": "Confirm setup",
+              "done": true
+            },
+            {
+              "item": "Calibrate equipment",
+              "done": true
+            },
+            {
+              "item": "Record baseline trial",
+              "done": true
+            },
+            {
+              "item": "Capture primary movement trials",
+              "done": true
+            },
+            {
+              "item": "Review signal quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 4,
+          "name": "Strength Testing",
+          "status": "completed",
+          "completedBy": "JP",
+          "completedAt": "2026-04-14T10:15:00",
+          "checklist": [
+            {
+              "item": "Verify positioning",
+              "done": true
+            },
+            {
+              "item": "Confirm warm-up",
+              "done": true
+            },
+            {
+              "item": "Record maximal trials",
+              "done": true
+            },
+            {
+              "item": "Review symmetry",
+              "done": true
+            },
+            {
+              "item": "Review effort quality",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 5,
+          "name": "Cognitive Testing",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Confirm instructions",
+              "done": true
+            },
+            {
+              "item": "Verify stimulus settings",
+              "done": true
+            },
+            {
+              "item": "Check reaction time capture",
+              "done": true
+            },
+            {
+              "item": "Review accuracy",
+              "done": false
+            },
+            {
+              "item": "Review dual-task performance",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 6,
+          "name": "Cardiovascular Testing",
+          "status": "completed",
+          "completedBy": "Phoebe",
+          "completedAt": "2026-04-14T11:30:00",
+          "checklist": [
+            {
+              "item": "Confirm protocol",
+              "done": true
+            },
+            {
+              "item": "Verify equipment calibration",
+              "done": true
+            },
+            {
+              "item": "Record workload stages",
+              "done": true
+            },
+            {
+              "item": "Record thresholds",
+              "done": true
+            },
+            {
+              "item": "Review recovery values",
+              "done": true
+            }
+          ]
+        },
+        {
+          "id": 7,
+          "name": "Scoring & Interpretation",
+          "status": "active",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": [
+            {
+              "item": "Calculate domain scores",
+              "done": true
+            },
+            {
+              "item": "Apply composite scoring",
+              "done": true
+            },
+            {
+              "item": "Review red flags",
+              "done": false
+            },
+            {
+              "item": "Generate interpretation",
+              "done": false
+            }
+          ]
+        },
+        {
+          "id": 8,
+          "name": "Exercise Prescription",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 9,
+          "name": "Trend Review",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 10,
+          "name": "Audio Summary",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 11,
+          "name": "PDF Export",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        },
+        {
+          "id": 12,
+          "name": "Wearables Sync",
+          "status": "pending",
+          "completedBy": null,
+          "completedAt": null,
+          "checklist": []
+        }
+      ],
+      "prescriptions": {
+        "strength": {
+          "goal": "Increase relative force output and maintain symmetry",
+          "principle": "Progressive overload with bilateral emphasis",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "70-85% 1RM",
+            "time": "45 min",
+            "type": "Compound resistance"
+          },
+          "progression": "Increase load 2.5-5% every 2 weeks when completing all prescribed reps",
+          "periodization": "Undulating",
+          "safety": "Monitor symmetry index each session. Stop if index drops below 85%.",
+          "monitoring_metric": "Peak force, symmetry index",
+          "retest_trigger": "8 weeks or if symmetry index drops below 88%",
+          "phases": {
+            "early": "Hypertrophy focus, 3x10-12",
+            "development": "Strength focus, 4x6-8",
+            "peak": "Power focus, 5x3-5",
+            "deload": "50% volume, 2x8-10"
+          }
+        },
+        "movement": {
+          "goal": "Improve movement smoothness and address right-side asymmetry",
+          "principle": "Motor learning with variability and feedback",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Low-moderate",
+            "time": "30 min",
+            "type": "Mobility and corrective exercise"
+          },
+          "progression": "Progress from isolated corrections to integrated movement patterns",
+          "periodization": "Linear",
+          "safety": "Avoid end-range loading until symmetry improves. Monitor pain levels.",
+          "monitoring_metric": "Movement smoothness (SPARC), temporal symmetry",
+          "retest_trigger": "6 weeks or if asymmetry worsens",
+          "phases": {
+            "early": "Isolated mobility, corrective drills",
+            "development": "Integrated patterns, dynamic drills",
+            "peak": "Sport-specific movement",
+            "deload": "Maintenance mobility only"
+          }
+        },
+        "cardiovascular": {
+          "goal": "Maintain VO2max and improve ventilatory threshold efficiency",
+          "principle": "Polarized training with threshold intervals",
+          "fitt": {
+            "frequency": "4x/week",
+            "intensity": "Zone 2 (80%) + Zone 4 (20%)",
+            "time": "30-60 min",
+            "type": "Cycling / running"
+          },
+          "progression": "Increase interval duration by 1 min every 2 weeks",
+          "periodization": "Block",
+          "safety": "Monitor HR recovery. Flag if recovery drops below 25 bpm at 1 min.",
+          "monitoring_metric": "VO2max, VT1, HR recovery",
+          "retest_trigger": "10 weeks or if HR recovery declines",
+          "phases": {
+            "early": "Aerobic base, Zone 2 focus",
+            "development": "Threshold intervals, mixed zones",
+            "peak": "High-intensity blocks",
+            "deload": "Active recovery, Zone 1-2"
+          }
+        },
+        "cognitive": {
+          "goal": "Reduce dual-task cost and improve executive function",
+          "principle": "Cognitive-motor integration training",
+          "fitt": {
+            "frequency": "3x/week",
+            "intensity": "Progressive complexity",
+            "time": "20 min",
+            "type": "Dual-task and cognitive drills"
+          },
+          "progression": "Increase task complexity and speed demands every 2 weeks",
+          "periodization": "Linear",
+          "safety": "Monitor fatigue. Stop if accuracy drops below 75% during session.",
+          "monitoring_metric": "Dual-task cost, processing speed, accuracy",
+          "retest_trigger": "6 weeks or if dual-task cost exceeds 25%",
+          "phases": {
+            "early": "Single-task baseline, simple dual-task",
+            "development": "Complex dual-task, speed emphasis",
+            "peak": "Sport-specific cognitive-motor",
+            "deload": "Single-task maintenance"
+          }
+        }
+      },
+      "audit_trail": [
+        {
+          "action": "Assessment created",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:15:00"
+        },
+        {
+          "action": "Intake completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:30:00"
+        },
+        {
+          "action": "Questionnaire completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T08:45:00"
+        },
+        {
+          "action": "Movement testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T09:30:00"
+        },
+        {
+          "action": "Strength testing completed",
+          "user": "JP",
+          "timestamp": "2026-04-14T10:15:00"
+        },
+        {
+          "action": "Cardiovascular testing completed",
+          "user": "Phoebe",
+          "timestamp": "2026-04-14T11:30:00"
+        },
+        {
+          "action": "Cognitive testing started",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:00:00"
+        },
+        {
+          "action": "Scoring initiated",
+          "user": "JP",
+          "timestamp": "2026-04-14T12:30:00"
+        }
+      ],
+      "trend_history": [
+        {
+          "date": "2025-10-15",
+          "overall": 8.2,
+          "strength": 8.5,
+          "movement": 7.9,
+          "cardiovascular": 8.8,
+          "cognitive": 7.5
+        },
+        {
+          "date": "2026-01-20",
+          "overall": 8.4,
+          "strength": 8.7,
+          "movement": 8.1,
+          "cardiovascular": 8.9,
+          "cognitive": 7.8
+        },
+        {
+          "date": "2026-04-15",
+          "overall": 8.6,
+          "strength": 8.9,
+          "movement": 8.4,
+          "cardiovascular": 9.1,
+          "cognitive": 8
+        }
+      ],
+      "wearables_data": {
+        "sleep": {
+          "value": 7.2,
+          "unit": "hrs",
+          "quality": "Good",
+          "trend": "stable"
+        },
+        "recovery": {
+          "value": 78,
+          "unit": "%",
+          "status": "Ready",
+          "trend": "improving"
+        },
+        "resting_hr": {
+          "value": 58,
+          "unit": "bpm",
+          "trend": "stable"
+        },
+        "activity_load": {
+          "value": 620,
+          "unit": "AU",
+          "trend": "improving"
+        },
+        "readiness": {
+          "value": 82,
+          "unit": "score",
+          "trend": "stable"
+        }
+      },
+      "recordings": [],
+      "notes": ""
+    }
+  }
+}

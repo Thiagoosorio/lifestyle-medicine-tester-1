@@ -1,0 +1,1215 @@
+{
+  "protocols": {
+    "sedentary": {
+      "label": "Sedentary",
+      "description": "Inactive adults (≤2 sessions/week unstructured activity). Focus: functional capacity, fall-risk screening, ADL performance. ACSM health-related fitness norms.",
+      "scoring_anchor": "5/10 = minimum functional standard. <5 = screening flag; clinician review recommended.",
+      "references": [
+        "ACSM Guidelines for Exercise Testing and Prescription, 12th Ed.",
+        "Rikli & Jones (2013) Senior Fitness Test Manual, 2nd Ed.",
+        "Blackwell JR et al. (2020) AJOT — DYNAVISION D2 norms, adults 18–80 yr",
+        "NIH Toolbox Cognition Battery V3 Norming (PMC 2025)"
+      ],
+      "rows": [
+        {
+          "domain": "Strength",
+          "metric": "CMJ Jump Height",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "3 CMJ trials. Hands on hips. 60 s rest. Impulse-momentum method preferred over flight time. Best trial recorded.",
+          "unit": "cm",
+          "reference_range": "12–24 cm",
+          "expected": "~18 cm",
+          "direction": "higher_better",
+          "notes": "ACSM/NSCA norms sedentary adults. M ~22 cm; F ~14 cm. Sayers et al. (1999); NSCA 2024."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Peak Force (relative to body weight)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Peak GRF (N) ÷ body weight (N = mass × 9.81). Best of 3 CMJ trials. Hands on hips.",
+          "unit": "N/kg",
+          "reference_range": "12–19 N/kg",
+          "expected": "~16 N/kg",
+          "direction": "higher_better",
+          "notes": "Typical peak GRF ~1.5–1.9× BW in sedentary adults. <12 N/kg = functional weakness flag. Linthorne (2001); McMahon et al. (2018)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Eccentric (Braking) RFD",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Eccentric RFD extracted from force-time curve braking phase. Mean of 2 best CMJ trials.",
+          "unit": "N/s",
+          "reference_range": "500–2500 N/s",
+          "expected": "~1500 N/s",
+          "direction": "higher_better",
+          "notes": "Reflects braking strength and SSC loading quality. McMahon et al. (2018)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP Peak Force (relative to body mass)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "2 familiarisation trials @ 50–75% effort. 2–3 max trials × 3–5 s. Hip 145°, knee ~120°. Net peak force ÷ body mass. Best trial.",
+          "unit": "N/kg",
+          "reference_range": "10–19 N/kg",
+          "expected": "~15 N/kg",
+          "direction": "higher_better",
+          "notes": "Dos'Santos et al. (2017); Haff et al. (2015). <10 N/kg = functional weakness flag. Net force = peak − BW."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP Rate of Force Development (0–100 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "Force-time curve. 100 ms window from onset. Onset threshold = 75 N above body weight. Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "1500–4500 N/s",
+          "expected": "~3000 N/s",
+          "direction": "higher_better",
+          "notes": "Early RFD window. Khamoui et al. (2011); Haff et al. (2015); NSCA 2024."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Force Symmetry Index (CMJ bilateral)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Dual force plates. Symmetry% = 100 − (|L−R| / max(L,R)) × 100. Measured during CMJ. Mean of 3 trials.",
+          "unit": "% symmetry (100 = perfect)",
+          "reference_range": "87–96%",
+          "expected": "~90%",
+          "direction": "higher_better",
+          "notes": "<85% symmetry = clinical concern (i.e. >15% asymmetry). Impellizzeri et al. (2007). CMJ preferred over IMTP for functional assessment."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (dominant hand)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Seated, elbow 90°, shoulder neutral. 3 trials × 3 s maximal squeeze. Best trial recorded.",
+          "unit": "kg",
+          "reference_range": "22–38 kg",
+          "expected": "~30 kg",
+          "direction": "higher_better",
+          "notes": "ACSM; Norman et al. (2011). Dynapenia threshold: <20 kg (F), <26 kg (M) — Malmstrom et al. (2016)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (relative to body mass)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Grip absolute (kg) ÷ body mass (kg).",
+          "unit": "kg/kg",
+          "reference_range": "0.28–0.45",
+          "expected": "~0.36",
+          "direction": "higher_better",
+          "notes": "ACSM HGS normalisation (2024). More meaningful for inter-individual comparison than absolute."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Self-Selected Gait Speed",
+          "equipment": "Medilogic Insoles / Noraxon Ultium",
+          "protocol": "10 m walk test. Comfortable self-selected pace. 2 trials. Mean recorded.",
+          "unit": "m/s",
+          "reference_range": "0.7–1.2 m/s",
+          "expected": "~1.0 m/s",
+          "direction": "higher_better",
+          "notes": "PubMed spatiotemporal norms (2024). <0.8 m/s = fall-risk threshold (ACSM). Strong predictor of adverse health outcomes."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Stride Length (self-selected walking)",
+          "equipment": "Medilogic Insoles / NiNox Cameras (2D Markerless)",
+          "protocol": "Extracted from 10 m walk at self-selected speed. Mean of ≥6 consecutive strides.",
+          "unit": "m",
+          "reference_range": "0.90–1.25 m",
+          "expected": "~1.10 m",
+          "direction": "higher_better",
+          "notes": "PubMed spatiotemporal norms (2024). Shorter strides = mobility deficit or fear of falling."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Cadence (self-selected walking)",
+          "equipment": "Medilogic Insoles / Noraxon Ultium",
+          "protocol": "Steps per minute during 10 m walk. Mean of 2 trials.",
+          "unit": "steps/min",
+          "reference_range": "90–112 steps/min",
+          "expected": "~100 steps/min",
+          "direction": "higher_better",
+          "notes": "Spatiotemporal norms (2024). Low cadence combined with low gait speed amplifies fall risk."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Reaction Time — Simple Visual (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "T-Mode. All 5 ring zones. 60 s. Seated if limited standing capacity, otherwise standing. 1 practice + 1 scored trial.",
+          "unit": "ms",
+          "reference_range": "380–580 ms",
+          "expected": "~460 ms",
+          "direction": "lower_better",
+          "notes": "Blackwell et al. (2020) AJOT. Adults 18–40 yr seated median ~460 ms; standing ~430 ms. Expected >550 ms for deconditioned populations."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Movement Smoothness (SPARC index)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Timed Up and Go (TUG) or standardised reach task. Captured at ≥100 Hz. SPARC extracted from wrist/hand segment velocity profile.",
+          "unit": "SPARC (0 to −∞; less negative = better)",
+          "reference_range": "−6.0 to −3.0",
+          "expected": "~−4.2",
+          "direction": "higher_better",
+          "notes": "Morin & Samozino (2016). Less negative = smoother movement. Sedentary populations show high jerk due to poor motor control."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "VO2max (submaximal estimation or direct)",
+          "equipment": "CPET Bike + VO2 Cart",
+          "protocol": "Submaximal ramp (15–20 W/min) or YMCA step protocol. Extrapolate to age-predicted HRmax. Direct maximal test at clinician discretion if medically cleared.",
+          "unit": "mL/kg/min",
+          "reference_range": "18–33 mL/kg/min",
+          "expected": "~26 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "ACSM 12th Ed. Sedentary adult norms (M/F mixed). Poor <24; Fair 24–30; Good 30–37. <18 = referral consideration."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 1 (VT1)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "Identified from V-slope method or ventilatory equivalents (VE/VO2, VE/VCO2) during ramp CPET. First systematic rise in VE/VO2 without corresponding rise in VE/VCO2.",
+          "unit": "mL/kg/min",
+          "reference_range": "11–20 mL/kg/min",
+          "expected": "~16 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Zone 2 training anchor (~55–60% VO2max). Buchheit & Laursen (2013)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "HR Recovery at 1 min post-exercise",
+          "equipment": "CPET System + HR Monitor",
+          "protocol": "Record peak exercise HR and HR at exactly 60 s post cessation. Passive recovery (seated). HRR1 = peak HR − HR at 60 s.",
+          "unit": "bpm drop",
+          "reference_range": "10–22 bpm",
+          "expected": "~16 bpm",
+          "direction": "higher_better",
+          "notes": "Cole et al. (1999) NEJM. ACSM. <12 bpm = autonomic dysfunction; referral consideration."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Resting Heart Rate",
+          "equipment": "CPET System + HR Monitor",
+          "protocol": "5 min supine rest. Record HR over final 2 min. Mean of final 30 readings.",
+          "unit": "bpm",
+          "reference_range": "60–90 bpm",
+          "expected": "~72 bpm",
+          "direction": "lower_better",
+          "notes": "ACSM. >90 bpm resting = referral consideration. Sedentary adults typically 65–80 bpm."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Processing Speed (NIH Toolbox Pattern Comparison)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Tablet-based Pattern Comparison Processing Speed Test. Standard administration procedure. Age- and education-corrected T-score (mean=50, SD=10) then converted to standard score (mean=100).",
+          "unit": "Standard Score (mean=100, SD=15)",
+          "reference_range": "38–58",
+          "expected": "~48",
+          "direction": "higher_better",
+          "notes": "NIH Toolbox CB V3 Norming (2025). Sedentary adults trend 5–10 pts below population mean. Sensitive to physical activity levels."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Executive Function (NIH Toolbox Flanker)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Flanker Inhibitory Control & Attention Test. Congruent and incongruent arrow conditions. Age-corrected composite standard score.",
+          "unit": "Standard Score",
+          "reference_range": "36–56",
+          "expected": "~46",
+          "direction": "higher_better",
+          "notes": "NIH Toolbox CB V3 (2025). Inhibitory control declines with inactivity; sensitive to aerobic fitness level."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Dual-Task Reaction Time (D2 + serial subtraction)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "D2 T-Mode (all rings, 60 s) while simultaneously performing serial subtraction (−3 from 100). Mean hit time recorded.",
+          "unit": "ms",
+          "reference_range": "500–680 ms",
+          "expected": "~560 ms",
+          "direction": "lower_better",
+          "notes": "Blackwell et al. (2020). Expected dual-task cost ~20–40% worse than simple RT in sedentary population."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Dual-Task Cost (D2 + serial subtraction)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "DTC% = ((Dual RT − Single RT) / Single RT) × 100. Derived from same-session simple and dual-task RT measures.",
+          "unit": "% degradation (lower = better)",
+          "reference_range": "22–45%",
+          "expected": "~32%",
+          "direction": "lower_better",
+          "notes": "High DTC% = executive control impairment. Strobach et al. (2012). Sedentary adults show elevated DTC vs trained."
+        }
+      ]
+    },
+    "trained": {
+      "label": "Trained",
+      "description": "Recreationally active adults, 3–5 sessions/week structured training. Performance-health continuum norms.",
+      "scoring_anchor": "7/10 = recreational athlete standard. <6 = training gap detected.",
+      "references": [
+        "ACSM Performance Norms — Guidelines 12th Ed.",
+        "Kenney, Wilmore & Costill (2020) Physiology of Sport and Exercise, 7th Ed.",
+        "McMahon JJ et al. (2018) Strength Cond J — CMJ force-time phases",
+        "Dos'Santos T et al. (2017) JSCR — IMTP onset-threshold methods",
+        "Blackwell JR et al. (2020) DYNAVISION D2 norms"
+      ],
+      "rows": [
+        {
+          "domain": "Strength",
+          "metric": "CMJ Jump Height",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "3 CMJ trials. Hands on hips. 60 s rest. Impulse-momentum method. Best trial.",
+          "unit": "cm",
+          "reference_range": "22–40 cm",
+          "expected": "~30 cm",
+          "direction": "higher_better",
+          "notes": "Trained adults. M ~33–40 cm; F ~24–32 cm. Sayers et al. (1999); Gathercole et al. (2015)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Peak Force (relative to body weight)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Peak GRF (N) ÷ body weight (N). Best of 3 CMJ trials. Hands on hips.",
+          "unit": "N/kg",
+          "reference_range": "16–22 N/kg",
+          "expected": "~19 N/kg",
+          "direction": "higher_better",
+          "notes": "Typical peak GRF ~1.8–2.2× BW in trained recreational adults. Linthorne (2001); McMahon et al. (2018)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Eccentric (Braking) RFD",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Eccentric RFD from braking phase of force-time curve. Mean of 2 best CMJ trials.",
+          "unit": "N/s",
+          "reference_range": "2000–6000 N/s",
+          "expected": "~4000 N/s",
+          "direction": "higher_better",
+          "notes": "Braking RFD reflects SSC efficiency and stretch-shortening loading capacity. McMahon et al. (2018)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Concentric Impulse",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Net concentric impulse (N·s) from force-time curve. Interval: zero velocity to takeoff (net GRF > 10 N).",
+          "unit": "N·s",
+          "reference_range": "160–260 N·s",
+          "expected": "~210 N·s",
+          "direction": "higher_better",
+          "notes": "Impulse-momentum theorem: jump height ∝ net impulse. McMahon et al. (2018)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP Peak Force (relative to body mass)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "2 familiarisation @ 50–75%. 3 max trials × 3–5 s. Hip 145°, knee ~120°. Net peak force ÷ body mass. Best trial.",
+          "unit": "N/kg",
+          "reference_range": "16–24 N/kg",
+          "expected": "~20 N/kg",
+          "direction": "higher_better",
+          "notes": "Trained recreational. Dos'Santos et al. (2017); Comfort et al. (2019). Relative preferred over absolute."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP RFD (0–100 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "Force-time curve. 100 ms window from onset (threshold 75 N above BW). Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "4000–8500 N/s",
+          "expected": "~6500 N/s",
+          "direction": "higher_better",
+          "notes": "Khamoui et al. (2011); NSCA 2024 — trained recreational athletes."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Force Symmetry Index (CMJ bilateral)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "SI% = (|L−R| / max(L,R)) × 100. Dual plates during CMJ. Mean of 3 trials.",
+          "unit": "% asymmetry",
+          "reference_range": "0–10%",
+          "expected": "<8%",
+          "direction": "lower_better",
+          "notes": ">12% = injury risk flag. Impellizzeri et al. (2007). CMJ preferred for functional asymmetry."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (dominant hand)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Seated, elbow 90°. 3 trials × 3 s. Best trial. Compare dominant to non-dominant.",
+          "unit": "kg",
+          "reference_range": "32–50 kg",
+          "expected": "~40 kg",
+          "direction": "higher_better",
+          "notes": "ACSM. Trained adults ~15–20% above sedentary norms. Dynapenia: <26 kg (M), <20 kg (F)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (relative to body mass)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Grip absolute (kg) ÷ body mass (kg).",
+          "unit": "kg/kg",
+          "reference_range": "0.38–0.55",
+          "expected": "~0.46",
+          "direction": "higher_better",
+          "notes": "ACSM HGS normalisation (2024)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Pinch Strength (lateral)",
+          "equipment": "Perch P2 / Leonardo Mechanograph",
+          "protocol": "Lateral pinch between thumb and index. Elbow 90°. 3 trials. Best trial.",
+          "unit": "kg",
+          "reference_range": "7–13 kg",
+          "expected": "~10 kg",
+          "direction": "higher_better",
+          "notes": "Sport-specific relevance for racket, climbing, overhead throwing sports."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Self-Selected Gait Speed",
+          "equipment": "Medilogic Insoles / Noraxon Ultium",
+          "protocol": "10 m walk test, comfortable pace. 2 trials averaged.",
+          "unit": "m/s",
+          "reference_range": "1.1–1.5 m/s",
+          "expected": "~1.3 m/s",
+          "direction": "higher_better",
+          "notes": "Spatiotemporal gait norms (PubMed 2024). Trained adults 10–20% faster than sedentary."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Stride Length (self-selected walking)",
+          "equipment": "Medilogic Insoles / NiNox Cameras",
+          "protocol": "Mean of ≥6 strides from 10 m walk.",
+          "unit": "m",
+          "reference_range": "1.15–1.50 m",
+          "expected": "~1.35 m",
+          "direction": "higher_better",
+          "notes": "Spatiotemporal norms (2024). Reflects limb mobility and coordination."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Ground Contact Time (running, treadmill)",
+          "equipment": "Medilogic Insoles",
+          "protocol": "Treadmill run at comfortable jogging speed (~9–12 km/h). Mean of ≥10 steps after 2 min familiarisation.",
+          "unit": "ms",
+          "reference_range": "230–290 ms",
+          "expected": "~260 ms",
+          "direction": "lower_better",
+          "notes": "Lower GCT = better elastic energy utilisation and leg stiffness. Applies to running, not walking."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Reaction Time — Simple Visual (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "T-Mode, 60 s, all 5 rings. Standing. 1 practice + 2 scored trials. Best result recorded.",
+          "unit": "ms",
+          "reference_range": "270–380 ms",
+          "expected": "~315 ms",
+          "direction": "lower_better",
+          "notes": "Blackwell et al. (2020). Trained adults 18–40 yr: median ~300–330 ms standing."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Movement Smoothness (SPARC index)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Overhead reach or sport-specific movement task at self-selected speed. SPARC extracted from wrist segment velocity.",
+          "unit": "SPARC",
+          "reference_range": "−4.0 to −2.3",
+          "expected": "~−3.0",
+          "direction": "higher_better",
+          "notes": "Morin & Samozino (2016). Trained adults show less jerk than sedentary due to improved motor patterning."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "VO2max (direct or estimated)",
+          "equipment": "CPET Bike + VO2 Cart",
+          "protocol": "Ramp protocol 20–25 W/min. Direct VO2 measurement preferred. Plateau criteria: ≤2.1 mL/kg/min increase with ↑load, RER ≥1.10.",
+          "unit": "mL/kg/min",
+          "reference_range": "32–52 mL/kg/min",
+          "expected": "~42 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "ACSM 12th Ed. Trained adults (M/F mixed). Good: 41–52; Excellent: >52."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 1 (VT1)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "V-slope method. First systematic rise in VE/VO2 without concurrent rise in VE/VCO2.",
+          "unit": "mL/kg/min",
+          "reference_range": "20–32 mL/kg/min",
+          "expected": "~26 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Typically 55–65% VO2max in trained adults. Zone 2 upper boundary. Buchheit & Laursen (2013)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 2 (VT2 / MLSS proxy)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "Second inflection: rise in both VE/VO2 and VE/VCO2. Approximates maximal lactate steady state.",
+          "unit": "mL/kg/min",
+          "reference_range": "28–44 mL/kg/min",
+          "expected": "~36 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Typically 75–85% VO2max. Key performance intensity marker. Buchheit & Laursen (2013)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "HR Recovery at 1 min post-exercise",
+          "equipment": "CPET System + HR Monitor",
+          "protocol": "Peak HR − HR at 60 s post cessation. Passive seated recovery.",
+          "unit": "bpm drop",
+          "reference_range": "20–36 bpm",
+          "expected": "~28 bpm",
+          "direction": "higher_better",
+          "notes": "Marker of autonomic (vagal) recovery. Cole et al. (1999). Trained adults recover faster than sedentary."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Processing Speed (NIH Toolbox Pattern Comparison)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Standard age- and education-corrected administration.",
+          "unit": "Standard Score",
+          "reference_range": "46–67",
+          "expected": "~57",
+          "direction": "higher_better",
+          "notes": "Exercise-cognition literature shows +5–10 SS vs sedentary. NIH Toolbox CB V3 (2025)."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Reaction Time — Simple Visual (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "T-Mode, 60 s. Standing. 2 scored trials. Best result.",
+          "unit": "ms",
+          "reference_range": "270–380 ms",
+          "expected": "~315 ms",
+          "direction": "lower_better",
+          "notes": "Blackwell et al. (2020). Shared norm with movement domain — same physical assessment."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Dual-Task Cost (D2 + serial subtraction)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "DTC% = ((Dual RT − Single RT) / Single RT) × 100.",
+          "unit": "% degradation",
+          "reference_range": "12–28%",
+          "expected": "~20%",
+          "direction": "lower_better",
+          "notes": "Trained individuals show significantly lower DTC than sedentary. Strobach et al. (2012)."
+        }
+      ]
+    },
+    "competitive": {
+      "label": "Competitive",
+      "description": "Competitive athletes with structured sport-specific programming, competing at regional–national level. Performance database norms.",
+      "scoring_anchor": "7.5/10 = competitive standard. <7 = targeted intervention required.",
+      "references": [
+        "NSCA Essentials of Strength Training & Conditioning, 4th Ed.",
+        "Dos'Santos T et al. (2017) JSCR — IMTP onset-threshold methods",
+        "McMahon JJ et al. (2018) Strength Cond J — CMJ phase analysis",
+        "Flanagan EP & Comyns TM (2008) Strength Cond J — RSI",
+        "Laursen PB & Buchheit M (2019) Science & Application of HIIT"
+      ],
+      "rows": [
+        {
+          "domain": "Strength",
+          "metric": "CMJ Jump Height",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "3 CMJ trials. Hands on hips. 90 s rest. Impulse-momentum method. Best trial.",
+          "unit": "cm",
+          "reference_range": "34–54 cm",
+          "expected": "~44 cm",
+          "direction": "higher_better",
+          "notes": "Competitive athletes (M/F mixed). M: 44–54 cm; F: 34–44 cm. Gathercole et al. (2015); NSCA 2024."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Peak Force (relative to body weight)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Peak GRF (N) ÷ body weight (N). Best of 3 CMJ trials.",
+          "unit": "N/kg",
+          "reference_range": "19–26 N/kg",
+          "expected": "~22 N/kg",
+          "direction": "higher_better",
+          "notes": "Typical ~2.0–2.5× BW in competitive athletes. Linthorne (2001); Gathercole et al. (2015)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Eccentric (Braking) RFD",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Eccentric RFD from braking phase. Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "5000–12000 N/s",
+          "expected": "~8000 N/s",
+          "direction": "higher_better",
+          "notes": "Key SSC loading marker. McMahon et al. (2018). Sensitive to fatigue and training status."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Concentric Impulse",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Net concentric impulse from CMJ force-time curve. Takeoff threshold: 10 N.",
+          "unit": "N·s",
+          "reference_range": "240–360 N·s",
+          "expected": "~300 N·s",
+          "direction": "higher_better",
+          "notes": "Impulse-momentum theorem. r=0.97 correlation with jump height. JSCR."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Reactive Strength Index (RSI — Drop Jump)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Drop jump from 30 cm box. Minimal knee flexion. RSI = jump height (m) ÷ GCT (s). Best of 3 trials. Rest 90 s between.",
+          "unit": "m/s",
+          "reference_range": "1.3–2.1 m/s",
+          "expected": "~1.7 m/s",
+          "direction": "higher_better",
+          "notes": "Reactive SSC capacity. Flanagan & Comyns (2008); Beattie et al. (2017). >2.0 m/s = high-performance standard."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP Peak Force (relative to body mass)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "2 familiarisation + 3 max trials × 3–5 s. Hip 145°, knee ~120°. Net peak force ÷ body mass. Best trial.",
+          "unit": "N/kg",
+          "reference_range": "21–31 N/kg",
+          "expected": "~26 N/kg",
+          "direction": "higher_better",
+          "notes": "Dos'Santos et al. (2017); Comfort et al. (2019). >30 N/kg = high-performance threshold."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP RFD (0–100 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "100 ms window from onset (75 N above BW). Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "7000–13000 N/s",
+          "expected": "~10000 N/s",
+          "direction": "higher_better",
+          "notes": "Correlated with sprint speed and CMJ height. NSCA 2024."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP RFD (0–200 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "200 ms window from force-time curve. Complementary to 0–100 ms window.",
+          "unit": "N/s",
+          "reference_range": "5500–9500 N/s",
+          "expected": "~7500 N/s",
+          "direction": "higher_better",
+          "notes": "Captures late explosive capacity. Haff et al. (2015)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Force Symmetry Index (CMJ bilateral)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "SI% = (|L−R| / max(L,R)) × 100. Dual plates during CMJ. Mean of 3 trials.",
+          "unit": "% asymmetry",
+          "reference_range": "0–8%",
+          "expected": "<6%",
+          "direction": "lower_better",
+          "notes": ">10% = injury risk investigation. Impellizzeri et al. (2007). Monitor longitudinally for change >5%."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (dominant hand)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Seated. 3 trials each hand. Best trial.",
+          "unit": "kg",
+          "reference_range": "40–56 kg",
+          "expected": "~48 kg",
+          "direction": "higher_better",
+          "notes": "Competitive athletes. Overhead/racket sport specific relevance. ACSM norms."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Dynamic Power (Proteus 2.0)",
+          "equipment": "Proteus 2.0",
+          "protocol": "Multi-directional push/pull movements. 3 planes × 3 trials. Mean power recorded.",
+          "unit": "W",
+          "reference_range": "280–520 W",
+          "expected": "~400 W",
+          "direction": "higher_better",
+          "notes": "3D resistive force — sport-specific power profiling. Benchmark by sport."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Ground Contact Time (running at competition pace)",
+          "equipment": "Medilogic Insoles",
+          "protocol": "Treadmill at race/competition pace. Mean of ≥10 steps after 2 min familiarisation.",
+          "unit": "ms",
+          "reference_range": "195–240 ms",
+          "expected": "~215 ms",
+          "direction": "lower_better",
+          "notes": "Lower GCT = greater leg stiffness and elastic energy return. Haugen et al. (2020)."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Stride Length (running at competition pace)",
+          "equipment": "Medilogic Insoles / Noraxon Ultium",
+          "protocol": "At competition pace on treadmill. Mean of ≥10 strides.",
+          "unit": "m",
+          "reference_range": "1.38–1.72 m",
+          "expected": "~1.55 m",
+          "direction": "higher_better",
+          "notes": "Sport- and speed-dependent. Sprinters >2.0 m; endurance ~1.50–1.70 m."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Joint Asymmetry Index — Knee/Hip (SLS task)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Single-leg squat to 60° knee flexion. Bilateral. Knee valgus angle and hip drop compared L vs R. Mean of 3 trials each side.",
+          "unit": "Degrees bilateral difference",
+          "reference_range": "0–5°",
+          "expected": "<4°",
+          "direction": "lower_better",
+          "notes": ">8° asymmetry = injury risk flag. 3D joint angles via Noraxon Ultium."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Reaction Time — Simple Visual (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "T-Mode, 60 s, all 5 rings. Standing. 2 scored trials. Best.",
+          "unit": "ms",
+          "reference_range": "215–275 ms",
+          "expected": "~245 ms",
+          "direction": "lower_better",
+          "notes": "Competitive athletes show faster RT than trained. Blackwell et al. (2020)."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Movement Smoothness (SPARC index)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Sport-specific movement sequence at competition speed. SPARC extracted from wrist segment.",
+          "unit": "SPARC",
+          "reference_range": "−3.0 to −1.7",
+          "expected": "~−2.2",
+          "direction": "higher_better",
+          "notes": "Significantly smoother than sedentary. Morin & Samozino (2016)."
+        },
+        {
+          "domain": "Movement",
+          "metric": "EMG Muscle Onset Timing",
+          "equipment": "Noraxon Ultium EMG",
+          "protocol": "Surface EMG on quadriceps, hamstrings, glutes during reactive perturbation or drop-landing task. Onset latency from perturbation to muscle activation. Mean of 5 trials.",
+          "unit": "ms",
+          "reference_range": "40–70 ms",
+          "expected": "~55 ms",
+          "direction": "lower_better",
+          "notes": "Earlier onset = better neuromuscular pre-activation. Correlated with injury prevention."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "VO2max (direct)",
+          "equipment": "CPET Treadmill + VO2 Cart",
+          "protocol": "Individualised ramp or Bruce protocol. RER ≥1.10 + HR within 10 bpm of age-predicted max as confirmation criteria. Plateau verification.",
+          "unit": "mL/kg/min",
+          "reference_range": "46–66 mL/kg/min",
+          "expected": "~56 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "ACSM excellent range + team sport databases. Team sport athletes typically 52–65. Squeo et al. (2025)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 2 (VT2 / MLSS proxy)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "VT2 = second deflection in ventilatory equivalents. Approximates critical speed / race pace.",
+          "unit": "mL/kg/min",
+          "reference_range": "38–56 mL/kg/min",
+          "expected": "~47 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Typically 80–88% VO2max in competitive athletes. Buchheit & Laursen (2013)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "HR Recovery at 1 min post-exercise",
+          "equipment": "CPET System + HR Monitor",
+          "protocol": "Peak HR − HR at 60 s post (passive seated recovery).",
+          "unit": "bpm drop",
+          "reference_range": "28–48 bpm",
+          "expected": "~38 bpm",
+          "direction": "higher_better",
+          "notes": "Indicator of cardiac vagal reactivation. Cole et al. (1999). Athletes recover significantly faster."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Submaximal HR at Fixed Work Rate",
+          "equipment": "CPET Bike + VO2 Cart",
+          "protocol": "HR at 150 W (M) or 100 W (F). 5 min steady-state. Track longitudinally within training blocks.",
+          "unit": "bpm",
+          "reference_range": "120–155 bpm",
+          "expected": "~135 bpm",
+          "direction": "lower_better",
+          "notes": "Lower HR at fixed load = greater cardiac efficiency. Sensitive fatigue monitoring metric. Buchheit (2014)."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Processing Speed (NIH Toolbox)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Pattern Comparison Processing Speed. Age/education corrected.",
+          "unit": "Standard Score",
+          "reference_range": "55–76",
+          "expected": "~66",
+          "direction": "higher_better",
+          "notes": "Competitive athletes show superior processing speed vs sedentary. NIH Toolbox CB V3 (2025)."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Reaction Time — Cognitive Mode (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "Random mode + peripheral lights. 60 s. Mean hit time.",
+          "unit": "ms",
+          "reference_range": "190–260 ms",
+          "expected": "~225 ms",
+          "direction": "lower_better",
+          "notes": "Competitive athletes: trained cohort norms. Blackwell et al. (2020)."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Dual-Task Cost (D2 + cognitive probe)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "D2 + sport-relevant decision task (e.g. colour identification). DTC% derived.",
+          "unit": "% degradation",
+          "reference_range": "7–18%",
+          "expected": "~12%",
+          "direction": "lower_better",
+          "notes": "Competitive athletes show superior executive control under dual-task loading."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Prefrontal Oxygenation (fNIRS ΔHbO)",
+          "equipment": "Artinis Brite MKIV fNIRS",
+          "protocol": "Seated. n-back (2-back) or Stroop task. ΔHbO measured over prefrontal cortex channels. 3 min task block.",
+          "unit": "ΔHbO (µM)",
+          "reference_range": "+2 to +8 µM",
+          "expected": "~+5 µM",
+          "direction": "higher_better",
+          "notes": "Positive ΔHbO = prefrontal cortex engagement. Scholkmann et al. (2014); Artinis Brite MKIV has device-validation literature, but threshold applicability remains under audit."
+        }
+      ]
+    },
+    "elite": {
+      "label": "Elite",
+      "description": "Elite/professional athletes at national–international level. High-volume structured programming. Marginal gains logic — small deltas are clinically meaningful.",
+      "scoring_anchor": "8.5/10 = elite standard. Any domain <8 = priority intervention.",
+      "references": [
+        "Haugen T et al. (2019) PLoS One — elite sprint mechanical variables",
+        "Squeo MR et al. (2025) PMC — CPET standards in elite athletes",
+        "Buchheit M (2014) Front Physiol — HR monitoring in elite athletes",
+        "McMahon JJ et al. (2018) Strength Cond J — CMJ phase analysis",
+        "NIH Toolbox CB V3 Norming (2025)"
+      ],
+      "rows": [
+        {
+          "domain": "Strength",
+          "metric": "CMJ Jump Height",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "3 CMJ trials. Hands on hips. 90 s rest. Impulse-momentum method. Best trial.",
+          "unit": "cm",
+          "reference_range": "48–72 cm",
+          "expected": "~58 cm",
+          "direction": "higher_better",
+          "notes": "Elite athletes. M: 54–72 cm (power sports); F: 42–56 cm. >65 cm (M) = exceptional. NSCA 2024; Haugen et al. (2020)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Peak Force (relative to body weight)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Peak GRF (N) ÷ body weight (N). Best of 3 CMJ trials.",
+          "unit": "N/kg",
+          "reference_range": "22–30 N/kg",
+          "expected": "~26 N/kg",
+          "direction": "higher_better",
+          "notes": "Typical ~2.3–3.0× BW in elite power sport athletes. Linthorne (2001); Haugen et al. (2020). >28 N/kg = exceptional."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Eccentric (Braking) RFD",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Eccentric RFD from braking phase. Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "12000–26000 N/s",
+          "expected": "~19000 N/s",
+          "direction": "higher_better",
+          "notes": "Elite SSC loading. McMahon et al. (2018). Key return-to-sport criterion post-ACL. Sensitive to neuromuscular fatigue."
+        },
+        {
+          "domain": "Strength",
+          "metric": "CMJ Concentric Impulse",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Net concentric impulse from CMJ force-time curve. Takeoff threshold: 10 N.",
+          "unit": "N·s",
+          "reference_range": "340–480 N·s",
+          "expected": "~410 N·s",
+          "direction": "higher_better",
+          "notes": "Impulse-momentum gold standard. r=0.97 with jump height. JSCR."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Reactive Strength Index (RSI — Drop Jump)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Drop jump from 30 cm box. Minimal knee bend. RSI = jump height (m) ÷ GCT (s). Best of 3 trials. 90 s rest.",
+          "unit": "m/s",
+          "reference_range": "2.0–3.2 m/s",
+          "expected": "~2.6 m/s",
+          "direction": "higher_better",
+          "notes": "Elite reactive SSC. Flanagan & Comyns (2008); Beattie et al. (2017). >3.0 m/s = elite power sport threshold."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Squat Jump Peak Force (relative to body weight)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "Static start at 90° knee flexion. 3 SJ trials. No countermovement permitted (monitor on force trace). Peak GRF ÷ body weight.",
+          "unit": "N/kg",
+          "reference_range": "20–28 N/kg",
+          "expected": "~24 N/kg",
+          "direction": "higher_better",
+          "notes": "Concentric-only power. SJ:CMJ ratio <0.85 = SSC deficit. Bosco et al. (1983). Ratio tracks training adaptations."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP Peak Force (relative to body mass)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "Standardised warm-up. 3 max trials × 3–5 s. Hip 145°, knee ~120°. Net peak force ÷ body mass. Best trial.",
+          "unit": "N/kg",
+          "reference_range": "28–48 N/kg",
+          "expected": "~36 N/kg",
+          "direction": "higher_better",
+          "notes": "Dos'Santos et al. (2017); Comfort et al. (2019). Strength-power: 38–48; Endurance: 28–36 N/kg."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP RFD (0–100 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "100 ms window from onset (75 N above BW). Mean of 2 best trials.",
+          "unit": "N/s",
+          "reference_range": "11000–20000 N/s",
+          "expected": "~15000 N/s",
+          "direction": "higher_better",
+          "notes": "Haugen et al. (2020). Correlated with 10 m sprint time and CMJ height."
+        },
+        {
+          "domain": "Strength",
+          "metric": "IMTP RFD (0–200 ms)",
+          "equipment": "STRENGTHSenses GRFP Force Plates + Isometric Rig",
+          "protocol": "200 ms window from force-time curve.",
+          "unit": "N/s",
+          "reference_range": "8500–16000 N/s",
+          "expected": "~12000 N/s",
+          "direction": "higher_better",
+          "notes": "Later explosive capacity. Tracked alongside 0–100 ms window for full neuromuscular profile. Haff et al. (2015)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Force Symmetry Index (CMJ bilateral)",
+          "equipment": "STRENGTHSenses GRFP Force Plates",
+          "protocol": "SI% = (|L−R| / max(L,R)) × 100. Dual plates. Mean of 3 CMJ trials.",
+          "unit": "% asymmetry",
+          "reference_range": "0–5%",
+          "expected": "<4%",
+          "direction": "lower_better",
+          "notes": ">6% = investigation, especially post-injury or ACL return-to-sport. Impellizzeri et al. (2007)."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Grip Strength (dominant hand)",
+          "equipment": "Hand Grip Dynamometer",
+          "protocol": "Seated. 3 trials. Best trial. Record both hands and bilateral ratio.",
+          "unit": "kg",
+          "reference_range": "48–66 kg",
+          "expected": "~56 kg",
+          "direction": "higher_better",
+          "notes": "Combat sports: >65 kg. Endurance: 48–55 kg. ACSM norms."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Dynamic Power (Proteus 2.0)",
+          "equipment": "Proteus 2.0",
+          "protocol": "Multi-plane push/pull power profile. 3 planes × 3 trials. Peak & mean power recorded.",
+          "unit": "W",
+          "reference_range": "520–880 W",
+          "expected": "~700 W",
+          "direction": "higher_better",
+          "notes": "Elite sport-specific power. 3D resistive profiling. Benchmark by sport and position."
+        },
+        {
+          "domain": "Strength",
+          "metric": "Functional Lifting Force (LIFTER)",
+          "equipment": "LIFTER",
+          "protocol": "Standardised lift from floor to mid-thigh. Peak force + mean bar velocity recorded. 3 trials.",
+          "unit": "N",
+          "reference_range": "1800–3200 N",
+          "expected": "~2500 N",
+          "direction": "higher_better",
+          "notes": "Functional task-specific strength. Load-velocity profiling for training prescription."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Ground Contact Time (sprinting, acceleration phase)",
+          "equipment": "Medilogic Insoles",
+          "protocol": "Sprint from standing start. GCT measured at 5–10 m split (acceleration phase). Mean of ≥6 ground contacts.",
+          "unit": "ms",
+          "reference_range": "120–155 ms",
+          "expected": "~138 ms",
+          "direction": "lower_better",
+          "notes": "Haugen et al. (2020). <140 ms = elite sprint standard. Reflects reactive leg stiffness."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Stride Length (peak velocity phase, sprinting)",
+          "equipment": "Medilogic Insoles / Noraxon Ultium",
+          "protocol": "Peak velocity phase (20–30 m). Mean of ≥6 strides.",
+          "unit": "m",
+          "reference_range": "1.88–2.20 m",
+          "expected": "~2.05 m",
+          "direction": "higher_better",
+          "notes": "Elite sprinters >2.20 m; team sport elites ~1.90–2.10 m. Haugen et al. (2020)."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Movement Smoothness (SPARC index)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Sport-specific skill at competition speed. SPARC extracted from primary effector segment.",
+          "unit": "SPARC",
+          "reference_range": "−2.4 to −1.0",
+          "expected": "~−1.6",
+          "direction": "higher_better",
+          "notes": "Elite athletes approach 0 (perfect smoothness). Values near −1.0 = exceptional automaticity. Morin & Samozino (2016)."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Joint Asymmetry Index (cutting/landing task)",
+          "equipment": "Noraxon Ultium 3D Motion Capture",
+          "protocol": "Single-leg landing from 30 cm box + 45° cut. 3D knee valgus + hip drop bilateral comparison. Mean of 3 trials each limb.",
+          "unit": "Degrees bilateral difference",
+          "reference_range": "0–3°",
+          "expected": "<2°",
+          "direction": "lower_better",
+          "notes": "Elite standard. >5° = priority intervention, especially post-ACL reconstruction."
+        },
+        {
+          "domain": "Movement",
+          "metric": "Reaction Time — Simple Visual (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "T-Mode, 60 s. Standing. 2 scored trials. Best recorded.",
+          "unit": "ms",
+          "reference_range": "162–218 ms",
+          "expected": "~190 ms",
+          "direction": "lower_better",
+          "notes": "Blackwell et al. (2020). Elite athletes 18–40 yr top quartile ~165–200 ms. Age and sex corrections apply."
+        },
+        {
+          "domain": "Movement",
+          "metric": "EMG Muscle Onset Timing",
+          "equipment": "Noraxon Ultium EMG",
+          "protocol": "Reactive perturbation or drop-landing task. Quad/hamstring onset. Average of 5 trials.",
+          "unit": "ms",
+          "reference_range": "22–52 ms",
+          "expected": "~38 ms",
+          "direction": "lower_better",
+          "notes": "Elite neuromuscular pre-activation. Earlier onset than competitive athletes. Critical for injury prevention."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "VO2max (direct)",
+          "equipment": "CPET Treadmill + VO2 Cart",
+          "protocol": "Graded exercise test to volitional exhaustion. Individualised ramp protocol. Plateau: ≤2.1 mL/kg/min rise, RER ≥1.10, HR within 10 bpm of predicted max.",
+          "unit": "mL/kg/min",
+          "reference_range": "58–90 mL/kg/min",
+          "expected": "~72 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Squeo et al. (2025). Elite endurance: 72–92; Power sports: 58–68. Cross-country skiing top tier: >90."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 1 (VT1)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "V-slope method. First systematic rise in VE/VO2 without rise in VE/VCO2.",
+          "unit": "mL/kg/min",
+          "reference_range": "42–62 mL/kg/min",
+          "expected": "~52 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Elite endurance: VT1:VO2max ratio ~73–78%. Absolute VT1 strongly predicts performance. Buchheit (2014)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Ventilatory Threshold 2 (VT2 / MLSS proxy)",
+          "equipment": "CPET VO2 Cart",
+          "protocol": "Second deflection. Race pace zone upper boundary. VT2:VO2max ratio tracked.",
+          "unit": "mL/kg/min",
+          "reference_range": "52–76 mL/kg/min",
+          "expected": "~64 mL/kg/min",
+          "direction": "higher_better",
+          "notes": "Elite: VT2 typically >85% VO2max. Critical power proxy. Laursen & Buchheit (2019)."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "HR Recovery at 1 min post-exercise",
+          "equipment": "CPET System + HR Monitor",
+          "protocol": "Peak HR − HR at 60 s passive seated recovery.",
+          "unit": "bpm drop",
+          "reference_range": "38–70 bpm",
+          "expected": "~54 bpm",
+          "direction": "higher_better",
+          "notes": "Elite: >50 bpm = excellent autonomic fitness. Buchheit (2014); Squeo et al. (2025). Tracks training adaptation longitudinally."
+        },
+        {
+          "domain": "Cardiovascular function",
+          "metric": "Submaximal HR at Fixed Work Rate",
+          "equipment": "CPET Bike + VO2 Cart",
+          "protocol": "HR at 200 W (M) or 150 W (F). 5 min steady-state. Tracked longitudinally.",
+          "unit": "bpm",
+          "reference_range": "108–142 bpm",
+          "expected": "~124 bpm",
+          "direction": "lower_better",
+          "notes": "Cardiac adaptation marker. Buchheit (2014). Decline over training blocks = positive aerobic adaptation."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Processing Speed (NIH Toolbox)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Pattern Comparison Processing Speed. Age-corrected standard score.",
+          "unit": "Standard Score",
+          "reference_range": "62–95",
+          "expected": "~76",
+          "direction": "higher_better",
+          "notes": "Elite athletes show superior processing speed. NIH Toolbox CB V3 (2025). Track longitudinally for overtraining."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Executive Function (NIH Toolbox Flanker)",
+          "equipment": "NIH Toolbox Cognitive Battery",
+          "protocol": "Flanker Inhibitory Control & Attention. Age-corrected standard score.",
+          "unit": "Standard Score",
+          "reference_range": "60–90",
+          "expected": "~73",
+          "direction": "higher_better",
+          "notes": "Elite sport demands sustained executive function. Longitudinal tracking important for overtraining detection."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Reaction Time — Elite Mode (DYNAVISION D2)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "Custom protocol: random + peripheral + moving targets. 90 s. Mean hit time.",
+          "unit": "ms",
+          "reference_range": "158–212 ms",
+          "expected": "~182 ms",
+          "direction": "lower_better",
+          "notes": "Top-quartile Blackwell et al. (2020). <185 ms = exceptional visual-motor response. Age + sex corrected."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Dual-Task Cost (D2 + sport-decision task)",
+          "equipment": "DYNAVISION D2 Light Board",
+          "protocol": "D2 + concurrent sport-specific decision task (opponent reading / tactical stimulus). DTC% derived.",
+          "unit": "% degradation",
+          "reference_range": "3–10%",
+          "expected": "~6%",
+          "direction": "lower_better",
+          "notes": "Elite athletes demonstrate near-automaticity. DTC >15% = concern. Monitor across training blocks."
+        },
+        {
+          "domain": "Cognitive function",
+          "metric": "Prefrontal Oxygenation (fNIRS ΔHbO)",
+          "equipment": "Artinis Brite MKIV fNIRS",
+          "protocol": "n-back (2-back) cognitive task during low-intensity exercise (40% HRmax cycling). ΔHbO over PFC channels. 3 min task block. 2 min rest. 3 repetitions.",
+          "unit": "ΔHbO (µM)",
+          "reference_range": "+4 to +12 µM",
+          "expected": "~+8 µM",
+          "direction": "higher_better",
+          "notes": "Greater prefrontal activation under dual physical-cognitive load. Elite athletes show sustained engagement. Scholkmann et al. (2014)."
+        }
+      ]
+    }
+  },
+  "evidenceReferences": [
+    {
+      "category": "Exercise Prescription & Guidelines",
+      "items": [
+        {
+          "text": "ACSM Guidelines for Exercise Testing & Prescription, 12th Ed.",
+          "url": "https://www.acsm.org/education-resources/books/guidelines-exercise-testing-prescription"
+        },
+        {
+          "text": "Riebe D et al. (2017). Updating ACSM's recommendations for exercise preparticipation health screening. Med Sci Sports Exerc, 47(11), 2473–2479.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/28709143/"
+        },
+        {
+          "text": "Garber CE et al. (2011). Quantity and quality of exercise for developing and maintaining fitness in apparently healthy adults. Med Sci Sports Exerc, 43(7), 1334–1359.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/21694556/"
+        }
+      ]
+    },
+    {
+      "category": "Strength & Conditioning",
+      "items": [
+        {
+          "text": "NSCA — Essentials of Strength Training and Conditioning, 4th Ed. Haff GG & Triplett NT (Eds).",
+          "url": "https://www.nsca.com/education/books/"
+        },
+        {
+          "text": "Kenney WL, Wilmore JH, Costill DL (2020). Physiology of Sport and Exercise, 7th Ed. Human Kinetics.",
+          "url": "https://www.humankinetics.com/products/all-products/physiology-of-sport-and-exercise-7th-edition"
+        }
+      ]
+    },
+    {
+      "category": "Cardiovascular & Interval Training",
+      "items": [
+        {
+          "text": "Buchheit M & Laursen PB (2013). High-intensity interval training, solutions to the programming puzzle. Part I: cardiopulmonary emphasis. Sports Med, 43, 313–338.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/23539308/"
+        },
+        {
+          "text": "Seiler S (2010). What is best practice for training intensity and duration distribution? Int J Sports Physiol Perform, 5(3), 276–291.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/20861528/"
+        }
+      ]
+    },
+    {
+      "category": "Athlete Performance & Monitoring",
+      "items": [
+        {
+          "text": "Buchheit M (2014). Monitoring training status with HR measures: do all roads lead to Rome? Front Physiol, 5, 73.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/24578692/"
+        },
+        {
+          "text": "Haugen T et al. (2019). Sprint mechanical variables in elite athletes: are force-velocity profiles sport specific or individual? PLoS One.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/31339890/"
+        }
+      ]
+    },
+    {
+      "category": "Periodization",
+      "items": [
+        {
+          "text": "Issurin VB (2010). New horizons for the methodology and physiology of training periodization. Sports Med, 40(3), 189–206.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/20199119/"
+        },
+        {
+          "text": "Kiely J (2012). Periodization paradigms in the 21st century: evidence-led or tradition-driven? Int J Sports Physiol Perform, 7(3), 242–250.",
+          "url": "https://pubmed.ncbi.nlm.nih.gov/22356774/"
+        }
+      ]
+    },
+    {
+      "category": "Cognitive Assessment",
+      "items": [
+        {
+          "text": "NIH Toolbox Cognitive Battery — standardised measures of cognitive function.",
+          "url": "https://www.healthmeasures.net/explore-measurement-systems/nih-toolbox"
+        }
+      ]
+    },
+    {
+      "category": "Older Adults & Functional Fitness",
+      "items": [
+        {
+          "text": "Rikli RE & Jones CJ (2013). Senior Fitness Test Manual, 2nd Ed. Human Kinetics.",
+          "url": "https://www.humankinetics.com/products/all-products/senior-fitness-test-manual-2nd-edition"
+        }
+      ]
+    }
+  ]
+}
