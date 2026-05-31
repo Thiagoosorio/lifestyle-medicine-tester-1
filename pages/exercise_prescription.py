@@ -3,6 +3,7 @@
 import streamlit as st
 from datetime import date
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
+from components.safety_notices import render_exercise_safety_notice
 from components.exercise_prescription_display import (
     render_key_terms_guide,
     render_program_overview,
@@ -44,6 +45,7 @@ render_hero_banner(
     "Science-based Push/Pull/Legs training programs with RP periodization, "
     "volume landmarks, and mesocycle progression.",
 )
+render_exercise_safety_notice("strength training")
 
 tab_program, tab_log, tab_generate, tab_science, tab_reference = st.tabs([
     "My Program", "Log Workout", "Generate Program", "Science", "Reference"

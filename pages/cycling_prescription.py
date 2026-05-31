@@ -3,6 +3,7 @@
 import streamlit as st
 from datetime import date, timedelta
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
+from components.safety_notices import render_exercise_safety_notice
 from components.cycling_display import (
     render_ftp_card,
     render_zones_table,
@@ -162,6 +163,7 @@ render_hero_banner(
     "Cycling Training",
     "Power-based training with FTP zones, TSS, Performance Management Chart, and adaptive prescription.",
 )
+render_exercise_safety_notice("cycling training")
 
 tab_dash, tab_plan, tab_log, tab_workouts, tab_analytics, tab_settings, tab_coach = st.tabs([
     "Dashboard", "Training Plan", "Log Ride", "Workout Library", "Analytics", "Settings", "AI Coach"

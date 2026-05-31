@@ -114,6 +114,7 @@ else:
                 st.Page("pages/ai_coach.py", title="AI Coach", icon=":material/psychology:"),
             ],
             "Science": [
+                st.Page("pages/science_review.py", title="Science Review", icon=":material/fact_check:"),
                 st.Page("pages/research_library.py", title="Research Library", icon=":material/science:"),
                 st.Page("pages/protocols.py", title="Daily Protocols", icon=":material/labs:"),
             ],

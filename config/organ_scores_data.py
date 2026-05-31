@@ -1260,16 +1260,16 @@ ORGAN_SCORE_DEFINITIONS = [
         "required_clinical": ["age", "sex", "diabetes_status", "systolic_bp"],
         "interpretation": json.dumps({
             "ranges": [
-                {"max": 0, "label": "Low stroke risk — no anticoagulation needed", "severity": "optimal"},
-                {"min": 1, "max": 1, "label": "Low-moderate risk — consider anticoagulation (especially if not female sex point alone)", "severity": "normal"},
-                {"min": 2, "max": 3, "label": "Moderate stroke risk — anticoagulation recommended", "severity": "elevated"},
-                {"min": 4, "max": 5, "label": "High stroke risk — anticoagulation strongly recommended", "severity": "high"},
-                {"min": 6, "label": "Very high stroke risk (>=6/9) — anticoagulation essential", "severity": "critical"},
+                {"max": 0, "label": "Low AF stroke-risk score - document AF status and review clinically", "severity": "optimal"},
+                {"min": 1, "max": 1, "label": "Low-moderate AF stroke-risk score - clinician discussion if AF is confirmed", "severity": "normal"},
+                {"min": 2, "max": 3, "label": "Moderate AF stroke-risk score - clinician review of stroke-prevention options", "severity": "elevated"},
+                {"min": 4, "max": 5, "label": "High AF stroke-risk score - prompt clinician review of stroke-prevention options", "severity": "high"},
+                {"min": 6, "label": "Very high AF stroke-risk score (>=6/9) - urgent clinician review if AF is confirmed", "severity": "critical"},
             ]
         }),
         "citation_pmid": "19762550",
-        "citation_text": "Lip GYH et al. Chest 2010;137(2):263-72. Refinement of CHADS2 with vascular disease, age 65-74, and female sex. ESC 2024 AF guideline (PMID: 39210723) and AHA/ACC 2023 mandate CHA2DS2-VASc for anticoagulation decisions.",
-        "description": "CHA\u2082DS\u2082-VASc predicts annual stroke risk in atrial fibrillation. Score 0 (male) or 1 (female) = low risk. Score >=2 = anticoagulation recommended. Requires AF status, heart failure, stroke/TIA history, and vascular disease in clinical profile.",
+        "citation_text": "Lip GYH et al. Chest 2010;137(2):263-72. Refinement of CHADS2 with vascular disease, age 65-74, and female sex. ESC 2024 AF guideline (PMID: 39210723) and AHA/ACC 2023 use CHA2DS2-VASc to support clinician-led anticoagulation decisions in atrial fibrillation.",
+        "description": "CHA\u2082DS\u2082-VASc estimates annual stroke risk in people with atrial fibrillation. Use only when AF status and relevant history are documented; medication decisions require clinician review.",
         "sort_order": 29,
     },
     # ═══════════════════════════════════════════════════════════════════════════

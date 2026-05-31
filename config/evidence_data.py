@@ -1,6 +1,7 @@
 """Curated PubMed citations for the evidence library.
 
-All 70 entries verified via PubMed API with confirmed PMIDs, DOIs, and metadata.
+Entries are curated for app use, but metadata completeness and freshness are
+now audited in the Science Review page rather than asserted globally here.
 Organized by the 6 ACLM pillars of lifestyle medicine + cross-pillar Phase 2 entries + SIBO/FODMAP (Phase 5).
 
 v2.0 fields: journal_tier (elite/q1/q2/q3/q4) and domain (from RESEARCH_DOMAINS).
@@ -274,8 +275,8 @@ EVIDENCE_LIBRARY = [
         "title": "Does physical activity attenuate, or even eliminate, the detrimental association of sitting time with mortality?",
         "authors": "Ekelund U et al.", "journal": "Lancet", "year": 2016,
         "study_type": "meta_analysis", "evidence_grade": "A", "pillar_id": 2,
-        "summary": "Landmark study showing 60-75 min/day of moderate exercise can eliminate the increased mortality risk from prolonged sitting.",
-        "key_finding": "60-75 min/day of moderate exercise eliminated the mortality risk from sitting >8 hours/day.",
+        "summary": "Landmark cohort harmonisation showing 60-75 min/day of moderate exercise may attenuate the excess mortality risk associated with prolonged sitting.",
+        "key_finding": "60-75 min/day of moderate exercise attenuated the observed mortality association for sitting >8 hours/day.",
         "effect_size": "Sitting >8h + low PA: HR 1.59; sitting >8h + high PA: HR 1.04 (not significant)",
         "sample_size": 1005791, "population": "Over 1 million adults (16 studies); 84,609 deaths",
         "dose_response": "60-75 min/day of moderate activity fully attenuates sitting risk.",
@@ -353,8 +354,8 @@ EVIDENCE_LIBRARY = [
         "title": "Sleep Disturbance, Sleep Duration, and Inflammation: A Systematic Review and Meta-Analysis",
         "authors": "Irwin MR et al.", "journal": "Biol Psychiatry", "year": 2016,
         "study_type": "meta_analysis", "evidence_grade": "A", "pillar_id": 3,
-        "summary": "Meta-analysis demonstrating that poor sleep drives systemic inflammation independent of sleep duration.",
-        "key_finding": "Sleep disturbance associated with higher CRP (ES 0.12) and IL-6 (ES 0.20), driving systemic inflammation.",
+        "summary": "Meta-analysis showing sleep disturbance is associated with higher inflammatory markers, partly independent of sleep duration.",
+        "key_finding": "Sleep disturbance was associated with higher CRP (ES 0.12) and IL-6 (ES 0.20), consistent with an inflammatory pathway.",
         "effect_size": "CRP ES 0.12 (95% CI 0.05-0.19); IL-6 ES 0.20 (95% CI 0.08-0.31)",
         "sample_size": None, "population": ">50,000 participants (72 studies)",
         "dose_response": None,

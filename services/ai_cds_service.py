@@ -140,7 +140,7 @@ def build_lifestyle_intervention_support(snapshot: dict) -> list[dict]:
                 "trigger": "Liver-digestive domain risk elevated or score below target.",
                 "recommendation": (
                     "Weight-focused liver protocol: reduce ultra-processed foods and refined sugars, "
-                    "increase fiber-rich whole foods, and prescribe progressive activity."
+                    "increase fiber-rich whole foods, and discuss a progressive activity plan."
                 ),
                 "success_metric": "Follow AST/ALT/GGT trend and liver-risk score movement over 8-12 weeks.",
                 "evidence_topics": [

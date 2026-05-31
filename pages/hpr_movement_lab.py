@@ -17,6 +17,7 @@ from services.hpr_service import (
     get_domain_scores,
     get_evidence_audit,
     get_evidence_references,
+    get_hpr_consistency_warnings,
     get_metrics_by_domain,
     get_protocol,
     get_protocol_domains,
@@ -103,21 +104,25 @@ with overview_tab:
         cols = st.columns(5)
         with cols[0]:
             st.metric(
-                "Overall",
+                "Extracted overall",
                 f"{float(overall):.1f}/10" if overall is not None else "N/A",
-                f"{float(confidence) * 100:.0f}% confidence" if confidence else None,
+                f"{float(confidence) * 100:.0f}% extracted confidence" if confidence else None,
             )
         for index, score in enumerate(domain_scores, start=1):
             with cols[index]:
                 st.metric(
-                    score["label"],
+                    f"{score['label']} sample",
                     f"{score['score']:.1f}/10",
                     (
-                        f"{float(score['confidence']) * 100:.0f}% confidence"
+                        f"{float(score['confidence']) * 100:.0f}% extracted confidence"
                         if score.get("confidence")
                         else None
                     ),
                 )
+        st.info(
+            "The score and confidence values above are extracted sample-case fields. "
+            "They should not be interpreted as validated model confidence."
+        )
 
         if domain_scores:
             fig = go.Figure(
@@ -209,9 +214,10 @@ with protocol_tab:
 with calculator_tab:
     render_section_header(
         "Visible Anchor Calculator",
-        "Inferred metric score from public norm anchors only",
+        "Anchor-position index from public norm anchors only",
     )
     st.caption(SCORE_FORMULA_CAVEAT)
+    st.warning("This is not the HPR hidden scoring formula and must not be used as a clinical score.")
 
     metric_domains = ["strength", "movement", "cardiovascular", "cognitive"]
     selected_metric_domain = st.selectbox(
@@ -245,7 +251,7 @@ with calculator_tab:
 
         score_cols = st.columns(3)
         score_cols[0].metric(
-            "Inferred metric score",
+            "Anchor index",
             f"{inferred_score:.1f}/10" if inferred_score is not None else "N/A",
         )
         score_cols[1].metric("Band", score_band(inferred_score))
@@ -259,7 +265,7 @@ with calculator_tab:
         if inferred_score is not None:
             st.progress(
                 inferred_score / 10,
-                text=f"{inferred_score:.1f}/10 inferred from visible anchors",
+                text=f"{inferred_score:.1f}/10 anchor index from visible anchors",
             )
 
         st.markdown("**Visible anchors**")
@@ -275,6 +281,10 @@ with prescription_tab:
     st.caption(
         "These are category/sample prescription examples from the HPR model. "
         "They are not yet generated from this app user's personal movement data."
+    )
+    st.warning(
+        "Reference only. Do not use this tab as a personalized prescription without clinician review, "
+        "risk screening, and confirmed patient-specific test results."
     )
 
     sample = get_sample_assessment(category)
@@ -378,3 +388,5 @@ with audit_tab:
         "- Next improvement: add real patient movement test entry and persist raw results before "
         "generating personalized prescriptions."
     )
+    st.markdown("**Known HPR consistency warnings**")
+    st.dataframe(pd.DataFrame(get_hpr_consistency_warnings()), use_container_width=True, hide_index=True)

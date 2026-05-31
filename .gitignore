@@ -7,3 +7,10 @@ reports/quality_loop/
 
 # project-local pytest tempdir for tests that bypass tmp_path on Windows
 .codex_test_tmp/
+.pytest-tmp/
+.pytest_tmp*/
+.tmp_probe/
+.tmp_pytest/
+.tmp_single_pytest/
+pytest-cache-files-*/
+lm_scores_*/

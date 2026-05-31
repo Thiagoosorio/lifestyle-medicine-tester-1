@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from datetime import date
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
+from components.safety_notices import render_exercise_safety_notice
 from config.running_data import RACE_DISTANCES, PACE_ZONE_DEFINITIONS
 from services.running_service import (
     estimate_vdot,
@@ -22,6 +23,7 @@ render_hero_banner(
     "Running Training",
     "Pace zones, race predictions, training load monitoring, and structured training plans."
 )
+render_exercise_safety_notice("running training")
 
 tab_dashboard, tab_zones, tab_predictor, tab_load, tab_plan = st.tabs([
     "Dashboard", "Pace Zones", "Race Predictor", "Training Load", "Training Plan"

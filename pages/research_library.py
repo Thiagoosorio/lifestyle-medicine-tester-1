@@ -52,7 +52,7 @@ def _key_by_label(options: dict, label: str):
 
 render_hero_banner(
     "Research Library",
-    "Every recommendation backed by peer-reviewed science. Browse studies by pillar, search the evidence, or explore our protocol library."
+    "Browse the peer-reviewed studies, guidelines, and evidence notes behind recommendations, protocols, and review decisions."
 )
 
 # ── Stats Strip ───────────────────────────────────────────────────────────
@@ -307,7 +307,7 @@ with tab_hierarchy:
         f'border-radius:{A["radius_xl"]};padding:20px;margin-bottom:16px">'
         f'<div style="font-size:14px;line-height:22px;color:{A["label_secondary"]}">'
         f'<span style="color:{A["green"]};font-weight:600">Causation</span> means one thing '
-        f'directly causes another (proven through RCTs). '
+        f'directly causes another; randomized trials can support causal inference when well designed. '
         f'<span style="color:{A["orange"]};font-weight:600">Correlation</span> means two things '
         f'occur together but one may not cause the other (found in observational studies).'
         f'<br><br>'

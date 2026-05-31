@@ -171,6 +171,9 @@ if not plan:
     st.error("Unable to generate precision plan right now.")
     st.stop()
 
+if plan.get("disclaimer"):
+    st.info(plan["disclaimer"])
+
 render_hero_stats(
     [
         {"icon": "🎯", "value": plan.get("goal_label", "N/A"), "label": "Primary Goal", "color": "#6750A4"},

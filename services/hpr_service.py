@@ -37,9 +37,29 @@ DOMAIN_LABELS = {
 SCORE_FORMULA_CAVEAT = (
     "HPR norm bands, protocol rows, and demo scores are extracted. The public "
     "client did not expose the raw-to-normalized, percentile, composite-domain, "
-    "domain weighting, or overall-score formulas. Calculator values are inferred "
-    "from visible norm anchors and should be treated as audit/support data."
+    "domain weighting, or overall-score formulas. Calculator values are an "
+    "anchor-position index inferred from visible norm anchors, not a validated "
+    "HPR score."
 )
+
+HPR_CONSISTENCY_WARNINGS = [
+    {
+        "Area": "Anchor calculator",
+        "Warning": "The 0-10 display is an anchor-position index only; it is not the hidden HPR metric or composite scoring formula.",
+    },
+    {
+        "Area": "Sample confidence",
+        "Warning": "Extracted demo confidence fields are app metadata, not validation confidence for the score model.",
+    },
+    {
+        "Area": "Force symmetry",
+        "Warning": "Model metrics use percent symmetry where higher is better; one protocol row uses percent asymmetry where lower is better. Do not mix the units.",
+    },
+    {
+        "Area": "Dual-task cost",
+        "Warning": "Imported notes conflict on dual-task cost sign. Use positive cost as (dual-task RT - single-task RT) / single-task RT until independently reviewed.",
+    },
+]
 
 
 def clean_text(value: Any) -> Any:
@@ -233,8 +253,12 @@ def build_anchor_rows(norms: dict[str, float] | None) -> list[dict[str, Any]]:
     if not norms:
         return []
     return [
-        {"Anchor": "Minimum", "Raw value": norms.get("min"), "Inferred score": 5.0},
-        {"Anchor": "Expected", "Raw value": norms.get("expected"), "Inferred score": 7.0},
-        {"Anchor": "High", "Raw value": norms.get("high"), "Inferred score": 8.5},
-        {"Anchor": "Elite", "Raw value": norms.get("elite"), "Inferred score": 10.0},
+        {"Anchor": "Minimum", "Raw value": norms.get("min"), "Anchor index": 5.0},
+        {"Anchor": "Expected", "Raw value": norms.get("expected"), "Anchor index": 7.0},
+        {"Anchor": "High", "Raw value": norms.get("high"), "Anchor index": 8.5},
+        {"Anchor": "Elite", "Raw value": norms.get("elite"), "Anchor index": 10.0},
     ]
+
+
+def get_hpr_consistency_warnings() -> list[dict[str, str]]:
+    return list(HPR_CONSISTENCY_WARNINGS)

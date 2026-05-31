@@ -45,6 +45,10 @@ RESEARCH_DOMAINS = {
         "label": "Cardiovascular & Metabolic Health",
         "journals": ["Circulation", "JACC", "European Heart Journal", "Diabetes Care", "The Lancet Diabetes & Endocrinology"],
     },
+    "gastroenterology": {
+        "label": "Gastroenterology & Gut Health",
+        "journals": ["Gastroenterology", "Gut", "American Journal of Gastroenterology", "Clinical Gastroenterology and Hepatology"],
+    },
 }
 
 # ── Journal Quality Tiers (§ D — v2.0) ───────────────────────────────────────

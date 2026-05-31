@@ -18,6 +18,12 @@ st.markdown(
     "Your evidence-based coaching companion using Motivational Interviewing, "
     "Stages of Change, and the COM-B model."
 )
+st.info(
+    "Coaching support only: this does not replace medical care, diagnosis, treatment, "
+    "or mental-health crisis support. If you have chest pressure, fainting, severe "
+    "shortness of breath, new neurologic symptoms, suicidal thoughts, abuse, or you "
+    "cannot stay safe, contact local emergency or crisis services now."
+)
 
 context_options = {
     "general": "General Coaching",
