@@ -145,3 +145,25 @@ def test_save_cpet_report_persists_json_snapshot(db_conn, test_user, monkeypatch
     assert reports[0]["client_context"] == "hybrid"
     assert reports[0]["metrics"]["peak_vo2_ml_kg_min"] == 51.0
     assert reports[0]["metrics"]["peak_rer"] == 1.13
+
+
+def test_cpet_report_reader_self_heals_missing_table(db_conn, test_user, monkeypatch):
+    monkeypatch.setattr(cpet_service, "get_connection", db_conn)
+    conn = db_conn()
+    try:
+        conn.execute("DROP TABLE IF EXISTS cpet_reports")
+        conn.commit()
+    finally:
+        conn.close()
+
+    assert get_cpet_reports(test_user) == []
+
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'cpet_reports'"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None

@@ -510,6 +510,7 @@ def save_cpet_report(
     clean_metrics = normalize_cpet_metrics(_drop_empty(metrics))
     conn = get_connection()
     try:
+        _ensure_cpet_reports_schema(conn)
         conn.execute(
             """
             INSERT INTO cpet_reports
@@ -547,6 +548,7 @@ def get_cpet_reports(user_id: int) -> list[dict[str, Any]]:
     """Return saved CPET reports, newest first."""
     conn = get_connection()
     try:
+        _ensure_cpet_reports_schema(conn)
         rows = conn.execute(
             """
             SELECT * FROM cpet_reports
@@ -563,10 +565,37 @@ def get_cpet_reports(user_id: int) -> list[dict[str, Any]]:
 def delete_cpet_report(user_id: int, report_id: int) -> None:
     conn = get_connection()
     try:
+        _ensure_cpet_reports_schema(conn)
         conn.execute("DELETE FROM cpet_reports WHERE id = ? AND user_id = ?", (report_id, user_id))
         conn.commit()
     finally:
         conn.close()
+
+
+def _ensure_cpet_reports_schema(conn) -> None:
+    """Create the CPET report table for older deployed SQLite databases."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS cpet_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            test_date TEXT NOT NULL,
+            source_filename TEXT,
+            test_modality TEXT,
+            protocol TEXT,
+            client_context TEXT NOT NULL DEFAULT 'general',
+            metrics_json TEXT NOT NULL,
+            raw_text TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, test_date)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_cpet_reports_user ON cpet_reports(user_id, test_date)"
+    )
 
 
 def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:

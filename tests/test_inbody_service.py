@@ -107,3 +107,25 @@ def test_save_inbody_report_persists_and_syncs_body_metrics(db_conn, test_user, 
     assert row["height_cm"] == 176
     assert row["body_fat_pct"] == 22.1
     assert "InBody" in row["notes"]
+
+
+def test_inbody_report_reader_self_heals_missing_table(db_conn, test_user, monkeypatch):
+    monkeypatch.setattr(inbody_service, "get_connection", db_conn)
+    conn = db_conn()
+    try:
+        conn.execute("DROP TABLE IF EXISTS inbody_reports")
+        conn.commit()
+    finally:
+        conn.close()
+
+    assert get_inbody_reports(test_user) == []
+
+    conn = db_conn()
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'inbody_reports'"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    assert row is not None

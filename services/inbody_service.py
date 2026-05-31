@@ -332,6 +332,7 @@ def save_inbody_report(
     clean_metrics = normalize_inbody_metrics(_drop_empty(metrics))
     conn = get_connection()
     try:
+        _ensure_inbody_reports_schema(conn)
         conn.execute(
             """
             INSERT INTO inbody_reports
@@ -365,6 +366,7 @@ def get_inbody_reports(user_id: int) -> list[dict[str, Any]]:
     """Return saved InBody reports, newest first."""
     conn = get_connection()
     try:
+        _ensure_inbody_reports_schema(conn)
         rows = conn.execute(
             """
             SELECT * FROM inbody_reports
@@ -388,10 +390,35 @@ def delete_inbody_report(user_id: int, report_id: int) -> None:
     """Delete a saved InBody report for a user."""
     conn = get_connection()
     try:
+        _ensure_inbody_reports_schema(conn)
         conn.execute("DELETE FROM inbody_reports WHERE id = ? AND user_id = ?", (report_id, user_id))
         conn.commit()
     finally:
         conn.close()
+
+
+def _ensure_inbody_reports_schema(conn) -> None:
+    """Create the InBody report table for older deployed SQLite databases."""
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS inbody_reports (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            scan_date TEXT NOT NULL,
+            source_filename TEXT,
+            device_model TEXT,
+            metrics_json TEXT NOT NULL,
+            raw_text TEXT,
+            notes TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(user_id, scan_date)
+        )
+        """
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_inbody_reports_user ON inbody_reports(user_id, scan_date)"
+    )
 
 
 def _normalize_text(text: str) -> str:
