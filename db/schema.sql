@@ -886,6 +886,25 @@ CREATE TABLE IF NOT EXISTS inbody_reports (
 
 CREATE INDEX IF NOT EXISTS idx_inbody_reports_user ON inbody_reports(user_id, scan_date);
 
+-- CPET reports: parsed cardiopulmonary exercise test snapshots plus coach interpretation inputs
+CREATE TABLE IF NOT EXISTS cpet_reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    test_date       TEXT NOT NULL,
+    source_filename TEXT,
+    test_modality   TEXT,
+    protocol        TEXT,
+    client_context  TEXT NOT NULL DEFAULT 'general',
+    metrics_json    TEXT NOT NULL,
+    raw_text        TEXT,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, test_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_cpet_reports_user ON cpet_reports(user_id, test_date);
+
 -- Wearable measurement event store (multi-device friendly)
 CREATE TABLE IF NOT EXISTS wearable_measurements (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

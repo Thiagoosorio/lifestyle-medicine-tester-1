@@ -103,6 +103,7 @@ else:
                 st.Page("pages/cycling_prescription.py", title="Cycling Training", icon=":material/directions_bike:"),
                 st.Page("pages/body_metrics.py", title="Body Metrics", icon=":material/monitor_weight:"),
                 st.Page("pages/inbody_report.py", title="InBody Coach", icon=":material/scale:"),
+                st.Page("pages/cpet_report.py", title="CPET Coach", icon=":material/monitor_heart:"),
                 st.Page("pages/biomarkers.py", title="Biomarkers", icon=":material/bloodtype:"),
                 st.Page("pages/organ_health.py", title="Organ Scores", icon=":material/monitor_heart:"),
                 st.Page("pages/healthscore_v2.py", title="Health Score v2 (beta)", icon=":material/science:"),
