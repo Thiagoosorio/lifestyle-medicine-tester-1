@@ -869,6 +869,23 @@ CREATE TABLE IF NOT EXISTS body_metrics (
 
 CREATE INDEX IF NOT EXISTS idx_body_metrics_user ON body_metrics(user_id, log_date);
 
+-- InBody reports: parsed BIA report snapshots plus coach interpretation inputs
+CREATE TABLE IF NOT EXISTS inbody_reports (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+    scan_date       TEXT NOT NULL,
+    source_filename TEXT,
+    device_model    TEXT,
+    metrics_json    TEXT NOT NULL,
+    raw_text        TEXT,
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, scan_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inbody_reports_user ON inbody_reports(user_id, scan_date);
+
 -- Wearable measurement event store (multi-device friendly)
 CREATE TABLE IF NOT EXISTS wearable_measurements (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
