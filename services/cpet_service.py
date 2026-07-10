@@ -10,6 +10,7 @@ from typing import Any
 
 from dateutil import parser as date_parser
 
+from config.cpet_norms import classify_vo2max
 from db.database import get_connection
 
 
@@ -328,6 +329,51 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "min": 20,
         "max": 90,
     },
+    "fatmax_hr_bpm": {
+        "label": "FatMax HR",
+        "unit": "bpm",
+        "layer": "Interpreted",
+        "coach_use": "Heart rate at maximal fat oxidation; a low-intensity fat-burning anchor, usually at or below VT1.",
+        "labels": ["FatMax HR", "MFO heart rate", "Heart rate at max fat oxidation"],
+        "min": 50,
+        "max": 190,
+    },
+    "peak_power_w": {
+        "label": "Peak work rate",
+        "unit": "W",
+        "layer": "Measured",
+        "coach_use": "Maximal work rate achieved; the cycling ceiling and a serial-comparison anchor.",
+        "labels": ["Peak Power", "Peak work rate", "Max work rate", "Maximum work rate"],
+        "min": 20,
+        "max": 800,
+    },
+    "height_cm": {
+        "label": "Height",
+        "unit": "cm",
+        "layer": "Context",
+        "coach_use": "Context for predicted-value equations.",
+        "labels": ["Height"],
+        "min": 120,
+        "max": 220,
+    },
+    "vt1_vo2_l_min": {
+        "label": "VT1 VO2 absolute",
+        "unit": "L/min",
+        "layer": "Interpreted",
+        "coach_use": "Absolute oxygen uptake at the first threshold.",
+        "labels": ["VT1 VO2 absolute", "AT VO2 absolute"],
+        "min": 0.3,
+        "max": 6.0,
+    },
+    "vt2_vo2_l_min": {
+        "label": "VT2 VO2 absolute",
+        "unit": "L/min",
+        "layer": "Interpreted",
+        "coach_use": "Absolute oxygen uptake at the second threshold / RCP.",
+        "labels": ["VT2 VO2 absolute", "RCP VO2 absolute"],
+        "min": 0.4,
+        "max": 7.0,
+    },
 }
 
 
@@ -378,11 +424,22 @@ def extract_cpet_from_pdf(pdf_bytes: bytes) -> dict[str, Any]:
 
 
 def extract_cpet_from_text(text: str) -> dict[str, Any]:
-    """Extract likely CPET values from report text using conservative label patterns."""
+    """Extract likely CPET values from report text using conservative label patterns.
+
+    Cortex MetaSoft/MetaLyzer reports (tabular, ``V'O2`` notation) are parsed by a
+    dedicated column-aware parser first; the generic label scanner then fills any
+    gaps without overwriting the more reliable structured values.
+    """
     normalized = _normalize_text(text)
     metrics: dict[str, Any] = {}
 
+    is_cortex = _looks_like_cortex(normalized, text)
+    if is_cortex:
+        metrics.update(parse_cortex_report(text))
+
     for field, spec in CPET_METRIC_SPECS.items():
+        if field in metrics:
+            continue
         value = _find_labeled_number(normalized, spec["labels"], spec.get("min"), spec.get("max"))
         if value is not None:
             metrics[field] = _round_metric(field, value["value"])
@@ -392,9 +449,172 @@ def extract_cpet_from_text(text: str) -> dict[str, Any]:
         "test_date": _find_test_date(normalized),
         "test_modality": _find_test_modality(normalized),
         "protocol": _find_protocol(normalized),
+        "source_format": "cortex_metasoft" if is_cortex else "generic",
         "metrics": metrics,
         "extraction_warnings": _build_extraction_warnings(metrics),
     }
+
+
+# ── Cortex MetaSoft / MetaLyzer structured parser ───────────────────────────
+# The Summary Table prints 10 value columns per variable row:
+#   [Rest, VT1.val, VT1.%norm, VT1.%max, VT2.val, VT2.%norm, VT2.%max,
+#    peak.val, peak.%norm, Norm]
+_CORTEX_SUMMARY_IDX = {"rest": 0, "vt1": 1, "vt1_pctmax": 3, "vt2": 4,
+                       "vt2_pctmax": 6, "peak": 7, "peak_pctnorm": 8, "norm": 9}
+# The "CPET Summary" Test Results table prints 6 columns per variable row:
+#   [Rest, VT1, VT2, VO2peak, Recovery, Norm]
+_CORTEX_TESTRESULTS_IDX = {"rest": 0, "vt1": 1, "vt2": 2, "peak": 3, "recovery": 4, "norm": 5}
+
+# normalized variable label -> (vt1_field, vt2_field, peak_field, norm_field)
+_CORTEX_ROW_MAP: dict[str, tuple[str | None, str | None, str | None, str | None]] = {
+    "VO2/kg": ("vt1_vo2_ml_kg_min", "vt2_vo2_ml_kg_min", "peak_vo2_ml_kg_min", None),
+    "VO2": ("vt1_vo2_l_min", "vt2_vo2_l_min", "peak_vo2_l_min", None),
+    "HR": ("vt1_hr_bpm", "vt2_hr_bpm", "peak_hr_bpm", "predicted_hr_bpm"),
+    "WR": ("vt1_power_w", "vt2_power_w", "peak_power_w", None),
+    "VO2/HR": (None, None, "o2_pulse_ml_beat", None),
+    "VE": (None, None, "peak_ve_l_min", "mvv_l_min"),
+    "RER": (None, None, "peak_rer", None),
+}
+# peak.%norm column -> % predicted field (Summary Table only)
+_CORTEX_PCTNORM_MAP = {"VO2/kg": "peak_vo2_pct_pred", "VO2": "peak_vo2_pct_pred",
+                       "HR": "hr_pct_pred", "VO2/HR": "o2_pulse_pct_pred"}
+
+
+def _looks_like_cortex(normalized_text: str, raw_text: str = "") -> bool:
+    lowered = normalized_text.lower()
+    markers = ("metasoft", "metalyzer", "cortex", "9-panel-plot", "cpet basic results")
+    if any(marker in lowered for marker in markers):
+        return True
+    # Tell-tale Cortex prime notation in the ORIGINAL text (V'O2 / V'CO2 / V'E).
+    # COSMED and other carts use plain "VO2" or a combining dot, not an apostrophe,
+    # so this stays specific to Cortex and does not false-positive on generic
+    # reports that merely contain the substrings "vo2/kg" and "vo2peak".
+    return bool(re.search(r"V['’ʹ′]\s?(?:O2|CO2|E)\b", raw_text))
+
+
+def _cortex_tokens(rest_of_line: str) -> list[float | None]:
+    """Numbers and dash placeholders after a variable label (dashes hold columns)."""
+    out: list[float | None] = []
+    for tok in re.findall(r"-?\d+(?:[.,]\d+)?|-", rest_of_line):
+        out.append(_parse_number(tok) if tok not in {"-", "--"} else None)
+    return out
+
+
+def parse_cortex_report(text: str) -> dict[str, Any]:
+    """Column-aware parse of a Cortex MetaSoft CPET export.
+
+    The table layout is chosen by the section header the row sits under, not by a
+    raw token count. The Summary Table prints 10 value columns (with dash
+    placeholders); the CPET Summary "Test Results" table prints 6. Guessing purely
+    by token count misreads a Summary row that lost a blank cell as a 6-column row,
+    turning percent-columns into VT2/peak values, so section tracking is primary.
+    """
+    metrics: dict[str, Any] = {}
+    lines = [_normalize_notation(line).strip() for line in text.splitlines()]
+    labels = sorted(_CORTEX_ROW_MAP.keys(), key=len, reverse=True)
+    section = None  # "summary" | "testresults" | None
+
+    for line in lines:
+        lowered = line.lower()
+        if "summary table" in lowered:
+            section = "summary"
+            continue
+        if "test results" in lowered:
+            section = "testresults"
+            continue
+
+        for label in labels:
+            # Label must be followed by whitespace (unit or first value); the
+            # whitespace lookahead stops "VE" matching "VE/VO2" or "VE/VCO2" rows.
+            match = re.match(rf"^{re.escape(label)}(?=\s)(.*)$", line)
+            if not match:
+                continue
+            values = _cortex_tokens(match.group(1))
+            # Prefer the section's known layout. Fall back to token count only when
+            # the section is unknown: >=7 tokens can only be a Summary row (its key
+            # VT1/VT2/peak indices 1/4/7 are present), exactly 6 is Test Results.
+            if section == "summary":
+                idx = _CORTEX_SUMMARY_IDX if len(values) >= 7 else None
+            elif section == "testresults":
+                idx = _CORTEX_TESTRESULTS_IDX if len(values) >= 6 else None
+            elif len(values) >= 7:
+                idx = _CORTEX_SUMMARY_IDX
+            elif len(values) == 6:
+                idx = _CORTEX_TESTRESULTS_IDX
+            else:
+                idx = None
+            if idx is None:
+                break
+            f_vt1, f_vt2, f_peak, f_norm = _CORTEX_ROW_MAP[label]
+
+            def _put(field: str | None, key: str) -> None:
+                if field is None or key not in idx or idx[key] >= len(values):
+                    return
+                value = values[idx[key]]
+                if value is not None and field not in metrics:
+                    metrics[field] = _round_metric(field, value)
+
+            _put(f_vt1, "vt1")
+            _put(f_vt2, "vt2")
+            _put(f_peak, "peak")
+            _put(f_norm, "norm")
+
+            if idx is _CORTEX_SUMMARY_IDX:
+                if label in _CORTEX_PCTNORM_MAP and idx["peak_pctnorm"] < len(values):
+                    pct = values[idx["peak_pctnorm"]]
+                    if pct is not None:
+                        metrics.setdefault(_CORTEX_PCTNORM_MAP[label], round(pct, 1))
+                if label == "VO2/kg":
+                    if values[idx["vt1_pctmax"]] is not None:
+                        metrics.setdefault("vt1_pct_peak_vo2", round(values[idx["vt1_pctmax"]], 1))
+                    if values[idx["vt2_pctmax"]] is not None:
+                        metrics.setdefault("vt2_pct_peak_vo2", round(values[idx["vt2_pctmax"]], 1))
+            break
+
+    _parse_cortex_scalars(text, metrics)
+
+    # Compute breathing reserve from peak VE and the predicted ventilation ceiling
+    # (VE "Norm" = MVV surrogate). This overrides Cortex's ambiguous "%BR" row and
+    # blocks the generic scanner from scraping the wrong ventilation column.
+    peak_ve = _as_float(metrics.get("peak_ve_l_min"))
+    mvv = _as_float(metrics.get("mvv_l_min"))
+    if peak_ve is not None and mvv:
+        metrics["breathing_reserve_pct"] = round((mvv - peak_ve) / mvv * 100, 1)
+
+    return metrics
+
+
+def _parse_cortex_scalars(text: str, metrics: dict[str, Any]) -> None:
+    """Pull single-value fields (demographics, VE/VCO2 slope, FatMax) from prose."""
+    joined = _normalize_text(text)
+
+    slope = re.search(r"VE\s*\(\s*VCO2\s*\).{0,40}?Slope[:\s]+(\d+(?:[.,]\d+)?)", joined, re.I)
+    if not slope:
+        slope = re.search(r"Slope[:\s]+(\d+(?:[.,]\d+)?)\s*Correlation", joined, re.I)
+    if slope:
+        metrics.setdefault("ve_vco2_slope", _round_metric("ve_vco2_slope", _parse_number(slope.group(1))))
+
+    sex = re.search(r"\bSex\b\s*[:\-]?\s*(male|female|m|f)\b", joined, re.I)
+    if sex:
+        metrics.setdefault("sex", {"m": "male", "f": "female"}.get(sex.group(1).lower(), sex.group(1).lower()))
+    age = re.search(r"\bAge\b\s*[:\-]?\s*(\d{1,3})\b", joined, re.I)
+    if age and "age_years" not in metrics:
+        metrics["age_years"] = float(age.group(1))
+    weight = re.search(r"\bWeight\b\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*kg", joined, re.I)
+    if weight and "weight_kg" not in metrics:
+        metrics["weight_kg"] = _parse_number(weight.group(1))
+    height = re.search(r"\bHeight\b\s*[:\-]?\s*(\d+(?:[.,]\d+)?)\s*cm", joined, re.I)
+    if height and "height_cm" not in metrics:
+        metrics["height_cm"] = _parse_number(height.group(1))
+
+    lipid = re.search(r"lipid metabolism\s*=?\s*(\d+)(?:\s*-\s*(\d+))?\s*g/h", joined, re.I)
+    if lipid and "fatmax_g_min" not in metrics:
+        low = float(lipid.group(1))
+        high = float(lipid.group(2)) if lipid.group(2) else low
+        metrics["fatmax_g_min"] = round(((low + high) / 2.0) / 60.0, 2)
+    fatmax_hr = re.search(r"Heart Rate Range\s*=?\s*(\d+)\s*-\s*(\d+)\s*/?\s*min", joined, re.I)
+    if fatmax_hr and "fatmax_hr_bpm" not in metrics:
+        metrics["fatmax_hr_bpm"] = round((float(fatmax_hr.group(1)) + float(fatmax_hr.group(2))) / 2.0)
 
 
 def normalize_cpet_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
@@ -442,12 +662,15 @@ def build_cpet_coach_summary(
     metrics: dict[str, Any],
     client_context: str = "general",
     previous_metrics: dict[str, Any] | None = None,
+    modality: str | None = None,
 ) -> dict[str, Any]:
     """Create coach-facing CPET interpretation with medical guardrails."""
     normalized = normalize_cpet_metrics(metrics)
+    fitness = _classify_fitness(normalized, modality)
     validity = _build_validity_gate(normalized)
-    flags = _build_coach_flags(normalized, client_context)
+    flags = _build_coach_flags(normalized, client_context, fitness)
     zone_rows = build_zone_rows(normalized)
+    consistency_rows = _build_consistency_checks(normalized, fitness, raw_metrics=metrics)
     trend_notes = _build_trend_notes(normalized, previous_metrics or {})
 
     if not flags:
@@ -462,13 +685,28 @@ def build_cpet_coach_summary(
 
     return {
         "trust_rows": _build_trust_rows(normalized),
+        "fitness_classification": fitness,
         "validity_gate": validity,
         "coach_flags": flags,
         "zone_rows": zone_rows,
+        "consistency_rows": consistency_rows,
         "trend_notes": trend_notes,
         "standardization_checks": STANDARDIZATION_CHECKS,
-        "talking_points": _talking_points(client_context),
+        "talking_points": _talking_points(client_context, normalized, fitness),
     }
+
+
+def _classify_fitness(metrics: dict[str, Any], modality: str | None) -> dict[str, Any] | None:
+    """Place peak VO2 on age/sex/modality percentile norms (FRIEND/ACSM)."""
+    peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    if peak_vo2 is None:
+        return None
+    return classify_vo2max(
+        peak_vo2,
+        metrics.get("sex"),
+        _as_float(metrics.get("age_years")),
+        modality,
+    )
 
 
 def build_zone_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
@@ -613,15 +851,15 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
             }
         )
     elif rer >= 1.15:
-        rows.append({"Gate": "Peak effort", "Status": "Strong", "Interpretation": f"Peak RER {rer:.2f} supports maximal effort."})
+        rows.append({"Gate": "Peak effort", "Status": "Strong", "Interpretation": f"Peak RER {rer:.2f} indicates a clearly maximal effort (ATS/ACCP >=1.15)."})
     elif rer >= 1.10:
-        rows.append({"Gate": "Peak effort", "Status": "Adequate", "Interpretation": f"Peak RER {rer:.2f} supports adequate effort."})
+        rows.append({"Gate": "Peak effort", "Status": "Maximal", "Interpretation": f"Peak RER {rer:.2f} meets the primary maximal-effort criterion (EACPR/AHA >=1.10)."})
     elif rer >= 1.05:
         rows.append(
             {
                 "Gate": "Peak effort",
                 "Status": "Borderline",
-                "Interpretation": f"Peak RER {rer:.2f}; peak VO2 may understate capacity. Lean more on VT and VE/VCO2.",
+                "Interpretation": f"Peak RER {rer:.2f}; do not confirm maximal effort on RER alone. Peak VO2 may understate capacity; lean more on VT and VE/VCO2.",
             }
         )
     else:
@@ -629,7 +867,7 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
             {
                 "Gate": "Peak effort",
                 "Status": "Submaximal",
-                "Interpretation": f"Peak RER {rer:.2f}; do not overinterpret low peak VO2 as true ceiling.",
+                "Interpretation": f"Peak RER {rer:.2f} (<1.05); likely submaximal, so do not read low peak VO2 as a true ceiling.",
             }
         )
 
@@ -647,6 +885,22 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
                 "Interpretation": f"Peak HR reached {hr_pct:.0f}% predicted; medication and chronotropic context matter.",
             }
         )
+
+    peak_ve = _as_float(metrics.get("peak_ve_l_min"))
+    mvv = _as_float(metrics.get("mvv_l_min"))
+    if peak_ve is not None and mvv:
+        ve_ratio = peak_ve / mvv * 100
+        if ve_ratio >= 85:
+            rows.append(
+                {
+                    "Gate": "Ventilatory ceiling",
+                    "Status": "Reached",
+                    "Interpretation": (
+                        f"Peak VE was {ve_ratio:.0f}% of the predicted ventilation ceiling; ventilation approached "
+                        "its limit, which is consistent with a strong maximal effort in a fit person."
+                    ),
+                }
+            )
 
     if duration is not None:
         if 8 <= duration <= 12:
@@ -666,11 +920,94 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
     return rows
 
 
-def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dict[str, str]]:
+def _build_consistency_checks(
+    metrics: dict[str, Any],
+    fitness: dict[str, Any] | None,
+    raw_metrics: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
+    """Internal-consistency and cart-vs-norm validation of the entered CPET values.
+
+    Cross-checks only run on values the report actually reported. ``raw_metrics``
+    is the pre-normalisation input; a value derived by ``normalize_cpet_metrics``
+    (e.g. absolute VO2 back-computed from relative VO2, or O2 pulse from VO2/HR)
+    is skipped so the check can't trivially "agree" with its own derivation.
+    """
+    rows: list[dict[str, str]] = []
+    raw = raw_metrics if raw_metrics is not None else metrics
+
+    def add(check: str, status: str, detail: str) -> None:
+        rows.append({"Check": check, "Status": status, "Detail": detail})
+
+    def reported(field: str) -> bool:
+        return raw.get(field) is not None and raw.get(field) != ""
+
+    vt1 = _as_float(metrics.get("vt1_vo2_ml_kg_min"))
+    vt2 = _as_float(metrics.get("vt2_vo2_ml_kg_min"))
+    peak = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    ordered = [v for v in (vt1, vt2, peak) if v is not None]
+    if len(ordered) >= 2:
+        if ordered != sorted(ordered):
+            add("Threshold ordering", "Check", "VT1/VT2/peak VO2 are not in ascending order; re-check which value maps to which threshold.")
+        elif len(set(ordered)) != len(ordered):
+            add("Threshold ordering", "Check", "Two of VT1/VT2/peak VO2 are equal, which is physiologically implausible; confirm the threshold values.")
+        else:
+            add("Threshold ordering", "OK", "VT1 < VT2 < peak VO2 as expected.")
+
+    rel = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    abs_vo2 = _as_float(metrics.get("peak_vo2_l_min"))
+    weight = _as_float(metrics.get("weight_kg"))
+    # Only meaningful when relative and absolute VO2 were BOTH reported (not one
+    # back-derived from the other via weight).
+    if rel is not None and abs_vo2 is not None and weight and reported("peak_vo2_ml_kg_min") and reported("peak_vo2_l_min"):
+        implied = abs_vo2 * 1000.0 / weight
+        if abs(implied - rel) <= max(2.0, 0.07 * rel):
+            add("Relative vs absolute VO2", "OK", f"Absolute {abs_vo2:.2f} L/min at {weight:.0f} kg implies {implied:.0f} mL/kg/min, matching the reported {rel:.0f}.")
+        else:
+            add("Relative vs absolute VO2", "Check", f"Absolute {abs_vo2:.2f} L/min at {weight:.0f} kg implies {implied:.0f} mL/kg/min, but relative is {rel:.0f}. Verify body weight and units.")
+
+    o2p = _as_float(metrics.get("o2_pulse_ml_beat"))
+    peak_hr = _as_float(metrics.get("peak_hr_bpm"))
+    # Only when O2 pulse was reported directly (not derived from VO2/HR).
+    if o2p is not None and abs_vo2 is not None and peak_hr and reported("o2_pulse_ml_beat"):
+        implied_o2p = abs_vo2 * 1000.0 / peak_hr
+        if abs(implied_o2p - o2p) <= max(1.5, 0.15 * o2p):
+            add("O2 pulse consistency", "OK", f"VO2/HR = {abs_vo2:.2f} L/min / {peak_hr:.0f} bpm = {implied_o2p:.1f} mL/beat, matching the reported O2 pulse.")
+        else:
+            add("O2 pulse consistency", "Check", f"VO2/HR implies {implied_o2p:.1f} mL/beat but O2 pulse is {o2p:.1f}; peak VO2 and peak HR may be from different time points.")
+
+    peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
+    if fitness and fitness.get("percentile") is not None and peak_pct is not None and peak_pct >= 100:
+        pct = fitness["percentile"]
+        # A genuine conflict is a clearly high %-predicted paired with a clearly
+        # low percentile. Near-100% with a mid percentile is normal agreement.
+        if peak_pct >= 115 and pct < 40:
+            add(
+                "Percent-predicted vs percentile",
+                "Conflict",
+                f"{peak_pct:.0f}% of predicted looks high but the age/sex/modality percentile is only {fitness.get('percentile_label', '')}. "
+                "The predicted-VO2 equation is likely soft; defer to the percentile and note the reference-model difference.",
+            )
+        else:
+            add(
+                "Percent-predicted vs percentile",
+                "Reconciled",
+                f"{peak_pct:.0f}% of predicted and the {fitness.get('percentile_label', '')} both indicate normal-to-strong capacity. "
+                "Report the percentile as the headline; %-predicted answers 'normal for a patient?', not 'how fit vs peers?'.",
+            )
+
+    return rows
+
+
+def _build_coach_flags(
+    metrics: dict[str, Any],
+    client_context: str,
+    fitness: dict[str, Any] | None = None,
+) -> list[dict[str, str]]:
     flags: list[dict[str, str]] = []
     peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
     peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
     ve_slope = _as_float(metrics.get("ve_vco2_slope"))
+    age = _as_float(metrics.get("age_years"))
     br = _as_float(metrics.get("breathing_reserve_pct"))
     o2_pulse_pct = _as_float(metrics.get("o2_pulse_pct_pred"))
     vo2_wr = _as_float(metrics.get("vo2_wr_slope_ml_min_w"))
@@ -679,7 +1016,29 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
     vt1_pct = _as_float(metrics.get("vt1_pct_peak_vo2"))
     vt2_pct = _as_float(metrics.get("vt2_pct_peak_vo2"))
     peak_rer = _as_float(metrics.get("peak_rer"))
+    dyspnea_context = client_context == "cardiology"
 
+    # Headline aerobic capacity: prefer the age/sex/modality percentile classification.
+    if peak_vo2 is not None and fitness and fitness.get("percentile") is not None:
+        percentile = fitness["percentile"]
+        priority = "High" if percentile < 20 else ("Medium" if percentile < 40 else "Routine")
+        flags.append(
+            {
+                "Priority": priority,
+                "Area": "Aerobic capacity (age/sex norms)",
+                "Signal": (
+                    f"Peak VO2 {peak_vo2:.1f} mL/kg/min = {fitness['category']} "
+                    f"({fitness.get('percentile_label', '')}) for {fitness.get('reference_group', 'this profile')}, "
+                    f"{fitness.get('modality_used', 'unknown')} norms."
+                ),
+                "Coach action": (
+                    "Classify against age/sex/modality percentiles, not the cart's one-word label. "
+                    + fitness["reference"] + "."
+                ),
+            }
+        )
+
+    has_percentile = fitness is not None and fitness.get("percentile") is not None
     if peak_vo2 is None:
         flags.append(
             {
@@ -689,6 +1048,44 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
                 "Coach action": "Add peak VO2 before building fitness or prognosis explanations.",
             }
         )
+    elif has_percentile:
+        # Percentile headline already added above; add sport-context caveats additively.
+        if client_context == "endurance":
+            if peak_vo2 < 50:
+                flags.append(
+                    {
+                        "Priority": "High",
+                        "Area": "Athlete aerobic ceiling",
+                        "Signal": f"Peak VO2 {peak_vo2:.1f} mL/kg/min is below the usual endurance-athlete range despite a normal population percentile.",
+                        "Coach action": "Verify effort quality, protocol, health status, and training load; population norms can look adequate while under-serving the sport.",
+                    }
+                )
+            flags.append(
+                {
+                    "Priority": "Routine",
+                    "Area": "Endurance-athlete context",
+                    "Signal": "General-population percentile norms can under-rate a trained endurance athlete.",
+                    "Coach action": "Judge against the sport, prior tests, and threshold/economy/durability data, not population norms alone.",
+                }
+            )
+        elif client_context == "hybrid":
+            if peak_vo2 < 45:
+                flags.append(
+                    {
+                        "Priority": "Medium",
+                        "Area": "Hybrid-sport aerobic base",
+                        "Signal": f"Peak VO2 {peak_vo2:.1f} mL/kg/min is a modest aerobic base for hybrid competition.",
+                        "Coach action": "Combine threshold work with sport-specific repeated efforts to lift the ceiling.",
+                    }
+                )
+            flags.append(
+                {
+                    "Priority": "Routine",
+                    "Area": "Hybrid-sport context",
+                    "Signal": "Ramp CPET captures the aerobic ceiling but not repeated mixed-modality station fatigue.",
+                    "Coach action": "Pair the aerobic ceiling with sled, carry, burpee, and pre-fatigued sport-specific checks.",
+                }
+            )
     elif client_context == "endurance":
         if peak_vo2 < 50:
             flags.append(
@@ -728,6 +1125,8 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
                 }
             )
     else:
+        # No age/sex to place percentiles: fall back to coarse capacity bands and
+        # prompt for the demographics needed to classify properly.
         if peak_vo2 < 10:
             priority, klass = "High", "severely reduced"
         elif peak_vo2 < 16:
@@ -741,7 +1140,7 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
                 "Priority": priority,
                 "Area": "Aerobic capacity",
                 "Signal": f"Peak VO2 is {peak_vo2:.1f} mL/kg/min, {klass}.",
-                "Coach action": "Use with effort quality, symptoms, and clinician interpretation; do not make diagnosis from VO2 alone.",
+                "Coach action": "Add age and biological sex to classify against percentile norms instead of coarse bands.",
             }
         )
 
@@ -756,31 +1155,73 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
         )
 
     if ve_slope is not None:
+        # Arena/Myers ventilatory classes (Circulation 2007): VC-I <30, II 30-35.9,
+        # III 36-44.9, IV >=45. Normal slope rises ~0.12-0.13/yr of age (Habedank).
         if ve_slope >= 45:
-            priority, meaning = "High", "Arena class IV range"
+            priority, meaning = "High", "Arena ventilatory class IV (>=45)"
         elif ve_slope >= 36:
-            priority, meaning = "High", "elevated ventilatory inefficiency range"
+            priority, meaning = "High", "Arena class III (36-44.9), elevated inefficiency"
         elif ve_slope >= 30:
-            priority, meaning = "Medium", "borderline-to-mildly elevated range"
+            priority, meaning = "Medium", "Arena class II (30-35.9), borderline"
+        elif ve_slope >= 26:
+            priority, meaning = "Routine", "class I, normal/efficient"
         else:
-            priority, meaning = "Routine", "typical normal range"
+            priority, meaning = "Routine", "class I, excellent/highly efficient"
+        signal = f"VE/VCO2 slope is {ve_slope:.1f}, {meaning}."
+        if age is not None:
+            expected = round(0.125 * age + 22.0, 1)  # midpoint of Habedank sex equations
+            signal += f" Age-typical normal is roughly {expected:.0f}."
         flags.append(
             {
                 "Priority": priority,
                 "Area": "Ventilatory efficiency",
-                "Signal": f"VE/VCO2 slope is {ve_slope:.1f}, {meaning}.",
-                "Coach action": "Read with PETCO2, breathing reserve, symptoms, and cardiology/pulmonary context.",
+                "Signal": signal,
+                "Coach action": "Read with PETCO2, breathing reserve, symptoms, and cardiology/pulmonary context. Arena classes were validated in heart failure; in a healthy person a low slope simply confirms efficient ventilation.",
             }
         )
 
     if br is not None:
-        if br < 15:
+        maximal_effort = peak_rer is not None and peak_rer >= 1.10
+        spo2_confirmed_ok = spo2 is not None and spo2 >= 94
+        desat_or_dyspnea = (
+            (spo2 is not None and spo2 < 94)
+            or (petco2_at is not None and petco2_at < 30)
+            or dyspnea_context
+        )
+        if br < 15 and desat_or_dyspnea:
             flags.append(
                 {
                     "Priority": "High",
                     "Area": "Breathing reserve",
-                    "Signal": f"Breathing reserve is {br:.0f}%.",
-                    "Coach action": "Possible ventilatory limitation; coach should defer medical interpretation to the CPET clinician.",
+                    "Signal": f"Breathing reserve is {br:.0f}% with desaturation, low PETCO2, or a dyspnea-limited context.",
+                    "Coach action": "This combination can fit a true ventilatory limitation; defer medical interpretation to the CPET clinician and avoid unsupervised intensity progression.",
+                }
+            )
+        elif br < 15 and maximal_effort and spo2_confirmed_ok:
+            flags.append(
+                {
+                    "Priority": "Routine",
+                    "Area": "Breathing reserve",
+                    "Signal": f"Breathing reserve is {br:.0f}% (ventilation reached its ceiling at peak; SpO2 stayed normal).",
+                    "Coach action": "In a fit person at true maximal effort with preserved oxygen saturation, a low/absent breathing reserve is a normal ceiling phenomenon, not on its own a limitation.",
+                }
+            )
+        elif br < 15 and maximal_effort:
+            flags.append(
+                {
+                    "Priority": "Medium",
+                    "Area": "Breathing reserve",
+                    "Signal": f"Breathing reserve is {br:.0f}%; SpO2 was not recorded.",
+                    "Coach action": "A low breathing reserve at true maximal effort is usually a normal ceiling in a fit person, but without SpO2 you cannot rule out exertional desaturation. Confirm no limiting dyspnea or desaturation before progressing intensity.",
+                }
+            )
+        elif br < 15:
+            flags.append(
+                {
+                    "Priority": "High",
+                    "Area": "Breathing reserve",
+                    "Signal": f"Breathing reserve is {br:.0f}% and effort was not confirmed maximal.",
+                    "Coach action": "Possible ventilatory limitation; defer medical interpretation to the CPET clinician.",
                 }
             )
         elif br <= 20:
@@ -793,15 +1234,25 @@ def _build_coach_flags(metrics: dict[str, Any], client_context: str) -> list[dic
                 }
             )
 
-    if o2_pulse_pct is not None and o2_pulse_pct < 80:
-        flags.append(
-            {
-                "Priority": "High",
-                "Area": "O2 pulse",
-                "Signal": f"O2 pulse is {o2_pulse_pct:.0f}% predicted.",
-                "Coach action": "Low O2 pulse can support oxygen-delivery limitation; refer interpretation to clinician.",
-            }
-        )
+    if o2_pulse_pct is not None:
+        if o2_pulse_pct < 80:
+            flags.append(
+                {
+                    "Priority": "High",
+                    "Area": "O2 pulse",
+                    "Signal": f"O2 pulse is {o2_pulse_pct:.0f}% predicted.",
+                    "Coach action": "Low O2 pulse can support oxygen-delivery limitation; refer interpretation to clinician.",
+                }
+            )
+        elif o2_pulse_pct >= 100:
+            flags.append(
+                {
+                    "Priority": "Routine",
+                    "Area": "O2 pulse",
+                    "Signal": f"O2 pulse is {o2_pulse_pct:.0f}% predicted (reassuring).",
+                    "Coach action": "A normal/high O2 pulse without an early plateau is against a stroke-volume/oxygen-delivery limitation; still read the O2-pulse curve shape, not just the peak.",
+                }
+            )
 
     if vo2_wr is not None and vo2_wr < 8:
         flags.append(
@@ -921,7 +1372,12 @@ def _build_trend_notes(metrics: dict[str, Any], previous_metrics: dict[str, Any]
     return notes
 
 
-def _talking_points(client_context: str) -> list[str]:
+def _talking_points(
+    client_context: str,
+    metrics: dict[str, Any] | None = None,
+    fitness: dict[str, Any] | None = None,
+) -> list[str]:
+    metrics = metrics or {}
     points = [
         "Start with the validity gate: peak RER, HR response, symptoms, and protocol quality.",
         "Peak VO2 is the engine size, but it is not the whole story.",
@@ -929,6 +1385,26 @@ def _talking_points(client_context: str) -> list[str]:
         "VE/VCO2 slope, breathing reserve, O2 pulse, PETCO2, and SpO2 are medical-pattern clues, not coaching diagnoses.",
         "Compare serial tests only when protocol and preparation are similar.",
     ]
+
+    if fitness and fitness.get("percentile") is not None:
+        points.append(
+            f"Fitness headline: peak VO2 is {fitness['category']} ({fitness.get('percentile_label', '')}) "
+            f"on {fitness.get('modality_used', 'unknown')} norms for {fitness.get('reference_group', 'this profile')}. "
+            "Report this age/sex/modality percentile, not the cart's one-word fitness label."
+        )
+        if fitness.get("modality_used") == "cycle":
+            points.append(
+                "This is a cycle test: cycle VO2peak reads ~15% below treadmill, so a cart that grades it against "
+                "treadmill norms (a common cause of a misleading 'fair/poor' label) understates true fitness."
+            )
+
+    peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
+    if peak_pct is not None and peak_pct > 110:
+        points.append(
+            f"'{peak_pct:.0f}% of predicted' reflects the reference equation (often soft for young/female clients), "
+            "not a fitness grade; do not present >100% predicted as exceptional fitness."
+        )
+
     if client_context == "endurance":
         points.append("For endurance athletes, normal population VO2 can still be underperforming; thresholds, economy, and durability separate good from great.")
     if client_context == "hybrid":
@@ -951,7 +1427,13 @@ def _build_extraction_warnings(metrics: dict[str, Any]) -> list[str]:
     return warnings
 
 
-def _normalize_text(text: str) -> str:
+def _normalize_notation(text: str) -> str:
+    """Fold gas-analysis glyph variants (V-dot, primes, subscripts) to plain ASCII.
+
+    Cortex MetaSoft exports the dotted volume symbols (V\u0307O2, V\u0307CO2, V\u0307E) as ``V'O2`` /
+    ``V'CO2`` / ``V'E`` \u2014 an apostrophe standing in for the dot. Without folding that
+    apostrophe, every ``VO2`` label pattern misses on Cortex reports.
+    """
     replacements = {
         "\u00a0": " ",
         "\u2013": "-",
@@ -963,10 +1445,15 @@ def _normalize_text(text: str) -> str:
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
-    text = re.sub(r"V[\u0307\u02d9]?", "V", text)
+    # Fold "V" + (combining dot / prime / apostrophe / backtick / period) -> "V".
+    text = re.sub(r"V[\u0307\u02d9\u2032\u02b9'`.]", "V", text)
     text = re.sub(r"O[\u2082\u00b2]", "O2", text)
     text = re.sub(r"CO[\u2082\u00b2]", "CO2", text)
-    return re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _normalize_text(text: str) -> str:
+    return re.sub(r"\s+", " ", _normalize_notation(text)).strip()
 
 
 def _parse_number(raw: str) -> float | None:

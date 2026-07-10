@@ -8,6 +8,10 @@ statsmodels>=0.14.0,<0.15.0
 python-dateutil>=2.9.0
 python-dotenv>=1.0.0
 pypdf>=4.0.0,<7.0.0
+pillow>=10.0.0,<13.0.0
+# Optional: renders CPET PDF pages to images for the AI plot-QC review.
+# The CPET Coach degrades gracefully (asks for image uploads) if this is absent.
+pymupdf>=1.24.0,<2.0.0
 garminconnect>=0.2.25,<0.4.0
 pytest>=8.0.0,<10.0.0
 # greenfield healthscore engine (pages/healthscore_v2.py)

@@ -7,6 +7,173 @@ from services.cpet_service import (
     normalize_cpet_metrics,
     save_cpet_report,
 )
+from config.cpet_norms import classify_vo2max
+
+
+# Reconstructed Cortex MetaSoft / MetaLyzer export (the format the user's lab
+# produces). Uses the V'O2 prime notation and the fixed 10-column Summary Table.
+CORTEX_TEXT = """CPET Basic Results
+Name Al-Janabi, Mariam
+Age 25
+Sex female
+Weight 68.8 kg
+Height 163 cm
+Date 6/23/2026 12:51 PM
+Workload Protocol IHLAD Protocol 15 Watt
+Sport Cycling
+Device MetaLyzer 3B-R3
+Summary Table
+V'O2/kg ml/min/kg 4 19 66 53 31 106 85 36 125 29
+V'O2/HR ml 6 14 121 92 14 123 94 15 132 11
+HR /min 48 95 55 57 151 87 91 167 95 175
+WR W 0 99 58 52 164 96 86 190 112 170
+V'E/V'O2 26.1 22.3 - 76 24.8 - 85 29.2 - -
+V'E/V'CO2 31.9 24.9 - 94 23.8 - 90 26.5 - -
+RER 0.82 0.89 - 81 1.04 - 94 1.10 - -
+V'E L/min 10.1 29.6 34 38 55.9 65 72 77.5 90 86.1
+Slope Values
+V'E(V'CO2) Slope: 22.8 Correlation 1.00 V'E = 22.8 * V'CO2 + 4.0
+Maximum Oxygen Pulse Wasserman equation 11 ml
+Maximum Heart Rate Traditional formula for bicycle test 175 /min
+"""
+
+
+def test_extract_cortex_metasoft_table_reads_peak_and_threshold_columns():
+    extracted = extract_cpet_from_text(CORTEX_TEXT)
+
+    assert extracted["source_format"] == "cortex_metasoft"
+    m = extracted["metrics"]
+    # Peak column (index 7 of the Summary Table), not Rest / %Norm.
+    assert m["peak_vo2_ml_kg_min"] == 36.0
+    assert m["peak_hr_bpm"] == 167.0
+    assert m["peak_power_w"] == 190.0
+    assert m["peak_rer"] == 1.10
+    assert m["peak_ve_l_min"] == 77.5
+    # VT1 / VT2 anchors.
+    assert m["vt1_hr_bpm"] == 95.0 and m["vt2_hr_bpm"] == 151.0
+    assert m["vt1_power_w"] == 99.0 and m["vt2_power_w"] == 164.0
+    assert m["vt1_vo2_ml_kg_min"] == 19.0 and m["vt2_vo2_ml_kg_min"] == 31.0
+    # Peak %Norm columns become % predicted; %Max become % of peak VO2.
+    assert m["peak_vo2_pct_pred"] == 125.0
+    assert m["hr_pct_pred"] == 95.0
+    assert m["o2_pulse_pct_pred"] == 132.0
+    assert m["vt1_pct_peak_vo2"] == 53.0 and m["vt2_pct_peak_vo2"] == 85.0
+    # Demographics + slope from prose.
+    assert m["sex"] == "female" and m["age_years"] == 25.0
+    assert m["ve_vco2_slope"] == 22.8
+    # O2 pulse taken from the VO2/HR peak column (15), NOT the predicted normal (11).
+    assert m["o2_pulse_ml_beat"] == 15.0
+    # Breathing reserve computed from peak VE vs ventilation ceiling (~10%),
+    # never scraped as a spurious value.
+    assert m["breathing_reserve_pct"] == 10.0
+
+
+def test_cortex_notation_folding_matches_vo2_labels():
+    normalized = cpet_service._normalize_text("V'O2peak 2.51 L/min and V'E/V'CO2 slope 22.8")
+    assert "VO2peak" in normalized
+    assert "VE/VCO2" in normalized
+
+
+def test_cortex_summary_row_missing_trailing_column_is_not_misread():
+    # A Summary Table VO2/kg row that lost its blank trailing "Norm" cell (9 tokens)
+    # must still map columns by the Summary layout, not fall into the 6-col Test
+    # Results layout that would read the VT1 %norm/%max columns as VT2/peak VO2.
+    text = (
+        "MetaLyzer 3B\n"
+        "Summary Table\n"
+        "V'O2/kg ml/min/kg 4 19 66 53 31 106 85 36 125\n"  # 9 value tokens (Norm blank)
+    )
+    m = cpet_service.parse_cortex_report(text)
+    assert m["vt1_vo2_ml_kg_min"] == 19.0
+    assert m["vt2_vo2_ml_kg_min"] == 31.0
+    assert m["peak_vo2_ml_kg_min"] == 36.0
+
+
+def test_non_cortex_report_is_not_routed_through_cortex_parser():
+    # A COSMED-style report with generic "VO2/kg" and "VO2peak" but no Cortex prime
+    # notation or vendor marker must use the generic path, not the Cortex parser.
+    text = "COSMED Omnia\nVO2/kg 45 4 22 40 89 100\nVO2peak 3.1 L/min\n"
+    assert cpet_service._looks_like_cortex(cpet_service._normalize_text(text), text) is False
+    extracted = extract_cpet_from_text(text)
+    assert extracted["source_format"] == "generic"
+
+
+def test_rowing_ergometer_is_not_graded_against_cycle_norms():
+    rowing = classify_vo2max(40, "female", 25, "row ergometer")
+    assert rowing["modality_used"] == "other"
+    assert "cycle" not in rowing["reference"].lower() or "no modality-specific" in rowing["reference"].lower()
+    # Bare "ergometer" is treated as an assumed cycle, with a caveat.
+    ambiguous = classify_vo2max(40, "female", 25, "ergometer")
+    assert ambiguous["modality_used"] == "cycle_assumed"
+
+
+
+def test_fitness_classification_is_modality_matched():
+    # A cycle VO2peak graded against cycle norms is above average; the same value
+    # mis-graded against treadmill norms drops to average -- the classic "fair" error.
+    cycle = classify_vo2max(36, "female", 25, "cycle ergometer")
+    treadmill = classify_vo2max(36, "female", 25, "treadmill")
+
+    assert cycle["percentile"] > 60 and "Good" in cycle["category"]
+    assert treadmill["percentile"] < cycle["percentile"]
+    # Missing sex cannot be placed on norms.
+    unknown = classify_vo2max(36, None, 25, "cycle")
+    assert unknown["insufficient_context"] is True
+
+
+def _br_flag(summary):
+    flags = [f for f in summary["coach_flags"] if f["Area"] == "Breathing reserve"]
+    return flags[0] if flags else None
+
+
+def test_low_breathing_reserve_ceiling_is_routine_only_when_spo2_confirmed_normal():
+    base = {"peak_vo2_ml_kg_min": 36, "sex": "female", "age_years": 25, "peak_rer": 1.10}
+
+    # Maximal effort + normal SpO2 -> normal ceiling phenomenon (Routine).
+    ok = build_cpet_coach_summary({**base, "breathing_reserve_pct": 10, "spo2_nadir_pct": 96}, modality="cycle ergometer")
+    assert _br_flag(ok)["Priority"] == "Routine"
+
+    # Maximal effort but SpO2 NOT recorded -> cannot fully reassure (Medium).
+    unknown = build_cpet_coach_summary({**base, "peak_ve_l_min": 77.5, "mvv_l_min": 86.1}, modality="cycle ergometer")
+    assert _br_flag(unknown)["Priority"] == "Medium"
+
+    # Low reserve WITH desaturation is escalated (High).
+    desat = build_cpet_coach_summary({**base, "breathing_reserve_pct": 10, "spo2_nadir_pct": 88}, modality="cycle ergometer")
+    assert _br_flag(desat)["Priority"] == "High"
+
+
+def test_consistency_checks_pass_for_internally_coherent_report():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 36,
+            "peak_vo2_l_min": 2.51,
+            "weight_kg": 68.8,
+            "peak_hr_bpm": 167,
+            "o2_pulse_ml_beat": 15.0,
+            "vt1_vo2_ml_kg_min": 19,
+            "vt2_vo2_ml_kg_min": 31,
+            "sex": "female",
+            "age_years": 25,
+            "peak_vo2_pct_pred": 125,
+        },
+        modality="cycle ergometer",
+    )
+    statuses = {r["Check"]: r["Status"] for r in summary["consistency_rows"]}
+    assert statuses["Threshold ordering"] == "OK"
+    assert statuses["Relative vs absolute VO2"] == "OK"
+    assert statuses["O2 pulse consistency"] == "OK"
+    assert statuses["Percent-predicted vs percentile"] == "Reconciled"
+
+
+def test_talking_points_flag_cart_label_and_modality():
+    summary = build_cpet_coach_summary(
+        {"peak_vo2_ml_kg_min": 36, "sex": "female", "age_years": 25, "peak_vo2_pct_pred": 125},
+        modality="cycle ergometer",
+    )
+    joined = " ".join(summary["talking_points"]).lower()
+    assert "percentile" in joined
+    assert "cart" in joined
+    assert "cycle" in joined
 
 
 SAMPLE_TEXT = """
