@@ -83,6 +83,122 @@ def vision_model() -> str:
     return os.getenv("CPET_VISION_MODEL", DEFAULT_VISION_MODEL)
 
 
+def _anthropic_client():
+    """Return an Anthropic client or raise VisionUnavailableError with a reason."""
+    provider = os.getenv("LLM_PROVIDER", "anthropic").lower()
+    if provider != "anthropic":
+        raise VisionUnavailableError(
+            f"AI reading currently supports the Anthropic provider only (LLM_PROVIDER={provider})."
+        )
+    if not (os.getenv("ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_AUTH_TOKEN")):
+        raise VisionUnavailableError(
+            "No Anthropic API key configured (set ANTHROPIC_API_KEY). AI reading is unavailable."
+        )
+    try:
+        import anthropic
+    except Exception as exc:  # pragma: no cover
+        raise VisionUnavailableError("The anthropic SDK is not installed.") from exc
+    return anthropic.Anthropic()
+
+
+# Numeric CPET fields the extractor may fill; kept in sync with cpet_service specs.
+_EXTRACT_NUMERIC_FIELDS = [
+    "age_years", "weight_kg", "height_cm", "test_duration_min",
+    "peak_vo2_ml_kg_min", "peak_vo2_l_min", "peak_vo2_pct_pred", "peak_power_w",
+    "peak_rer", "rest_hr_bpm", "peak_hr_bpm", "predicted_hr_bpm", "hr_pct_pred",
+    "vt1_vo2_ml_kg_min", "vt1_hr_bpm", "vt1_power_w",
+    "vt2_vo2_ml_kg_min", "vt2_hr_bpm", "vt2_power_w",
+    "ve_vco2_slope", "ve_vco2_nadir", "breathing_reserve_pct", "peak_ve_l_min",
+    "mvv_l_min", "o2_pulse_ml_beat", "o2_pulse_pct_pred", "petco2_at_mmhg",
+    "spo2_nadir_pct", "peak_lactate_mmol_l", "fatmax_hr_bpm",
+]
+
+
+def _extract_tool() -> dict[str, Any]:
+    props: dict[str, Any] = {
+        field: {"type": ["number", "null"]} for field in _EXTRACT_NUMERIC_FIELDS
+    }
+    props["sex"] = {"type": ["string", "null"], "enum": ["male", "female", None]}
+    props["test_date"] = {"type": ["string", "null"], "description": "YYYY-MM-DD if shown."}
+    props["test_modality"] = {"type": ["string", "null"], "description": "e.g. cycle ergometer, treadmill, rowing."}
+    props["protocol"] = {"type": ["string", "null"]}
+    return {
+        "name": "extract_cpet_values",
+        "description": "Report the CPET values read from the report. Use null for anything not clearly shown; never guess.",
+        "input_schema": {"type": "object", "additionalProperties": False, "properties": props},
+    }
+
+
+_EXTRACT_SYSTEM = (
+    "You transcribe values from a cardiopulmonary exercise test (CPET) report image into structured "
+    "fields. Read only what is printed; if a value is not clearly legible, return null for it — do not "
+    "estimate or infer. Report the PEAK / maximum column for peak_* fields, the VT1 (first threshold / "
+    "GET / AT) column for vt1_* fields, and the VT2 (second threshold / RCP) column for vt2_* fields. "
+    "Cortex reports print oxygen uptake as V'O2 (an apostrophe stands for the dot); V'O2/kg is "
+    "peak_vo2_ml_kg_min, V'O2/HR is o2_pulse_ml_beat, V'E is minute ventilation. Report via the "
+    "extract_cpet_values tool."
+)
+
+
+def extract_cpet_from_pdf_via_vision(pdf_bytes: bytes, model: str | None = None) -> dict[str, Any]:
+    """Extract CPET values from a (possibly image-only) PDF using Claude.
+
+    Sends the PDF as a document so Claude can read image-based reports that have no
+    text layer. Returns the same shape as ``extract_cpet_from_text`` with metrics
+    passed through ``normalize_cpet_metrics``. Raises VisionUnavailableError when
+    the provider/key is missing; other API errors propagate.
+    """
+    client = _anthropic_client()
+    content = [
+        {
+            "type": "document",
+            "source": {"type": "base64", "media_type": "application/pdf", "data": base64.standard_b64encode(pdf_bytes).decode("ascii")},
+        },
+        {"type": "text", "text": "Transcribe this CPET report into the extract_cpet_values tool. Use null for anything not clearly printed."},
+    ]
+    response = client.messages.create(
+        model=model or vision_model(),
+        max_tokens=1500,
+        system=_EXTRACT_SYSTEM,
+        tools=[_extract_tool()],
+        tool_choice={"type": "tool", "name": "extract_cpet_values"},
+        messages=[{"role": "user", "content": content}],
+    )
+    raw = None
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "extract_cpet_values":
+            raw = dict(block.input)
+            break
+    if raw is None:
+        raise VisionUnavailableError("The model did not return structured CPET values; try again.")
+
+    metrics: dict[str, Any] = {}
+    for field in _EXTRACT_NUMERIC_FIELDS:
+        value = raw.get(field)
+        if isinstance(value, (int, float)):
+            metrics[field] = float(value)
+    sex = raw.get("sex")
+    if sex in ("male", "female"):
+        metrics["sex"] = sex
+
+    from services.cpet_service import normalize_cpet_metrics  # lazy: avoids import cycle
+    metrics = normalize_cpet_metrics(metrics)
+
+    return {
+        "test_date": raw.get("test_date") or None,
+        "test_modality": raw.get("test_modality") or None,
+        "protocol": raw.get("protocol") or None,
+        "source_format": "vision_pdf",
+        "metrics": metrics,
+        "model": response.model,
+        "extraction_warnings": [
+            "Values were read from the PDF by AI (the PDF had no text layer). Verify every value below before saving.",
+        ] if metrics else [
+            "AI could not read CPET values from this PDF. Enter them manually below.",
+        ],
+    }
+
+
 def render_pdf_pages_to_images(pdf_bytes: bytes, max_pages: int = 12) -> list[dict[str, Any]]:
     """Render each PDF page to a PNG using PyMuPDF, if it is installed.
 

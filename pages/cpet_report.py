@@ -23,6 +23,7 @@ from services.cpet_service import (
 from services.cpet_vision_service import (
     VisionUnavailableError,
     analyze_cpet_plots,
+    extract_cpet_from_pdf_via_vision,
     render_pdf_pages_to_images,
     vision_model,
 )
@@ -504,21 +505,48 @@ with tab_upload:
     render_section_header("Upload CPET Report", "PDF extraction first, then coach review and save")
     uploaded = st.file_uploader("Upload a CPET PDF or text export", type=["pdf", "txt"], key="cpet_upload")
 
+    st.caption(
+        "Text-readable PDFs are parsed directly. Scanned or image-only PDFs (many Cortex exports) "
+        "are read by AI — you review every value before saving."
+    )
     if uploaded and st.button("Extract CPET Report", type="primary", use_container_width=True):
         with st.spinner("Reading CPET report..."):
-            try:
-                payload = uploaded.getvalue()
-                if uploaded.name.lower().endswith(".pdf"):
+            extracted = None
+            payload = uploaded.getvalue()
+            is_pdf = uploaded.name.lower().endswith(".pdf")
+            if is_pdf:
+                # 1) Try the fast text parser. 2) If the PDF has no text layer or the
+                #    parser finds nothing, fall back to AI reading of the PDF image.
+                text_error = None
+                try:
                     extracted = extract_cpet_from_pdf(payload)
-                else:
-                    raw_text = payload.decode("utf-8", errors="ignore")
+                    if not extracted.get("metrics"):
+                        extracted = None  # nothing found -> try AI
+                except Exception as exc:
+                    text_error = exc
+                if extracted is None:
+                    try:
+                        with st.spinner("No text layer found — reading the PDF with AI..."):
+                            extracted = extract_cpet_from_pdf_via_vision(payload)
+                    except VisionUnavailableError as exc:
+                        st.error(
+                            f"This PDF has no readable text and AI reading is unavailable ({exc}). "
+                            "Enter the values manually below."
+                        )
+                    except Exception as exc:
+                        st.error(f"AI reading failed: {exc}" + (f" (text parser: {text_error})" if text_error else ""))
+            else:
+                raw_text = payload.decode("utf-8", errors="ignore")
+                try:
                     extracted = extract_cpet_from_text(raw_text)
                     extracted["raw_text"] = raw_text
+                except Exception as exc:
+                    st.error(f"CPET extraction failed: {exc}")
+
+            if extracted is not None:
                 extracted["source_filename"] = uploaded.name
                 st.session_state["cpet_extracted"] = extracted
                 st.rerun()
-            except Exception as exc:
-                st.error(f"CPET extraction failed: {exc}")
 
     if "cpet_extracted" in st.session_state:
         extracted = st.session_state["cpet_extracted"]
