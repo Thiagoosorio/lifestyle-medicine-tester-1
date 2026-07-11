@@ -1,7 +1,8 @@
 import services.cpet_service as cpet_service
 from services.cpet_service import (
     build_cpet_coach_summary,
-    build_zone_rows,
+    build_metabolic_profile,
+    build_training_zones,
     extract_cpet_from_text,
     get_cpet_reports,
     normalize_cpet_metrics,
@@ -277,20 +278,50 @@ def test_cpet_summary_flags_quality_medical_and_zone_items():
     assert "Athlete predicted norms" in areas
 
 
-def test_build_zone_rows_uses_measured_threshold_anchors():
-    rows = build_zone_rows(
+def test_training_zone2_tops_out_at_vt1_not_vt2():
+    # The core fix: endurance Zone 2 must end at VT1, never span to VT2.
+    zones = build_training_zones(
         {
-            "vt1_hr_bpm": 140,
-            "vt2_hr_bpm": 168,
-            "vt1_power_w": 190,
-            "vt2_power_w": 265,
-        }
+            "vt1_hr_bpm": 95, "vt2_hr_bpm": 151,
+            "vt1_power_w": 99, "vt2_power_w": 164,
+            "fatmax_hr_bpm": 86, "fatmax_hr_low_bpm": 84, "fatmax_hr_high_bpm": 87,
+        },
+        modality="cycle ergometer",
     )
+    assert zones["has_zones"]
+    z2 = next(r for r in zones["zone_table"] if r["Zone"].startswith("Z2"))
+    z3 = next(r for r in zones["zone_table"] if r["Zone"].startswith("Z3"))
+    # Zone 2 HR ends at VT1 (95); Zone 3 (tempo) begins at VT1.
+    assert z2["HR (bpm)"] == "84-95"
+    assert z3["HR (bpm)"].startswith("95-")
+    # Zone 2 is NOT the whole VT1-VT2 span.
+    assert z2["HR (bpm)"] != "95-151"
+    # FatMax-refined floor + bullseye, and power-primary anchoring.
+    assert zones["zone2"]["fatmax_bullseye"] == "84-87 bpm"
+    assert zones["zone2"]["power"] == "89-99 W"
+    assert zones["primary_anchor"] == "power"
+    # Polarized 3-zone view is separate.
+    assert zones["polarized_rows"]
 
-    anchors = {row["Anchor"] for row in rows}
-    assert {"HR", "Power"}.issubset(anchors)
-    assert any(row["Zone 2 / heavy"] == "140-168 bpm" for row in rows)
-    assert any(row["Zone 3 / severe"] == "> 265 W" for row in rows)
+
+def test_training_zones_incomplete_without_two_thresholds():
+    zones = build_training_zones({"vt1_hr_bpm": 95})  # no VT2
+    assert zones["has_zones"] is False
+    assert "incomplete_note" in zones
+
+
+def test_metabolic_profile_classifies_mfo_and_flags_high_rer():
+    profile = build_metabolic_profile(
+        {"fatmax_g_min": 0.53, "fatmax_hr_bpm": 86, "vt1_hr_bpm": 95, "peak_rer": 1.10}
+    )
+    assert profile["mfo_class"] == "Typical (recreational)"
+    assert profile["mfo_g_h"] == 32
+    assert "just below" in profile["fatmax_vs_vt1"]
+    assert any("not valid" in n for n in profile["interpretation"])  # RER>=1.0 caveat
+
+    low = build_metabolic_profile({"fatmax_g_min": 0.30, "fatmax_hr_bpm": 110, "vt1_hr_bpm": 120})
+    assert low["mfo_class"] == "Low"
+    assert any("metabolic inflexibility" in n for n in low["interpretation"])
 
 
 def test_save_cpet_report_persists_json_snapshot(db_conn, test_user, monkeypatch):

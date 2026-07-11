@@ -244,6 +244,59 @@ def _render_fitness_banner(fitness: dict | None) -> None:
         st.caption(caveat)
 
 
+def _render_training_zones(zones: dict | None, narrative: str | None) -> None:
+    if not zones:
+        return
+    st.markdown("### Training zones")
+    if not zones.get("has_zones"):
+        st.warning(zones.get("incomplete_note", "Threshold anchors are incomplete — add VT1 and VT2."))
+        return
+
+    st.dataframe(pd.DataFrame(zones["zone_table"]), use_container_width=True, hide_index=True)
+
+    z2 = zones.get("zone2") or {}
+    z2_bits = [v for v in (z2.get("power"), z2.get("speed"), z2.get("hr")) if v]
+    if z2_bits:
+        bullseye = f" · fat-burning bullseye {z2['fatmax_bullseye']}" if z2.get("fatmax_bullseye") else ""
+        st.success(
+            f"**Endurance Zone 2 (the base you build on): {' / '.join(z2_bits)}**{bullseye}. "
+            f"Prescribe on {zones.get('primary_anchor', 'the measured anchor')}; this band tops out at VT1, not VT2."
+        )
+
+    if narrative:
+        st.markdown(narrative)
+
+    if zones.get("polarized_rows"):
+        with st.expander("Training-distribution monitor (3-zone polarized — monitoring only, not a prescription)"):
+            st.caption(
+                "Note: 'Grey' here is the between-thresholds zone you AVOID in polarized training — the opposite of the "
+                "prescriptive Endurance Zone 2 above (which sits below VT1). Same idea, different use."
+            )
+            st.dataframe(pd.DataFrame(zones["polarized_rows"]), use_container_width=True, hide_index=True)
+            st.caption(zones.get("polarized_target", ""))
+
+    if zones.get("caveats"):
+        with st.expander("How to use these zones (caveats)"):
+            for caveat in zones["caveats"]:
+                st.markdown(f"- {caveat}")
+
+
+def _render_metabolic(profile: dict | None, narrative: str | None) -> None:
+    if not profile:
+        return
+    st.markdown("### Metabolic / fat-oxidation profile")
+    cols = st.columns(3)
+    with cols[0]:
+        st.metric("Max fat oxidation", f"{profile['mfo_g_min']:g} g/min" if profile.get("mfo_g_min") is not None else "--",
+                  profile.get("mfo_class", ""))
+    with cols[1]:
+        st.metric("FatMax heart rate", f"{profile['fatmax_hr']} bpm" if profile.get("fatmax_hr") is not None else "--")
+    with cols[2]:
+        st.metric("FatMax intensity", f"{profile['fatmax_pct_vo2max']}% VO2max" if profile.get("fatmax_pct_vo2max") is not None else "--")
+    if narrative:
+        st.markdown(narrative)
+
+
 def _render_summary(
     metrics: dict,
     context: str,
@@ -265,11 +318,8 @@ def _render_summary(
         st.markdown("**Data-consistency checks**")
         st.dataframe(pd.DataFrame(summary["consistency_rows"]), use_container_width=True, hide_index=True)
 
-    if summary["zone_rows"]:
-        st.markdown("**Measured threshold zones**")
-        st.dataframe(pd.DataFrame(summary["zone_rows"]), use_container_width=True, hide_index=True)
-    else:
-        st.warning("Threshold anchors are incomplete. Avoid building zones only from fixed %HRmax.")
+    _render_training_zones(summary.get("training_zones"), summary.get("training_narrative"))
+    _render_metabolic(summary.get("metabolic_profile"), summary.get("metabolic_narrative"))
 
     if summary["trust_rows"]:
         st.markdown("**Measurement hierarchy**")
@@ -667,6 +717,14 @@ with tab_guide:
         {
             "Topic": "Thresholds over shortcuts",
             "Coach note": "Training zones should be anchored to measured VT1/LT1 and VT2/LT2 whenever available, not fixed %HRmax alone.",
+        },
+        {
+            "Topic": "\"Zone 2\" means two things",
+            "Coach note": "Prescriptive endurance Zone 2 tops out AT VT1/LT1 (near FatMax) — a narrow base band. The Seiler 3-zone 'Zone 2' is the between-thresholds grey zone you AVOID. Same words, opposite use; prescribe the former.",
+        },
+        {
+            "Topic": "Power/pace over HR",
+            "Coach note": "Where a power meter or GPS pace exists, prescribe zones on power/pace; HR lags and drifts, especially above VT2 and on long efforts.",
         },
         {
             "Topic": "Hybrid athletes",

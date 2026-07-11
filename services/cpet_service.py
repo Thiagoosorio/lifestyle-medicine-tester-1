@@ -613,8 +613,11 @@ def _parse_cortex_scalars(text: str, metrics: dict[str, Any]) -> None:
         high = float(lipid.group(2)) if lipid.group(2) else low
         metrics["fatmax_g_min"] = round(((low + high) / 2.0) / 60.0, 2)
     fatmax_hr = re.search(r"Heart Rate Range\s*=?\s*(\d+)\s*-\s*(\d+)\s*/?\s*min", joined, re.I)
-    if fatmax_hr and "fatmax_hr_bpm" not in metrics:
-        metrics["fatmax_hr_bpm"] = round((float(fatmax_hr.group(1)) + float(fatmax_hr.group(2))) / 2.0)
+    if fatmax_hr:
+        low, high = float(fatmax_hr.group(1)), float(fatmax_hr.group(2))
+        metrics.setdefault("fatmax_hr_low_bpm", low)
+        metrics.setdefault("fatmax_hr_high_bpm", high)
+        metrics.setdefault("fatmax_hr_bpm", round((low + high) / 2.0))
 
 
 def normalize_cpet_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
@@ -669,7 +672,8 @@ def build_cpet_coach_summary(
     fitness = _classify_fitness(normalized, modality)
     validity = _build_validity_gate(normalized)
     flags = _build_coach_flags(normalized, client_context, fitness)
-    zone_rows = build_zone_rows(normalized)
+    training_zones = build_training_zones(normalized, modality)
+    metabolic_profile = build_metabolic_profile(normalized)
     consistency_rows = _build_consistency_checks(normalized, fitness, raw_metrics=metrics)
     trend_notes = _build_trend_notes(normalized, previous_metrics or {})
 
@@ -688,7 +692,10 @@ def build_cpet_coach_summary(
         "fitness_classification": fitness,
         "validity_gate": validity,
         "coach_flags": flags,
-        "zone_rows": zone_rows,
+        "training_zones": training_zones,
+        "metabolic_profile": metabolic_profile,
+        "training_narrative": _training_narrative(normalized, training_zones),
+        "metabolic_narrative": _metabolic_narrative(normalized, metabolic_profile),
         "consistency_rows": consistency_rows,
         "trend_notes": trend_notes,
         "standardization_checks": STANDARDIZATION_CHECKS,
@@ -709,28 +716,275 @@ def _classify_fitness(metrics: dict[str, Any], modality: str | None) -> dict[str
     )
 
 
-def build_zone_rows(metrics: dict[str, Any]) -> list[dict[str, Any]]:
-    """Build a 3-zone threshold prescription table from measured VT1/VT2 anchors."""
-    rows: list[dict[str, Any]] = []
-    anchors = [
-        ("HR", "bpm", _as_float(metrics.get("vt1_hr_bpm")), _as_float(metrics.get("vt2_hr_bpm"))),
-        ("Power", "W", _as_float(metrics.get("vt1_power_w")), _as_float(metrics.get("vt2_power_w"))),
-        ("Speed", "km/h", _as_float(metrics.get("vt1_speed_kmh")), _as_float(metrics.get("vt2_speed_kmh"))),
-        ("VO2", "mL/kg/min", _as_float(metrics.get("vt1_vo2_ml_kg_min")), _as_float(metrics.get("vt2_vo2_ml_kg_min"))),
+# ── Training zones ───────────────────────────────────────────────────────────
+# Tunable conventions (exposed, not buried — see the research spec's "do not
+# hard-code blindly" flags). The endurance "Zone 2" floor is the lower shoulder
+# of the moderate domain; its ceiling is ALWAYS VT1/LT1.
+ZONE2_FLOOR_COEFF = 0.90          # Z1<->Z2 boundary = coeff x VT1
+ZONE2_FALLBACK_WIDTH_BPM = 12.0   # Z2 width on HR when no FatMax band is present
+
+# Maximal fat-oxidation (MFO) reference bands, g/min, absolute (Randell 2017,
+# Jeukendrup & Wallis). Used to classify the metabolic profile.
+_MFO_BANDS = [(0.40, "Low"), (0.60, "Typical (recreational)"), (0.80, "Good (trained)")]
+
+_ZONE_META = [
+    ("Z1", "Recovery", "Active recovery, warm-up/cool-down."),
+    ("Z2", "Endurance (\"Zone 2\")", "Aerobic base: mitochondria + fat oxidation. Most weekly hours live here."),
+    ("Z3", "Tempo", "Aerobic-threshold work; useful but fatiguing 'grey zone' — use sparingly."),
+    ("Z4", "Threshold", "At/around VT2 — the lever that pushes the anaerobic threshold up."),
+    ("Z5", "VO2max / severe", "Above VT2: maximal aerobic power and anaerobic work."),
+]
+
+
+def _round_metric_display(value: float, decimals: int) -> str:
+    if decimals == 0:
+        return f"{round(value)}"
+    return f"{value:.{decimals}f}"
+
+
+def _zone_range_strings(v1: float, v2: float, floor: float, decimals: int) -> list[str]:
+    """Return the five zone-range strings for one metric (Z1..Z5)."""
+    midpoint = (v1 + v2) / 2.0
+    f = lambda x: _round_metric_display(x, decimals)  # noqa: E731
+    return [
+        f"< {f(floor)}",
+        f"{f(floor)}-{f(v1)}",
+        f"{f(v1)}-{f(midpoint)}",
+        f"{f(midpoint)}-{f(v2)}",
+        f">= {f(v2)}",
     ]
-    for anchor, unit, vt1, vt2 in anchors:
-        if vt1 is None and vt2 is None:
-            continue
-        rows.append(
-            {
-                "Anchor": anchor,
-                "Zone 1 / moderate": f"< {vt1:g} {unit}" if vt1 is not None else "Needs VT1",
-                "Zone 2 / heavy": f"{vt1:g}-{vt2:g} {unit}" if vt1 is not None and vt2 is not None else "Needs VT1 and VT2",
-                "Zone 3 / severe": f"> {vt2:g} {unit}" if vt2 is not None else "Needs VT2",
-                "Use note": "Measured threshold anchor; HR is secondary when power or speed is available.",
-            }
+
+
+def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -> dict[str, Any]:
+    """Build a threshold-anchored 5-zone prescription plus a polarized monitor.
+
+    Zone 2 (endurance) tops out at VT1/LT1; FatMax refines its floor. Prescribe
+    on power/pace when available (drift-proof); HR is a cross-check.
+    """
+    vt1_hr = _as_float(metrics.get("vt1_hr_bpm"))
+    vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
+    vt1_pw = _as_float(metrics.get("vt1_power_w"))
+    vt2_pw = _as_float(metrics.get("vt2_power_w"))
+    vt1_sp = _as_float(metrics.get("vt1_speed_kmh"))
+    vt2_sp = _as_float(metrics.get("vt2_speed_kmh"))
+    vt1_vo2 = _as_float(metrics.get("vt1_vo2_ml_kg_min"))
+    vt2_vo2 = _as_float(metrics.get("vt2_vo2_ml_kg_min"))
+    fatmax_hr = _as_float(metrics.get("fatmax_hr_bpm"))
+    fatmax_low = _as_float(metrics.get("fatmax_hr_low_bpm"))
+    fatmax_high = _as_float(metrics.get("fatmax_hr_high_bpm"))
+
+    is_running = "run" in str(modality or "").lower() or "tread" in str(modality or "").lower()
+
+    # Which metrics have both thresholds (needed for the full 5-zone split)?
+    metric_defs = [
+        ("HR (bpm)", vt1_hr, vt2_hr, 0, "heart rate"),
+        ("Power (W)", vt1_pw, vt2_pw, 0, "power"),
+        ("Speed (km/h)", vt1_sp, vt2_sp, 1, "pace"),
+        ("VO2 (mL/kg/min)", vt1_vo2, vt2_vo2, 1, "VO2"),
+    ]
+    available = [(label, v1, v2, dec, kind) for (label, v1, v2, dec, kind) in metric_defs if v1 is not None and v2 is not None]
+
+    result: dict[str, Any] = {"has_zones": bool(available)}
+    if not available:
+        result["incomplete_note"] = (
+            "Need VT1 and VT2 (on HR, power, pace, or VO2) to build training zones. "
+            "Add the threshold anchors; do not prescribe from fixed %HRmax alone."
         )
-    return rows
+        return result
+
+    # Endurance-zone HR floor: 0.90 x VT1, refined down to the FatMax low if given.
+    zone2_floor_hr = None
+    if vt1_hr is not None:
+        zone2_floor_hr = ZONE2_FLOOR_COEFF * vt1_hr
+        fatmax_anchor = fatmax_low if fatmax_low is not None else (fatmax_hr - 3 if fatmax_hr is not None else None)
+        if fatmax_anchor is not None:
+            zone2_floor_hr = min(zone2_floor_hr, fatmax_anchor)
+
+    # Per-metric zone ranges. HR uses the FatMax-refined floor; others use 0.90xVT1.
+    column_ranges: dict[str, list[str]] = {}
+    for label, v1, v2, dec, _kind in available:
+        floor = zone2_floor_hr if (label.startswith("HR") and zone2_floor_hr is not None) else ZONE2_FLOOR_COEFF * v1
+        column_ranges[label] = _zone_range_strings(v1, v2, floor, dec)
+
+    zone_table: list[dict[str, Any]] = []
+    for i, (zid, name, purpose) in enumerate(_ZONE_META):
+        row: dict[str, Any] = {"Zone": f"{zid} {name}"}
+        for label, _v1, _v2, _dec, _kind in available:
+            row[label] = column_ranges[label][i]
+        row["Purpose"] = purpose
+        zone_table.append(row)
+
+    # Primary anchor: power/pace beat HR (drift-proof). VO2 is lab-only.
+    if any(label == "Power (W)" for label, *_ in available):
+        primary = "power"
+    elif any(label == "Speed (km/h)" for label, *_ in available):
+        primary = "pace"
+    elif any(label.startswith("HR") for label, *_ in available):
+        primary = "heart rate"
+    else:
+        primary = "VO2"
+
+    # Endurance (Zone 2) detail.
+    zone2: dict[str, Any] = {}
+    if vt1_hr is not None and zone2_floor_hr is not None:
+        zone2["hr"] = f"{round(zone2_floor_hr)}-{round(vt1_hr)} bpm"
+        if fatmax_low is not None and fatmax_high is not None:
+            bull_hi = min(fatmax_high, vt1_hr)
+            zone2["fatmax_bullseye"] = f"{round(fatmax_low)}-{round(bull_hi)} bpm"
+        elif fatmax_hr is not None and fatmax_hr <= vt1_hr:
+            zone2["fatmax_bullseye"] = f"~{round(fatmax_hr)} bpm"
+    if vt1_pw is not None:
+        zone2["power"] = f"{round(ZONE2_FLOOR_COEFF * vt1_pw)}-{round(vt1_pw)} W"
+    if vt1_sp is not None:
+        zone2["speed"] = f"{ZONE2_FLOOR_COEFF * vt1_sp:.1f}-{vt1_sp:.1f} km/h"
+    result["zone2"] = zone2
+
+    # Polarized 3-zone monitor (distribution monitoring only — NOT the prescriptive Z2).
+    def _pol(v1, v2, unit, dec):
+        if v1 is None or v2 is None:
+            return None
+        f = lambda x: _round_metric_display(x, dec)  # noqa: E731
+        return f"< {f(v1)} / {f(v1)}-{f(v2)} / >= {f(v2)} {unit}"
+
+    polarized_rows = []
+    pol_specs = [("Heart rate", vt1_hr, vt2_hr, "bpm", 0), ("Power", vt1_pw, vt2_pw, "W", 0), ("Speed", vt1_sp, vt2_sp, "km/h", 1)]
+    for name, v1, v2, unit, dec in pol_specs:
+        val = _pol(v1, v2, unit, dec)
+        if val:
+            polarized_rows.append({"Anchor": name, "Easy (<VT1) / Grey (VT1-VT2) / Hard (>VT2)": val})
+    result["polarized_rows"] = polarized_rows
+    result["polarized_target"] = "Aim ~75-80% of training time below VT1, <=5-10% in the VT1-VT2 grey zone, ~15-20% above VT2."
+
+    result["zone_table"] = zone_table
+    result["primary_anchor"] = primary
+    result["caveats"] = _zone_caveats(primary, metrics)
+    return result
+
+
+def _zone_caveats(primary: str, metrics: dict[str, Any]) -> list[str]:
+    caveats = [
+        f"Prescribe on {primary}; heart rate is a cross-check. Above VT2, never lead with HR — it lags and drifts.",
+        "Zones are valid only for the tested modality (cycle/treadmill/row); do not reuse them for another sport.",
+        "Each boundary is a band, not a line (~+-5 bpm on HR, ~+-5% on power/pace) from test-retest and day-to-day noise.",
+        "On long efforts (>45-60 min) expect ~5-10 bpm/hr of cardiac drift; hold power/pace, not HR.",
+        "Heat, dehydration, poor sleep, illness, caffeine, and altitude shift HR; trust power/pace + RPE on those days.",
+        "Re-test every 6-8 weeks or after a phase change, illness, or detraining; zones expire.",
+    ]
+    # Beta-blocker / medication gate is surfaced only when relevant context exists; keep the general note.
+    caveats.append(
+        "Beta-blockers or rate-limiting drugs invalidate %HRmax zones — use only threshold HRs measured on the "
+        "medication, lead with power/pace + RPE, and keep interpretation with the supervising clinician."
+    )
+    return caveats
+
+
+def build_metabolic_profile(metrics: dict[str, Any]) -> dict[str, Any] | None:
+    """Interpret the substrate / fat-oxidation portion of the CPET."""
+    mfo = _as_float(metrics.get("fatmax_g_min"))
+    fatmax_hr = _as_float(metrics.get("fatmax_hr_bpm"))
+    fatmax_pct = _as_float(metrics.get("fatmax_vo2_pct"))
+    vt1_hr = _as_float(metrics.get("vt1_hr_bpm"))
+    peak_rer = _as_float(metrics.get("peak_rer"))
+    if mfo is None and fatmax_hr is None:
+        return None
+
+    profile: dict[str, Any] = {}
+    if mfo is not None:
+        mfo_class = "High (trained/elite)"
+        for cutoff, label in _MFO_BANDS:
+            if mfo < cutoff:
+                mfo_class = label
+                break
+        profile["mfo_g_min"] = round(mfo, 2)
+        profile["mfo_g_h"] = round(mfo * 60)
+        profile["mfo_class"] = mfo_class
+
+    if fatmax_hr is not None:
+        profile["fatmax_hr"] = round(fatmax_hr)
+        if vt1_hr is not None:
+            if fatmax_hr < vt1_hr - 1:
+                profile["fatmax_vs_vt1"] = "just below your aerobic threshold (VT1), as expected"
+            elif fatmax_hr <= vt1_hr + 1:
+                profile["fatmax_vs_vt1"] = "right at your aerobic threshold (VT1)"
+            else:
+                profile["fatmax_vs_vt1"] = "above VT1 — unusual; re-check the fat-oxidation curve and effort quality"
+    if fatmax_pct is not None:
+        profile["fatmax_pct_vo2max"] = round(fatmax_pct)
+
+    # Interpretation logic.
+    notes: list[str] = []
+    if mfo is not None and mfo < 0.40:
+        notes.append(
+            "A low peak fat-oxidation rate points to glycogen reliance at easy intensities (metabolic inflexibility). "
+            "Prescribe more Zone 2 volume and re-test in 6-8 weeks, expecting roughly a 15-30% rise."
+        )
+    elif mfo is not None:
+        notes.append(
+            "Fat oxidation is in the expected range; keep a consistent Zone 2 base to defend and slowly extend it "
+            "(a ~15-30% gain and a rightward FatMax shift are realistic over 6-8 weeks of volume)."
+        )
+    if peak_rer is not None and peak_rer >= 1.0:
+        notes.append(
+            "Any fat/carbohydrate numbers reported near or above the second threshold (RER ~1.0+) are not valid "
+            "and are omitted — CO2 from lactate buffering inflates the estimate."
+        )
+    profile["interpretation"] = notes
+    return profile
+
+
+def _training_narrative(metrics: dict[str, Any], zones: dict[str, Any]) -> str | None:
+    """Plain-language training-zone explanation for a coach."""
+    if not zones.get("has_zones"):
+        return None
+    vt1_hr = _as_float(metrics.get("vt1_hr_bpm"))
+    vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
+    zone2 = zones.get("zone2", {})
+    primary = zones.get("primary_anchor", "the measured anchor")
+
+    z2_phrase = zone2.get("power") or zone2.get("speed") or zone2.get("hr") or "the endurance band"
+    parts = []
+    thr = []
+    if vt1_hr is not None and vt2_hr is not None:
+        thr.append(f"Your aerobic threshold (VT1) is {round(vt1_hr)} bpm and your anaerobic threshold (VT2) is {round(vt2_hr)} bpm.")
+    parts.append(" ".join(thr) if thr else "")
+    span = f" — not the whole {round(vt1_hr)}-{round(vt2_hr)} bpm span, which is really tempo-to-threshold work" if (vt1_hr and vt2_hr) else ""
+    parts.append(
+        f"True endurance Zone 2 is a narrow band that tops out at VT1: train at {z2_phrase}{span}. "
+        "This is the zone that builds mitochondria and fat-burning capacity, so the bulk of weekly hours belong here "
+        "even though it feels too easy."
+    )
+    if primary in ("power", "pace"):
+        parts.append(
+            f"Prescribe off {primary}: at these intensities heart rate is low and lags the effort by 20-30 s and drifts on "
+            "long sessions, so treat bpm as a cross-check."
+        )
+    parts.append("Use the Threshold zone (around VT2) as the specific lever to raise your anaerobic threshold.")
+    return " ".join(p for p in parts if p)
+
+
+def _metabolic_narrative(metrics: dict[str, Any], profile: dict[str, Any] | None) -> str | None:
+    """Plain-language metabolic/substrate explanation for a coach."""
+    if not profile:
+        return None
+    bits = []
+    fatmax_hr = profile.get("fatmax_hr")
+    mfo = profile.get("mfo_g_min")
+    if fatmax_hr is not None and mfo is not None:
+        pos = profile.get("fatmax_vs_vt1", "in your endurance range")
+        bits.append(
+            f"Your fat oxidation peaks (FatMax) at about {fatmax_hr} bpm, {pos}, burning roughly {mfo:g} g of fat per "
+            f"minute (~{profile.get('mfo_g_h', round(mfo * 60))} g/h) — a {profile.get('mfo_class', '').lower()} rate."
+        )
+    elif mfo is not None:
+        bits.append(f"Peak fat oxidation is about {mfo:g} g/min (~{profile.get('mfo_g_h')} g/h), a {profile.get('mfo_class', '').lower()} rate.")
+    elif fatmax_hr is not None:
+        bits.append(f"Fat oxidation peaks (FatMax) at about {fatmax_hr} bpm, {profile.get('fatmax_vs_vt1', 'in your endurance range')}.")
+    bits.append(
+        "Long easy sessions in Zone 2 train exactly the system that raises this, sparing glycogen on efforts over 2-3 h."
+    )
+    for note in profile.get("interpretation", []):
+        bits.append(note)
+    return " ".join(bits)
 
 
 def save_cpet_report(
@@ -1304,7 +1558,7 @@ def _build_coach_flags(
             }
         )
 
-    if not build_zone_rows(metrics):
+    if not build_training_zones(metrics).get("has_zones"):
         flags.append(
             {
                 "Priority": "Medium",
@@ -1381,7 +1635,8 @@ def _talking_points(
     points = [
         "Start with the validity gate: peak RER, HR response, symptoms, and protocol quality.",
         "Peak VO2 is the engine size, but it is not the whole story.",
-        "VT1 and VT2 are the training-zone spine; prescribe from measured thresholds before fixed %HRmax shortcuts.",
+        "Endurance Zone 2 is a narrow band that tops out at VT1/LT1 (near FatMax) — not the whole VT1-to-VT2 span, which is tempo-to-threshold work.",
+        "Prescribe zones on power or pace when available; heart rate lags and drifts and is a cross-check, not the primary anchor above VT2.",
         "VE/VCO2 slope, breathing reserve, O2 pulse, PETCO2, and SpO2 are medical-pattern clues, not coaching diagnoses.",
         "Compare serial tests only when protocol and preparation are similar.",
     ]
