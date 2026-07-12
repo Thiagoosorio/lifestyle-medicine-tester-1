@@ -146,17 +146,28 @@ def _percentile_bullet_svg(fitness: dict) -> str:
     def x(p):
         return XL + max(0.0, min(100.0, p)) / 100.0 * W
 
-    bands = [(0, 20, "#D8E6E5"), (20, 40, "#B6D4D2"), (40, 60, "#8FBFBD"), (60, 80, "#57A3A1"), (80, 95, "#2A8785"), (95, 100, "#0E7C7B")]
-    y, h = 34.0, 18.0
-    parts = ['<svg viewBox="0 0 584 74" role="img" aria-label="Fitness percentile">']
-    for lo, hi, col in bands:
+    bands = [(0, 20, "#D8E6E5", "Poor"), (20, 40, "#B6D4D2", "Fair"), (40, 60, "#8FBFBD", "Average"),
+             (60, 80, "#57A3A1", "Good"), (80, 95, "#2A8785", "Excellent"), (95, 100, "#0E7C7B", "Superior")]
+    y, h = 34.0, 20.0
+    parts = ['<svg viewBox="0 0 584 92" role="img" aria-label="Aerobic fitness percentile versus age and sex norms">']
+    for lo, hi, col, name in bands:
         parts.append(f'<rect x="{x(lo):.1f}" y="{y}" width="{x(hi)-x(lo):.1f}" height="{h}" fill="{col}"/>')
-    parts.append(f'<rect x="{XL}" y="{y+5:.1f}" width="{x(pct)-XL:.1f}" height="8" rx="4" fill="#14181F"/>')
-    parts.append(f'<circle cx="{x(pct):.1f}" cy="{y+9:.1f}" r="5" fill="#14181F"/>')
-    parts.append(f'<line x1="{x(50):.1f}" y1="{y-6:.1f}" x2="{x(50):.1f}" y2="{y+h+6:.1f}" stroke="#14181F" stroke-width="2"/>')
-    parts.append(f'<text x="{x(50):.1f}" y="{y-9:.1f}" text-anchor="middle" font-size="8" fill="#6B7280">age-group median</text>')
-    label = f"{fitness.get('percentile_label','')} · {fitness.get('category','')} · vs {fitness.get('reference_group','')}"
-    parts.append(f'<text x="{XL}" y="{y+h+22:.1f}" font-size="11" font-weight="700" fill="#14181F">{_esc(label)}</text>')
+        if hi - lo >= 15:
+            tc = "#0A5C5B" if lo >= 60 else "#5a6b6a"
+            parts.append(f'<text x="{(x(lo)+x(hi))/2:.1f}" y="{y+h/2+3:.1f}" text-anchor="middle" font-size="7.5" fill="{tc}">{name}</text>')
+    # 0-100 axis ticks
+    for p in (0, 20, 40, 60, 80, 100):
+        parts.append(f'<text x="{x(p):.1f}" y="{y+h+13:.1f}" text-anchor="middle" font-size="8" fill="#9aa0a6">{p}</text>')
+    parts.append(f'<text x="{XL+W/2:.1f}" y="{y+h+26:.1f}" text-anchor="middle" font-size="8" fill="#9aa0a6">percentile vs age &amp; sex</text>')
+    # median tick
+    parts.append(f'<line x1="{x(50):.1f}" y1="{y-4:.1f}" x2="{x(50):.1f}" y2="{y+h+2:.1f}" stroke="#14181F" stroke-width="1.5"/>')
+    parts.append(f'<text x="{x(50):.1f}" y="{y-8:.1f}" text-anchor="middle" font-size="8" fill="#6B7280">median</text>')
+    # measure bar + endpoint marker with value callout (offset from median to avoid collision)
+    parts.append(f'<rect x="{XL:.1f}" y="{y+6:.1f}" width="{max(0.0, x(pct)-XL):.1f}" height="8" rx="4" fill="#14181F"/>')
+    parts.append(f'<circle cx="{x(pct):.1f}" cy="{y+10:.1f}" r="6" fill="#14181F" stroke="#FFFFFF" stroke-width="1.5"/>')
+    cval = _esc(fitness.get("percentile_label", "").replace("~", ""))
+    if abs(pct - 50) >= 12:
+        parts.append(f'<text x="{x(pct):.1f}" y="{y-8:.1f}" text-anchor="middle" font-size="11" font-weight="700" fill="#0A5C5B">{cval}</text>')
     parts.append("</svg>")
     return "".join(parts)
 
@@ -171,6 +182,17 @@ def _chip(text: str, kind: str = "muted") -> str:
     if not text:
         return ""
     return f'<span class="chip" style="background:{_CHIP_COLORS.get(kind, "#6B7280")}">{_esc(text)}</span>'
+
+
+def _norm_citation(fitness: dict) -> str:
+    ref = (fitness.get("reference") or "").lower()
+    if "cycle" in ref:
+        return ("FRIEND registry cycle-ergometry reference standards "
+                "(Kaminsky, de Souza e Silva et al., Mayo Clin Proc 2017)")
+    if "treadmill" in ref:
+        return ("FRIEND registry / ACSM treadmill reference standards "
+                "(Kaminsky et al., Mayo Clin Proc 2015; ACSM Guidelines, 11th ed.)")
+    return fitness.get("reference") or "population reference standards (FRIEND / ACSM)"
 
 
 def _fitness_kind(fitness: dict | None) -> str:
@@ -435,10 +457,13 @@ def generate_cpet_client_report(
     bullet = _percentile_bullet_svg(fitness)
     s5 = ''
     if bullet:
+        caveat = (fitness.get("caveats") or [""])[0]
         s5 = ('<div class="section-title">Aerobic fitness vs your peers</div><div class="card">'
               f'<p class="lead">Your aerobic engine measured against people like you: <b>{_esc(fitness.get("category",""))}</b>, '
               f'{_esc(fitness.get("percentile_label",""))} for {_esc(fitness.get("reference_group",""))} '
-              f'({_esc(fitness.get("modality_used",""))} norms).</p>' + bullet + '</div>')
+              f'({_esc(fitness.get("modality_used",""))} norms).</p>' + bullet
+              + f'<p class="footnote">Reference: {_esc(_norm_citation(fitness))}.'
+              + (f' {_esc(caveat)}' if caveat else '') + '</p></div>')
 
     # ── S6 thresholds ladder
     s6 = ('<div class="section-title">Your thresholds</div><div class="card">'
