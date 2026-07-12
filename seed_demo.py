@@ -723,41 +723,38 @@ def main():
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (USERNAME,)).fetchone()
     if existing:
         uid = existing["id"]
-        # Delete child tables before parent tables to avoid FK violations
-        for table in ["goal_progress", "habit_log", "habit_celebrations",
-                       "wheel_assessments", "stage_of_change", "goals",
-                       "habits", "daily_checkins", "weekly_reviews",
-                       "coaching_messages", "comb_assessments",
-                       "coin_transactions", "daily_insights", "thought_checks",
-                       "user_journey", "user_lesson_progress", "future_self_letters",
-                       "auto_weekly_reports",
-                       "body_metrics", "weekly_challenges",
-                       "protocol_log", "user_protocols",
-                       "biomarker_results", "biomarker_ai_analysis",
-                       "chronotype_assessments",
-                       "sleep_logs", "fasting_sessions",
-                       "meal_logs", "nutrition_daily_summary",
-                       "food_log_items", "calorie_daily_summary",
-                       "calorie_targets", "diet_assessments",
-                       "meditation_sessions", "quote_interactions",
-                       "nudge_shown", "daily_growth_state",
-                       "exercise_logs", "exercise_programs", "exercise_weekly_summary",
-                       "workout_sets",
-                       "cycling_plan", "cycling_profile", "cycling_ride_logs",
-                       "dexa_scans", "organ_score_results",
-                       "clinical_diagnoses", "clinical_interventions", "clinical_test_results",
-                       "sibo_fodmap_phase", "sibo_food_logs",
-                       "sibo_reintro_challenges", "sibo_symptom_logs", "sibo_user_state",
-                       "garmin_connections", "strava_connections",
-                       "wearable_measurements",
-                       "user_clinical_profile", "user_settings"]:
-            try:
-                conn.execute(f"DELETE FROM {table} WHERE user_id = ?", (uid,))
-            except Exception:
-                pass  # Table may not exist yet
-        conn.commit()
-        conn.execute("DELETE FROM users WHERE id = ?", (uid,))
-        conn.commit()
+        # Remove every row this demo user owns. The target tables are
+        # discovered dynamically (any table with a user_id column) rather than
+        # hardcoded, so a newly added user-scoped table — e.g. cpet_reports,
+        # inbody_reports, habit_stacks, cycling_progression_levels — can never
+        # be forgotten and leave a FOREIGN KEY constraint failure when the
+        # users row is deleted (which previously half-wiped the database).
+        # FK enforcement is deferred for the wipe so delete order cannot
+        # matter, and the reset commits once (or rolls back) atomically.
+        user_tables = []
+        for trow in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%'"
+        ).fetchall():
+            tname = trow["name"]
+            cols = [c["name"] for c in conn.execute(
+                f'PRAGMA table_info("{tname}")'
+            ).fetchall()]
+            if "user_id" in cols:
+                user_tables.append(tname)
+
+        conn.commit()  # close any implicit txn so the PRAGMA takes effect
+        conn.execute("PRAGMA foreign_keys = OFF")
+        try:
+            for tname in user_tables:
+                conn.execute(f'DELETE FROM "{tname}" WHERE user_id = ?', (uid,))
+            conn.execute("DELETE FROM users WHERE id = ?", (uid,))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.execute("PRAGMA foreign_keys = ON")
     # Reset shared tables
     conn.execute("DELETE FROM micro_lessons")
     conn.commit()

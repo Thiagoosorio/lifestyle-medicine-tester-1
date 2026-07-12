@@ -51,7 +51,7 @@ from healthscore.aggregate.spec_b import (
 from healthscore.aggregate.compare import disagreement
 from healthscore.audit import AuditSink
 from healthscore.domain_config import DomainsConfig
-from healthscore.enums import ScoreStatus
+from healthscore.enums import RedFlagSeverity, ScoreStatus
 from healthscore.gates import GatePredicate
 from healthscore.instruments import InstrumentRegistry
 from healthscore.overrides import AggregationOverrides
@@ -63,6 +63,7 @@ from healthscore.types import (
     AggregationOutput,
     DomainScore,
     OrganScore,
+    RedFlag,
     ScoreResult,
 )
 
@@ -79,6 +80,69 @@ def _resolve_eval_order(configs: Mapping[str, ScoreConfig]) -> tuple[str, ...]:
         sid: _gate_for(cfg) for sid, cfg in configs.items()
     }
     return tuple(topological_sort(score_gates))
+
+
+_RED_FLAG_TRIGGERS = {
+    ">=": lambda v, t: v >= t,
+    ">": lambda v, t: v > t,
+    "<=": lambda v, t: v <= t,
+    "<": lambda v, t: v < t,
+    "==": lambda v, t: v == t,
+}
+
+
+def _red_flag_wording(
+    spec, label: str, templates: Mapping[str, Mapping[str, str]] | None
+) -> str:
+    """Resolve regulator-safe wording for a fired red flag.
+
+    Callers may supply a ``"red_flags"`` section in ``templates`` keyed by
+    ``wording_key``; otherwise a neutral default is emitted. The default is
+    intentionally free of the §8 forbidden lemmas (no diagnose/predict/
+    treatment/recommend/prescribe).
+    """
+    if templates:
+        section = templates.get("red_flags")
+        if isinstance(section, Mapping):
+            text = section.get(spec.wording_key)
+            if text:
+                return text
+    return (
+        f"This result meets a pre-defined review threshold ({label}). "
+        "Please review these findings with a qualified clinician."
+    )
+
+
+def _score_red_flag(
+    config: ScoreConfig,
+    result: ScoreResult,
+    templates: Mapping[str, Mapping[str, str]] | None,
+) -> RedFlag | None:
+    """Evaluate a score's ``red_flag`` spec against its computed value.
+
+    Returns a :class:`RedFlag` when the score is OK, produced a raw value, and
+    that value satisfies the configured trigger/threshold; otherwise ``None``.
+    Previously these config-level specs (including ``urgent_review``
+    escalations, e.g. KFRE 5-year risk >= 20%) were parsed but never applied,
+    so every score-level clinical flag was silently dropped.
+    """
+    spec = config.red_flag
+    if spec is None:
+        return None
+    if result.status is not ScoreStatus.OK or result.raw_value is None:
+        return None
+    predicate = _RED_FLAG_TRIGGERS.get(spec.trigger)
+    if predicate is None or not predicate(result.raw_value, spec.threshold):
+        return None
+    label = f"{config.score_id} {spec.trigger} {spec.threshold}"
+    return RedFlag(
+        score_id=config.score_id,
+        severity=RedFlagSeverity(spec.severity),
+        threshold_label=label,
+        actual_value=result.raw_value,
+        wording=_red_flag_wording(spec, label, templates),
+        pmid=result.pmid or config.pmid_primary or "",
+    )
 
 
 def evaluate_all_scores(
@@ -117,6 +181,7 @@ def aggregate_organ(
     weights: Mapping[str, float],
     epsilon: float = 0.01,
     confidence: str = "moderate",
+    red_flags: Sequence[RedFlag] = (),
 ) -> OrganScore:
     """Phase 4 seam. Bundle Spec A + Spec B aggregation into an OrganScore."""
     spec_a, eps_a = aggregate_organ_spec_a(
@@ -133,7 +198,7 @@ def aggregate_organ(
         spec_b_value=spec_b,
         epsilon_activations=eps_a,
         weights_used={sid: w for sid, w in weights.items() if w > 0.0},
-        red_flags=(),
+        red_flags=tuple(red_flags),
         confidence=confidence,  # type: ignore[arg-type]
     )
 
@@ -326,6 +391,15 @@ def compute(
         )
         results[sid] = result
 
+    # Evaluate score-level red_flag specs against the computed values. These
+    # are keyed by score_id and attached to the owning organ below, then
+    # rolled up through DomainScore and the top-level AggregationOutput.
+    score_red_flags: dict[str, RedFlag] = {}
+    for sid, cfg in active_configs.items():
+        flag = _score_red_flag(cfg, results[sid], templates) if sid in results else None
+        if flag is not None:
+            score_red_flags[sid] = flag
+
     organ_to_domain = domains_config.organ_to_domain()
     organs: list[OrganScore] = []
 
@@ -350,12 +424,16 @@ def compute(
             ]
             if not member_results:
                 continue
+            organ_flags = [
+                score_red_flags[sid] for sid in weights if sid in score_red_flags
+            ]
             organ_score = aggregate_organ(
                 organ_id=organ_id,
                 domain_id=domain_id,
                 member_results=member_results,
                 weights=weights,
                 epsilon=epsilon,
+                red_flags=organ_flags,
             )
             organs.append(organ_score)
 
@@ -387,12 +465,15 @@ def compute(
             spec_a_val, spec_b_val,
             threshold=domains_config.disagreement_threshold,
         )
+        domain_flags = tuple(
+            f for o in domain_organs for f in o.red_flags
+        )
         domain_scores.append(DomainScore(
             domain_id=domain_id, organs=tuple(domain_organs),
             spec_a_value=spec_a_val, spec_b_value=spec_b_val,
             disagreement=diff_value,
             disagreement_flag=diff_flag,
-            red_flags=(),
+            red_flags=domain_flags,
             alpha_used=alpha, epsilon_used=epsilon,
         ))
 
@@ -415,7 +496,7 @@ def compute(
         population=population,
         domains=domain_scores,
         score_results=list(results.values()),
-        red_flags=[],
+        red_flags=[f for d in domain_scores for f in d.red_flags],
         active_instruments=active_instruments,
         timestamp_utc=timestamp_utc,
     )
@@ -457,7 +538,17 @@ def compute(
             }
             for d in domain_scores
         ],
-        "red_flags": [],
+        "red_flags": [
+            {
+                "score_id": f.score_id,
+                "severity": f.severity.value,
+                "threshold_label": f.threshold_label,
+                "actual_value": str(f.actual_value),
+                "wording": f.wording,
+                "pmid": f.pmid,
+            }
+            for f in output.red_flags
+        ],
         "disclaimer": output.disclaimer,
     }
     audit_sink.emit(audit_record)

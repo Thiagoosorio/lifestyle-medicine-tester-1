@@ -31,6 +31,7 @@ from healthscore.engine import (
 from healthscore.instruments import load_instrument_registry
 from healthscore.overrides import AggregationOverrides
 from healthscore.score_config import load_score_configs
+from healthscore.wording import scan_text_for_forbidden_lemmas
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -177,6 +178,52 @@ def test_compute_emits_audit_record_with_required_fields(
     order = record["score_eval_order"]
     assert order.index("fib4") < order.index("amap")
     assert order.index("fli") < order.index("amap")
+
+
+def test_compute_healthy_user_has_no_red_flags(
+    configs, domains_config, instrument_registry, wording_templates, healthy_inputs,
+):
+    """A healthy user (KFRE gated, no threshold crossed) surfaces no flags."""
+    sink = InMemoryAuditSink()
+    out = compute(
+        score_configs=configs, domains_config=domains_config,
+        instrument_registry=instrument_registry,
+        raw_inputs=healthy_inputs, audit_sink=sink,
+        templates=wording_templates, locale="en", population=None,
+    )
+    assert list(out.red_flags) == []
+    assert sink.records[0]["red_flags"] == []
+
+
+def test_compute_ckd_user_fires_kfre_urgent_review_red_flag(
+    configs, domains_config, instrument_registry, wording_templates, healthy_inputs,
+):
+    """A severe-CKD user pushes KFRE 5-year risk >= 20%, which the config
+    marks as an urgent_review red flag. Previously the score-level red_flag
+    spec was parsed but never applied, so the flag was silently dropped.
+    It must now surface in AggregationOutput.red_flags, roll into the kidney
+    organ / heart_metab domain, and land in the audit record."""
+    inputs = dict(healthy_inputs)
+    inputs.update(age=75, sex="male", egfr=18, uacr=800)
+    sink = InMemoryAuditSink()
+    out = compute(
+        score_configs=configs, domains_config=domains_config,
+        instrument_registry=instrument_registry,
+        raw_inputs=inputs, audit_sink=sink,
+        templates=wording_templates, locale="en", population=None,
+    )
+    kfre_flags = [f for f in out.red_flags if f.score_id == "kfre"]
+    assert len(kfre_flags) == 1
+    flag = kfre_flags[0]
+    assert flag.severity.value == "urgent_review"
+    assert float(flag.actual_value) >= 20.0
+    # Rolled up into the kidney organ under the heart_metab domain.
+    heart = next(d for d in out.domains if d.domain_id == "heart_metab")
+    assert any(f.score_id == "kfre" for f in heart.red_flags)
+    # Audit record carries it too.
+    assert any(rf["score_id"] == "kfre" for rf in sink.records[0]["red_flags"])
+    # Wording must be regulator-safe (§8 forbidden-lemma scan clean).
+    assert scan_text_for_forbidden_lemmas(flag.wording) == []
 
 
 def test_compute_audit_records_overrides_applied(
