@@ -91,8 +91,18 @@ def get_habit_streak(habit_id: int, user_id: int) -> int:
             return 0
 
         from datetime import date, timedelta
+        # Anchor at today, or yesterday if today has not been logged yet, so the
+        # streak does not collapse to 0 at midnight before the new day's entry.
+        today = date.today()
+        most_recent = date.fromisoformat(rows[0]["log_date"])
+        if most_recent == today:
+            expected = today
+        elif most_recent == today - timedelta(days=1):
+            expected = today - timedelta(days=1)
+        else:
+            return 0
+
         streak = 0
-        expected = date.today()
         for row in rows:
             d = date.fromisoformat(row["log_date"])
             if d == expected:

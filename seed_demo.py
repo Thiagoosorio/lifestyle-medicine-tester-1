@@ -614,7 +614,10 @@ def ensure_demo_organ_score_prereqs(
             "SELECT COUNT(*) as cnt FROM wearable_measurements WHERE user_id = ? AND measured_at >= ?",
             (user_id, recent_cutoff),
         ).fetchone()
-        has_recent_wearable = (recent_wearable and recent_wearable["cnt"] > 50) and (not force_profile)
+        # Preserve already-seeded wearable history: force_profile refreshes the
+        # profile/registry, but must not re-randomise the 30-day wearable series
+        # on every boot (which made the demo's wheel jump around each restart).
+        has_recent_wearable = bool(recent_wearable and recent_wearable["cnt"] > 50)
 
         if not has_recent_wearable:
             # Seed 30 days of wearable data with realistic variance

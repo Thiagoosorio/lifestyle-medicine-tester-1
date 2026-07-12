@@ -14,19 +14,12 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 def _effective_range(definition, age=None, sex=None):
     """Return the age/sex-resolved reference range for a biomarker.
 
-    Falls back to the base ``standard_*`` / ``critical_*`` fields when neither
-    ``age`` nor ``sex`` is provided. DB-sourced rows do not carry the
-    ``variants`` list, so we look the full static definition up by ``code``.
+    Always routes through ``resolve_reference_range`` so that even with no sex
+    given, a sex-dependent biomarker is graded against the union of its sex
+    bands rather than the (often male-defaulted) base range. DB-sourced rows do
+    not carry the ``variants`` list, so we look the full static definition up by
+    ``code`` to recover them.
     """
-    if age is None and sex is None:
-        return {
-            "standard_low": definition.get("standard_low"),
-            "standard_high": definition.get("standard_high"),
-            "optimal_low": definition.get("optimal_low"),
-            "optimal_high": definition.get("optimal_high"),
-            "critical_low": definition.get("critical_low"),
-            "critical_high": definition.get("critical_high"),
-        }
     lookup = BIOMARKERS_BY_CODE.get(definition.get("code")) if definition.get("code") else None
     source = lookup if (lookup and lookup.get("variants")) else definition
     return resolve_reference_range(source, age=age, sex=sex)
@@ -438,6 +431,12 @@ def get_blood_analysis_context(user_id: int, lab_date: str) -> str | None:
                 direction = "Improving" if delta < 0 else "Worsening"
             elif curr_cls in low_classes and prev_cls in low_classes:
                 direction = "Improving" if delta > 0 else "Worsening"
+            elif (curr_cls in high_classes and prev_cls in low_classes) or (
+                curr_cls in low_classes and prev_cls in high_classes
+            ):
+                # Swung across the whole range (e.g. low -> high): this is not
+                # an improvement, even though it is a zone change.
+                direction = "Worsening"
             else:
                 direction = "Improving" if is_zone_change else "Worsening"
 

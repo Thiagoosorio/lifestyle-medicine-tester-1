@@ -175,7 +175,9 @@ def log_ride(user_id: int, data: dict) -> int:
                 data.get("ride_date", date.today().isoformat()),
                 data.get("duration_min", 0),
                 avg_power if avg_power else None,
-                data.get("normalized_power") or None,
+                # Persist the same resolved NP that drove the TSS/IF calc, so a
+                # caller passing np_watts (not normalized_power) is not dropped.
+                np_watts if (np_watts and np_watts > 0) else None,
                 if_score,
                 tss,
                 data.get("elevation_m") or None,

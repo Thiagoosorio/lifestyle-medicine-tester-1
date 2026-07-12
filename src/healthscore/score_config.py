@@ -233,6 +233,11 @@ def parse_gate_spec(spec: Any) -> GatePredicate | None:
                 )
             return GateAllOf(all_of=children)
         if "field" in spec and "predicate" in spec:
+            if "missing_policy" not in spec or "failure_reason_code" not in spec:
+                raise ConfigValidationError(
+                    f"gate leaf {spec!r} must define both 'missing_policy' and "
+                    "'failure_reason_code'"
+                )
             return GateLeaf(
                 field=spec["field"],
                 predicate=spec["predicate"],

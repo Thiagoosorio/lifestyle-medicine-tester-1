@@ -439,7 +439,7 @@ def get_completion_heatmap_data(user_id: int, weeks: int = 12,
         logs = conn.execute(
             "SELECT log_date, COUNT(DISTINCT habit_id) AS done "
             "FROM habit_log "
-            "WHERE user_id = ? AND log_date >= ? AND log_date < ? "
+            "WHERE user_id = ? AND log_date >= ? AND log_date <= ? "
             "AND completed_count > 0 "
             "GROUP BY log_date",
             (user_id, start.isoformat(), ref_date.isoformat()),
@@ -447,8 +447,9 @@ def get_completion_heatmap_data(user_id: int, weeks: int = 12,
 
         log_map = {r["log_date"]: r["done"] for r in logs}
 
+        # Inclusive of ref_date (today) so the current day's completions show.
         result = {}
-        for i in range(weeks * 7):
+        for i in range(weeks * 7 + 1):
             d = (start + timedelta(days=i)).isoformat()
             done = log_map.get(d, 0)
             result[d] = round(done / total_habits, 2)

@@ -168,17 +168,24 @@ def _compute_streak(user_id):
     if not rows:
         return 0
 
-    streak = 0
+    # Anchor at today, or yesterday if today has no completed fast yet, then
+    # count strictly consecutive days back from that base. (The previous version
+    # allowed a yesterday start but never shifted the reference, so every day
+    # after the first misaligned and the streak undercounted.)
     today = date.today()
+    first = date.fromisoformat(rows[0]["fast_date"])
+    if first == today:
+        base = today
+    elif first == today - timedelta(days=1):
+        base = today - timedelta(days=1)
+    else:
+        return 0
+
+    streak = 0
     for i, row in enumerate(rows):
         fast_date = date.fromisoformat(row["fast_date"])
-        expected = today - timedelta(days=i)
-        if fast_date == expected:
+        if fast_date == base - timedelta(days=i):
             streak += 1
-        elif i == 0 and fast_date == expected - timedelta(days=1):
-            # Allow starting from yesterday
-            streak += 1
-            today = fast_date + timedelta(days=1)
         else:
             break
     return streak

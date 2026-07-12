@@ -160,9 +160,12 @@ def get_daily_quote(user_id):
             (user_id,),
         ).fetchone()
 
-        if state and state["state_date"] == today_str and state["current_quote_index"] is not None:
+        if state and state["state_date"] == today_str and state["current_quote_index"] is not None \
+                and 0 <= state["current_quote_index"] < len(WISDOM_QUOTES):
             idx = state["current_quote_index"]
         else:
+            # No valid stored index (or a stale one from a since-shrunk pool):
+            # pick and persist a fresh one rather than indexing out of range.
             idx = _pick_fresh_index(conn, user_id, "quote", len(WISDOM_QUOTES))
             _set_daily_state(conn, user_id, today_str, quote_index=idx)
             # Record interaction
@@ -330,9 +333,12 @@ def get_daily_nudge(user_id):
             (user_id,),
         ).fetchone()
 
-        if state and state["state_date"] == today_str and state["current_nudge_index"] is not None:
+        if state and state["state_date"] == today_str and state["current_nudge_index"] is not None \
+                and 0 <= state["current_nudge_index"] < len(MINDFULNESS_NUDGES):
             idx = state["current_nudge_index"]
         else:
+            # No valid stored index (or a stale one from a since-shrunk pool):
+            # pick and persist a fresh one rather than indexing out of range.
             idx = _pick_fresh_index(conn, user_id, "nudge", len(MINDFULNESS_NUDGES))
             _set_daily_state(conn, user_id, today_str, nudge_index=idx)
             conn.execute(

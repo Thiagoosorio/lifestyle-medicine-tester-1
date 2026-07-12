@@ -175,11 +175,17 @@ with tab_import:
                 else:
                     result_parts.append(f'{name}: {count} records')
 
+            # Only claim success when at least one import actually succeeded;
+            # an all-failed run must read as a failure, not a green banner.
+            if successful_imports > 0:
+                border_col, accent, title = "#30D15840", "#30D158", "&#9989; Import Complete"
+            else:
+                border_col, accent, title = "#FF453A40", "#FF453A", "&#9888;&#65039; Import Failed"
             result_html = (
-                f'<div style="background:{A["bg_elevated"]};border:1px solid #30D15840;'
+                f'<div style="background:{A["bg_elevated"]};border:1px solid {border_col};'
                 f'border-radius:{A["radius_md"]};padding:14px 16px;margin-top:8px">'
-                f'<div style="font-size:13px;font-weight:600;color:#30D158;margin-bottom:6px">'
-                f'&#9989; Import Complete</div>'
+                f'<div style="font-size:13px;font-weight:600;color:{accent};margin-bottom:6px">'
+                f'{title}</div>'
                 f'<div style="font-size:12px;color:{A["label_secondary"]}">'
                 f'{" &nbsp;&middot;&nbsp; ".join(result_parts)}</div></div>'
             )

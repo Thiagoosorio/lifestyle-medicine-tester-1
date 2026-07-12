@@ -108,11 +108,19 @@ def _calculate_stats(checkins: list, habits: list, habit_log: list, prev_checkin
         vals = [c[field] for c in prev_checkins if c.get(field)]
         prev_pillar_avgs[pid] = avg(vals)
 
-    # Habit completion
+    # Habit completion — only count logs for currently-active habits against
+    # the active-habit denominator, and clamp, so completions of deactivated
+    # habits can't push the percentage above 100%.
     total_habits = len(habits)
-    completed_logs = [l for l in habit_log if dict(l).get("completed_count", 0) > 0]
+    active_habit_ids = {dict(h).get("id") for h in habits}
+    completed_logs = [
+        l for l in habit_log
+        if dict(l).get("completed_count", 0) > 0
+        and dict(l).get("habit_id") in active_habit_ids
+    ]
     total_possible = total_habits * 7
     habit_completion = len(completed_logs) / total_possible if total_possible > 0 else 0
+    habit_completion = min(habit_completion, 1.0)
 
     # Check-in count
     checkin_count = len(checkins)

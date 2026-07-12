@@ -34,7 +34,21 @@ def resolve_reference_range(biomarker_def: dict,
     """
     resolved = {key: biomarker_def.get(key) for key in _RANGE_KEYS}
     sex_letter = str(sex).lower()[:1] if sex else None
-    for variant in biomarker_def.get("variants") or ():
+    variants = biomarker_def.get("variants") or ()
+    sex_variants = [v for v in variants if v.get("sex")]
+    # Sex unknown but the range depends on sex: do NOT fall back to the base
+    # range, which for some biomarkers (e.g. testosterone, creatinine) is just
+    # the male band and would misclassify a female. Widen instead to the union
+    # of the sex-specific bands (lowest low, highest high) so a value that is
+    # normal for either sex is not falsely flagged.
+    if not sex_letter and sex_variants:
+        combined = dict(resolved)
+        for key in _RANGE_KEYS:
+            vals = [v[key] for v in sex_variants if v.get(key) is not None]
+            if vals:
+                combined[key] = min(vals) if key.endswith("_low") else max(vals)
+        return combined
+    for variant in variants:
         v_sex = variant.get("sex")
         if v_sex and sex_letter and v_sex[:1].lower() != sex_letter:
             continue

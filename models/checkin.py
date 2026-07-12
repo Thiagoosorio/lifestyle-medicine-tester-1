@@ -4,13 +4,30 @@ from db.database import get_connection
 def save_checkin(user_id: int, checkin_date: str, data: dict):
     conn = get_connection()
     try:
+        # Upsert on the (user_id, checkin_date) unique key. INSERT OR REPLACE
+        # would delete+reinsert, resetting created_at and mutating the row id;
+        # ON CONFLICT DO UPDATE keeps both and bumps only updated_at.
         conn.execute(
-            """INSERT OR REPLACE INTO daily_checkins
+            """INSERT INTO daily_checkins
                (user_id, checkin_date, mood, energy,
                 nutrition_rating, activity_rating, sleep_rating,
                 stress_rating, connection_rating, substance_rating,
                 journal_entry, gratitude, win_of_day, challenge)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(user_id, checkin_date) DO UPDATE SET
+                 mood = excluded.mood,
+                 energy = excluded.energy,
+                 nutrition_rating = excluded.nutrition_rating,
+                 activity_rating = excluded.activity_rating,
+                 sleep_rating = excluded.sleep_rating,
+                 stress_rating = excluded.stress_rating,
+                 connection_rating = excluded.connection_rating,
+                 substance_rating = excluded.substance_rating,
+                 journal_entry = excluded.journal_entry,
+                 gratitude = excluded.gratitude,
+                 win_of_day = excluded.win_of_day,
+                 challenge = excluded.challenge,
+                 updated_at = datetime('now')""",
             (
                 user_id, checkin_date,
                 data.get("mood"), data.get("energy"),

@@ -103,3 +103,39 @@ def test_contradiction_detector_does_not_corrupt_outer_loop():
     assert results
     for c in results:
         assert c["newer"]["year"] > c["older"]["year"]
+
+
+# ── Sex-agnostic biomarker classification (#42) ──────────────────────────
+
+def test_sex_dependent_biomarker_not_scored_on_male_band_when_sex_unknown():
+    from config.biomarkers_data import BIOMARKERS_BY_CODE
+    from services.biomarker_service import classify_result
+
+    testo = BIOMARKERS_BY_CODE["testosterone_total"]
+    # A normal-for-female value must NOT be flagged critical/low just because
+    # sex is unknown (previously it hit the male-defaulted floor).
+    assert classify_result(40, testo) == "in_range"
+    assert classify_result(40, testo, sex="female") == "in_range"
+    # Genuinely extreme values are still flagged sex-agnostically.
+    assert classify_result(5, testo) == "critical_low"
+
+
+def test_hemoglobin_stays_usable_and_critical_still_fires_without_sex():
+    from config.biomarkers_data import BIOMARKERS_BY_CODE
+    from services.biomarker_service import classify_result
+
+    hb = BIOMARKERS_BY_CODE["hemoglobin"]
+    assert classify_result(14, hb) == "in_range"
+    assert classify_result(5, hb) == "critical_low"
+
+
+# ── Evidence entry pillar assignment (#41) ───────────────────────────────
+
+def test_hs_crp_evidence_entry_has_a_pillar():
+    import config.evidence_data as ed
+    entries = next(
+        v for v in vars(ed).values()
+        if isinstance(v, list) and v and isinstance(v[0], dict) and "pmid" in v[0]
+    )
+    entry = next(e for e in entries if e["pmid"] == "14621448")
+    assert entry["pillar_id"] is not None

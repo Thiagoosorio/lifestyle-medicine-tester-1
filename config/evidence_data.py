@@ -928,7 +928,7 @@ EVIDENCE_LIBRARY = [
         "pmid": "14621448", "doi": "10.1016/s0733-8651(03)00079-1",
         "title": "C-reactive protein, inflammation, and coronary risk",
         "authors": "Ridker PM, Morrow DA", "journal": "Cardiol Clin", "year": 2003,
-        "study_type": "cross_sectional", "evidence_grade": "D", "pillar_id": None,
+        "study_type": "cross_sectional", "evidence_grade": "D", "pillar_id": 1,
         "summary": "Landmark review establishing hs-CRP as an independent predictor of cardiovascular risk, with AHA risk stratification: <1.0 mg/L low risk, 1-3 moderate, >3 high.",
         "key_finding": "Mild elevation of baseline hs-CRP in apparently healthy individuals is associated with higher long-term cardiovascular event risk, independent of traditional risk factors.",
         "effect_size": "AHA risk categories: <1.0 mg/L (low), 1.0-3.0 (moderate), >3.0 (high risk)",

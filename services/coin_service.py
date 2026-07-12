@@ -54,8 +54,14 @@ def award_daily_coins(user_id: int, today_str: str = None):
         ).fetchone()["cnt"]
 
         if total_habits > 0:
+            # Count only distinct *active* habits completed today — logs for
+            # deactivated habits must not pad the count toward the all-habits
+            # coin.
             done_habits = conn.execute(
-                "SELECT COUNT(*) as cnt FROM habit_log WHERE user_id = ? AND log_date = ? AND completed_count > 0",
+                "SELECT COUNT(DISTINCT hl.habit_id) as cnt "
+                "FROM habit_log hl JOIN habits h ON h.id = hl.habit_id "
+                "WHERE hl.user_id = ? AND hl.log_date = ? "
+                "AND hl.completed_count > 0 AND h.is_active = 1",
                 (user_id, today_str),
             ).fetchone()["cnt"]
             if done_habits >= total_habits:

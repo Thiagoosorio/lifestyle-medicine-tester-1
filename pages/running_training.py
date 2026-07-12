@@ -135,6 +135,9 @@ with tab_dashboard:
                 pace = dur / dist
                 mins = int(pace)
                 secs = int(round((pace - mins) * 60))
+                if secs == 60:  # rounding carried up to a full minute
+                    mins += 1
+                    secs = 0
                 pace_fmt = f"{mins}:{secs:02d}"
             intensity = r.get("intensity", "moderate")
             int_color = {"light": "#30D158", "moderate": "#FFD60A", "vigorous": "#FF453A"}.get(intensity, "#FFD60A")
