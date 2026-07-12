@@ -255,13 +255,18 @@ def _render_training_zones(zones: dict | None, narrative: str | None) -> None:
     st.dataframe(pd.DataFrame(zones["zone_table"]), use_container_width=True, hide_index=True)
 
     z2 = zones.get("zone2") or {}
-    z2_bits = [v for v in (z2.get("power"), z2.get("speed"), z2.get("hr")) if v]
-    if z2_bits:
-        bullseye = f" · fat-burning bullseye {z2['fatmax_bullseye']}" if z2.get("fatmax_bullseye") else ""
+    if z2.get("target_hr") and z2.get("ceiling_hr"):
+        power = f" · power {z2['power']} (work the upper end)" if z2.get("power") else ""
+        floor = f" · FatMax floor {z2['fatmax_floor']} (not the target)" if z2.get("fatmax_floor") else ""
         st.success(
-            f"**Endurance Zone 2 (the base you build on): {' / '.join(z2_bits)}**{bullseye}. "
-            f"Prescribe on {zones.get('primary_anchor', 'the measured anchor')}; this band tops out at VT1, not VT2."
+            f"**Zone 2 (endurance): aim ~{z2['target_hr']}, band {z2.get('core_hr', z2.get('hr', ''))}, "
+            f"hard cap {z2['ceiling_hr']} bpm = LT1 / ~2 mmol lactate**{power}{floor}. "
+            f"Work the TOP of the window just under LT1 — that is the fat-oxidation/mitochondrial sweet spot; "
+            f"prescribe on {zones.get('primary_anchor', 'the measured anchor')}."
         )
+    elif z2.get("hr") or z2.get("power"):
+        z2_bits = [v for v in (z2.get("power"), z2.get("speed"), z2.get("hr")) if v]
+        st.success(f"**Endurance Zone 2: {' / '.join(z2_bits)}** — tops out at VT1/LT1, not VT2.")
 
     if narrative:
         st.markdown(narrative)

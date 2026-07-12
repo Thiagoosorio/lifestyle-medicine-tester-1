@@ -720,8 +720,16 @@ def _classify_fitness(metrics: dict[str, Any], modality: str | None) -> dict[str
 # Tunable conventions (exposed, not buried — see the research spec's "do not
 # hard-code blindly" flags). The endurance "Zone 2" floor is the lower shoulder
 # of the moderate domain; its ceiling is ALWAYS VT1/LT1.
-ZONE2_FLOOR_COEFF = 0.90          # Z1<->Z2 boundary = coeff x VT1
-ZONE2_FALLBACK_WIDTH_BPM = 12.0   # Z2 width on HR when no FatMax band is present
+ZONE2_FLOOR_COEFF = 0.90          # Z1<->Z2 boundary on power/VO2 = coeff x VT1
+# The endurance "Zone 2" is the narrow window at the TOP of the aerobic base, just
+# under the first lactate threshold (LT1 ~2 mmol, gas-exchange proxy VT1/GET). The
+# training TARGET is the top of the band (VT1 - target offset), NOT FatMax, which
+# sits at the floor. All four are tunable conventions, not physiological constants.
+ZONE2_CORE_WIDTH_BPM = 10.0       # "true Zone 2" stimulus band width just under LT1
+ZONE2_TARGET_OFFSET_BPM = 6.0     # Zone 2 bullseye = VT1_HR - this (just under LT1)
+ZONE2_FLOOR_CAP_BPM = 15.0        # endurance-band floor no lower than VT1_HR - this
+LT1_LACTATE_MMOL = 2.0            # aerobic threshold (VT1/GET proxy)
+LT2_LACTATE_MMOL = 4.0            # anaerobic threshold / OBLA 4.0 (VT2/RCP proxy; MLSS is individual)
 
 # Maximal fat-oxidation (MFO) reference bands, g/min, absolute (Randell 2017,
 # Jeukendrup & Wallis). Used to classify the metabolic profile.
@@ -792,13 +800,13 @@ def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -
         )
         return result
 
-    # Endurance-zone HR floor: 0.90 x VT1, refined down to the FatMax low if given.
+    # Endurance-zone HR floor: no lower than VT1 - 15 bpm; extend down to the FatMax
+    # low when given (the fat-oxidation floor of the window).
     zone2_floor_hr = None
     if vt1_hr is not None:
-        zone2_floor_hr = ZONE2_FLOOR_COEFF * vt1_hr
-        fatmax_anchor = fatmax_low if fatmax_low is not None else (fatmax_hr - 3 if fatmax_hr is not None else None)
-        if fatmax_anchor is not None:
-            zone2_floor_hr = min(zone2_floor_hr, fatmax_anchor)
+        zone2_floor_hr = vt1_hr - ZONE2_FLOOR_CAP_BPM
+        if fatmax_low is not None:
+            zone2_floor_hr = max(fatmax_low, vt1_hr - ZONE2_FLOOR_CAP_BPM)
 
     # Per-metric zone ranges. HR uses the FatMax-refined floor; others use 0.90xVT1.
     column_ranges: dict[str, list[str]] = {}
@@ -824,15 +832,27 @@ def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -
     else:
         primary = "VO2"
 
-    # Endurance (Zone 2) detail.
-    zone2: dict[str, Any] = {}
+    # Endurance (Zone 2) detail. The band is the endurance base; the TARGET is the
+    # narrow window at its TOP, just under LT1 (~2 mmol) — not FatMax (the floor).
+    zone2: dict[str, Any] = {"ceiling_label": f"LT1 / aerobic threshold (~{LT1_LACTATE_MMOL:g} mmol)"}
     if vt1_hr is not None and zone2_floor_hr is not None:
+        core_lo = vt1_hr - ZONE2_CORE_WIDTH_BPM
+        bullseye = vt1_hr - ZONE2_TARGET_OFFSET_BPM
         zone2["hr"] = f"{round(zone2_floor_hr)}-{round(vt1_hr)} bpm"
+        zone2["core_hr"] = f"{round(core_lo)}-{round(vt1_hr)} bpm"
+        zone2["target_hr"] = f"~{round(bullseye)} bpm"
+        zone2["ceiling_hr"] = round(vt1_hr)
         if fatmax_low is not None and fatmax_high is not None:
-            bull_hi = min(fatmax_high, vt1_hr)
-            zone2["fatmax_bullseye"] = f"{round(fatmax_low)}-{round(bull_hi)} bpm"
+            zone2["fatmax_floor"] = f"{round(fatmax_low)}-{round(min(fatmax_high, vt1_hr))} bpm"
         elif fatmax_hr is not None and fatmax_hr <= vt1_hr:
-            zone2["fatmax_bullseye"] = f"~{round(fatmax_hr)} bpm"
+            zone2["fatmax_floor"] = f"~{round(fatmax_hr)} bpm"
+        # Training-status: FatMax converges with LT1 in trained athletes, diverges
+        # (sits well below) in the untrained — which changes how hard to push.
+        anchor = fatmax_high if fatmax_high is not None else fatmax_hr
+        if anchor is not None:
+            gap = vt1_hr - anchor
+            zone2["fatmax_vt1_gap"] = round(gap)
+            zone2["training_pattern"] = "divergent" if gap >= 7 else ("converged" if gap <= 4 else "mild")
     if vt1_pw is not None:
         zone2["power"] = f"{round(ZONE2_FLOOR_COEFF * vt1_pw)}-{round(vt1_pw)} W"
     if vt1_sp is not None:
@@ -863,6 +883,11 @@ def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -
 
 def _zone_caveats(primary: str, metrics: dict[str, Any]) -> list[str]:
     caveats = [
+        "The Zone 2 ceiling is anchored to VT1/GET as the LT1 (~2 mmol aerobic threshold) proxy. Gas-exchange VT1 "
+        "sits at or slightly ABOVE the true first lactate rise, so this ceiling can read a few bpm high — train at or "
+        "just below it, and confirm with a lactate strip (baseline + 0.5 mmol) when precision matters.",
+        "VT2 is the LT2/anaerobic-threshold proxy (~4 mmol OBLA). True steady-state (MLSS) is individual (2.5-6 mmol) "
+        "and sits just below VT2/RCP.",
         f"Prescribe on {primary}; heart rate is a cross-check. Above VT2, never lead with HR — it lags and drifts.",
         "Zones are valid only for the tested modality (cycle/treadmill/row); do not reuse them for another sport.",
         "Each boundary is a band, not a line (~+-5 bpm on HR, ~+-5% on power/pace) from test-retest and day-to-day noise.",
@@ -938,27 +963,44 @@ def _training_narrative(metrics: dict[str, Any], zones: dict[str, Any]) -> str |
         return None
     vt1_hr = _as_float(metrics.get("vt1_hr_bpm"))
     vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
-    zone2 = zones.get("zone2", {})
+    z2 = zones.get("zone2", {})
     primary = zones.get("primary_anchor", "the measured anchor")
 
-    z2_phrase = zone2.get("power") or zone2.get("speed") or zone2.get("hr") or "the endurance band"
-    parts = []
-    thr = []
+    parts: list[str] = []
     if vt1_hr is not None and vt2_hr is not None:
-        thr.append(f"Your aerobic threshold (VT1) is {round(vt1_hr)} bpm and your anaerobic threshold (VT2) is {round(vt2_hr)} bpm.")
-    parts.append(" ".join(thr) if thr else "")
-    span = f" — not the whole {round(vt1_hr)}-{round(vt2_hr)} bpm span, which is really tempo-to-threshold work" if (vt1_hr and vt2_hr) else ""
-    parts.append(
-        f"True endurance Zone 2 is a narrow band that tops out at VT1: train at {z2_phrase}{span}. "
-        "This is the zone that builds mitochondria and fat-burning capacity, so the bulk of weekly hours belong here "
-        "even though it feels too easy."
-    )
+        parts.append(
+            f"Your first lactate threshold (LT1, ~{LT1_LACTATE_MMOL:g} mmol aerobic threshold, measured as VT1) is "
+            f"{round(vt1_hr)} bpm, and your second threshold (LT2, ~{LT2_LACTATE_MMOL:g} mmol / MLSS, measured as VT2) "
+            f"is {round(vt2_hr)} bpm."
+        )
+
+    if z2.get("target_hr") and z2.get("ceiling_hr"):
+        power = f" ({z2['power']}, work the upper end)" if z2.get("power") else ""
+        parts.append(
+            f"True endurance Zone 2 is the narrow window just UNDER LT1, not the whole span up to VT2. Work the top of "
+            f"the band: aim about {z2['target_hr']} and cap at {z2['ceiling_hr']} bpm — that ceiling is your ~2 mmol "
+            f"lactate line{power}. This is the highest intensity where lactate still clears, so it gives the biggest "
+            "mitochondrial and fat-oxidation stimulus for the least fatigue; the bulk of weekly hours belong here."
+        )
+        if z2.get("fatmax_floor"):
+            parts.append(
+                f"Your FatMax ({z2['fatmax_floor']}) is the FLOOR of this window, not the target — treat it as the "
+                "bottom of Zone 2, and push toward the top just under LT1."
+            )
+        if z2.get("training_pattern") == "divergent":
+            parts.append(
+                "Your FatMax sits well below LT1 (a recreational pattern), so the target is still just under LT1 but your "
+                "productive window legitimately extends down to FatMax; if lactate does not settle near the top, bias a "
+                "few bpm lower and confirm with a lactate strip. Percent-of-max-HR zone charts do not fit you — anchor on "
+                "your measured VT1."
+            )
+
     if primary in ("power", "pace"):
         parts.append(
-            f"Prescribe off {primary}: at these intensities heart rate is low and lags the effort by 20-30 s and drifts on "
-            "long sessions, so treat bpm as a cross-check."
+            f"Prescribe off {primary}: at these low intensities heart rate lags the effort by 20-30 s and drifts on long "
+            "sessions, so treat bpm as a cross-check."
         )
-    parts.append("Use the Threshold zone (around VT2) as the specific lever to raise your anaerobic threshold.")
+    parts.append("Use the Threshold zone (around VT2/LT2) as the specific lever to raise your anaerobic threshold.")
     return " ".join(p for p in parts if p)
 
 
@@ -980,7 +1022,9 @@ def _metabolic_narrative(metrics: dict[str, Any], profile: dict[str, Any] | None
     elif fatmax_hr is not None:
         bits.append(f"Fat oxidation peaks (FatMax) at about {fatmax_hr} bpm, {profile.get('fatmax_vs_vt1', 'in your endurance range')}.")
     bits.append(
-        "Long easy sessions in Zone 2 train exactly the system that raises this, sparing glycogen on efforts over 2-3 h."
+        "FatMax marks the peak fat-oxidation rate and sits at the FLOOR of Zone 2; the Zone 2 training target is a "
+        "little higher, just under your first lactate threshold. Long sessions in that window build exactly the system "
+        "that raises fat oxidation, sparing glycogen on efforts over 2-3 h."
     )
     for note in profile.get("interpretation", []):
         bits.append(note)

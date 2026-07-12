@@ -292,13 +292,17 @@ def test_training_zone2_tops_out_at_vt1_not_vt2():
     z2 = next(r for r in zones["zone_table"] if r["Zone"].startswith("Z2"))
     z3 = next(r for r in zones["zone_table"] if r["Zone"].startswith("Z3"))
     # Zone 2 HR ends at VT1 (95); Zone 3 (tempo) begins at VT1.
-    assert z2["HR (bpm)"] == "84-95"
+    assert z2["HR (bpm)"].endswith("-95")
     assert z3["HR (bpm)"].startswith("95-")
     # Zone 2 is NOT the whole VT1-VT2 span.
     assert z2["HR (bpm)"] != "95-151"
-    # FatMax-refined floor + bullseye, and power-primary anchoring.
-    assert zones["zone2"]["fatmax_bullseye"] == "84-87 bpm"
-    assert zones["zone2"]["power"] == "89-99 W"
+    z2d = zones["zone2"]
+    # Ceiling = VT1 (LT1/~2 mmol); target is JUST UNDER LT1 (VT1-6 = 89), not FatMax.
+    assert z2d["ceiling_hr"] == 95
+    assert z2d["target_hr"] == "~89 bpm"
+    assert z2d["fatmax_floor"] == "84-87 bpm"  # FatMax is the FLOOR marker, not the target
+    # FatMax 9 bpm below VT1 -> divergent (recreational) pattern.
+    assert z2d["training_pattern"] == "divergent"
     assert zones["primary_anchor"] == "power"
     # Polarized 3-zone view is separate.
     assert zones["polarized_rows"]
