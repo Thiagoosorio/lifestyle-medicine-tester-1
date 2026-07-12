@@ -163,35 +163,39 @@ def detect_evidence_contradictions(
     ]
     contradictions = []
 
-    for i, newer in enumerate(filtered):
-        for older in filtered[i + 1 :]:
-            year_new = newer["year"]
-            year_old = older["year"]
+    for i, ev_i in enumerate(filtered):
+        for ev_j in filtered[i + 1 :]:
+            # Use local names (a = newer, b = older) so the swap below never
+            # rebinds the outer loop variable, which previously corrupted every
+            # subsequent inner-loop comparison for that i.
+            a, b = ev_i, ev_j
+            year_new = a["year"]
+            year_old = b["year"]
             if year_new == year_old:
                 continue
             if year_new < year_old:
-                newer, older = older, newer
+                a, b = b, a
                 year_new, year_old = year_old, year_new
             if year_new - year_old < min_year_gap:
                 continue
 
-            if newer.get("pillar_id") != older.get("pillar_id"):
+            if a.get("pillar_id") != b.get("pillar_id"):
                 continue
 
-            tags_new = _parse_tags(newer.get("tags"))
-            tags_old = _parse_tags(older.get("tags"))
+            tags_new = _parse_tags(a.get("tags"))
+            tags_old = _parse_tags(b.get("tags"))
             overlap = tags_new & tags_old
             if not overlap:
                 continue
 
-            dir_new = _claim_direction(_claim_text(newer))
-            dir_old = _claim_direction(_claim_text(older))
+            dir_new = _claim_direction(_claim_text(a))
+            dir_old = _claim_direction(_claim_text(b))
             if dir_new == dir_old:
                 continue
 
             confidence = (
-                _grade_weight(newer.get("evidence_grade", ""))
-                + _grade_weight(older.get("evidence_grade", ""))
+                _grade_weight(a.get("evidence_grade", ""))
+                + _grade_weight(b.get("evidence_grade", ""))
                 + min(4, len(overlap))
                 + min(4, year_new - year_old)
             )
@@ -199,9 +203,9 @@ def detect_evidence_contradictions(
             contradictions.append(
                 {
                     "topic_tags": sorted(overlap),
-                    "pillar_id": newer.get("pillar_id"),
-                    "newer": newer,
-                    "older": older,
+                    "pillar_id": a.get("pillar_id"),
+                    "newer": a,
+                    "older": b,
                     "newer_direction": dir_new,
                     "older_direction": dir_old,
                     "confidence": confidence,

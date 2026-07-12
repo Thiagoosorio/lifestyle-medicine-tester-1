@@ -24,16 +24,29 @@ def _bootstrap_app_data() -> bool:
 
     conn = get_connection()
     try:
-        demo_exists = conn.execute(
-            "SELECT id FROM users WHERE username = ?",
+        demo_row = conn.execute(
+            "SELECT id, email FROM users WHERE username = ?",
             ("maria.silva",),
         ).fetchone()
     finally:
         conn.close()
 
-    from seed_demo import ensure_demo_organ_score_prereqs, main as seed_demo_main
+    from seed_demo import (
+        EMAIL as DEMO_EMAIL,
+        ensure_demo_organ_score_prereqs,
+        main as seed_demo_main,
+    )
 
-    if not demo_exists and is_demo_mode():
+    # Only the genuinely seeded demo identity — matched by its email, not just
+    # the guessable username — is eligible for the force-overwrite backfill, so
+    # a real user who happens to register 'maria.silva' is never clobbered with
+    # demo data on boot.
+    demo_exists = (
+        demo_row if (demo_row is not None and demo_row["email"] == DEMO_EMAIL)
+        else None
+    )
+
+    if demo_row is None and is_demo_mode():
         seed_demo_main()
         LOGGER.info("Seeded demo account for DEMO_MODE session")
     elif demo_exists:

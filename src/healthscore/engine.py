@@ -357,6 +357,17 @@ def compute(
                 f"normalisation={overrides.normalisation!r} is a Phase 6+ "
                 "harness-mode branch; not yet implemented in compute()"
             )
+        if overrides.epsilon_per_score is not None:
+            # The epsilon floor is applied during aggregation (weighted_geomean
+            # in aggregate_organ_spec_a/b), which is not yet threaded per score
+            # -- so a per-score map would be silently ignored. Fail loudly, like
+            # the sibling parked branches above, instead of accepting a knob
+            # that does nothing.
+            raise NotImplementedError(
+                "epsilon_per_score is a Phase 6+ harness-mode branch; the "
+                "epsilon floor is applied during aggregation and is not yet "
+                "threaded per score. Pass a single `epsilon` instead."
+            )
 
     # Apply score_inclusion: any score with inclusion=False is removed
     # from the eval pool entirely. (Leave-one-out per §4.5.)
@@ -371,21 +382,13 @@ def compute(
     results: dict[str, ScoreResult] = {}
     for sid in eval_order:
         cfg = active_configs[sid]
-        # Per-score epsilon override (Sobol seam) takes precedence.
-        per_score_eps = epsilon
-        if (
-            overrides is not None
-            and overrides.epsilon_per_score is not None
-            and sid in overrides.epsilon_per_score
-        ):
-            per_score_eps = overrides.epsilon_per_score[sid]
         result = evaluate_score(
             cfg,
             raw_inputs=raw_inputs,
             prior_results=results,
             formula=lookup_formula(cfg.formula),
             gate=_gate_for(cfg),
-            epsilon=per_score_eps,
+            epsilon=epsilon,
             templates=templates,
             instrument_registry=instrument_registry,
         )

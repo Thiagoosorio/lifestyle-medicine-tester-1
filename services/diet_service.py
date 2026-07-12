@@ -59,8 +59,12 @@ def _estimate_hei_from_answers(answers):
     """Estimate HEI-2020 score from quiz answers."""
     from config.diet_data import DIET_QUIZ_QUESTIONS, HEI_COMPONENTS
 
-    component_scores = {k: 0 for k in HEI_COMPONENTS}
-
+    # Collect every mapped value per component across all answered questions,
+    # then reduce. Adequacy components take the best (max) evidence; moderation
+    # components (refined grains, sodium, added sugars, saturated fats) take the
+    # most conservative (min) so that an unhealthy answer actually lowers the
+    # sub-score instead of being masked by a healthier one.
+    collected: dict[str, list] = {k: [] for k in HEI_COMPONENTS}
     for i, option_idx in enumerate(answers):
         if i >= len(DIET_QUIZ_QUESTIONS):
             break
@@ -68,11 +72,19 @@ def _estimate_hei_from_answers(answers):
         hei_map = q.get("hei_map", {})
         if option_idx in hei_map:
             for comp, val in hei_map[option_idx].items():
-                if comp in component_scores:
-                    component_scores[comp] = max(component_scores[comp], val)
+                if comp in collected:
+                    collected[comp].append(val)
 
-    # Clamp to max scores
+    component_scores = {}
     for comp, info in HEI_COMPONENTS.items():
+        vals = collected[comp]
+        if not vals:
+            component_scores[comp] = 0
+        elif info.get("type") == "moderation":
+            component_scores[comp] = min(vals)
+        else:
+            component_scores[comp] = max(vals)
+        # Clamp to the component's max score.
         component_scores[comp] = min(component_scores[comp], info["max_score"])
 
     total = sum(component_scores.values())

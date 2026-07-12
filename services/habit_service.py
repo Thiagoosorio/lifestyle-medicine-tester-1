@@ -68,8 +68,18 @@ def get_overall_streak(user_id: int) -> int:
         if not rows:
             return 0
 
+        # Anchor the streak at today, or at yesterday if today has no activity
+        # yet — an in-progress day must not zero out a running streak.
+        today = date.today()
+        most_recent = date.fromisoformat(rows[0]["d"])
+        if most_recent == today:
+            expected = today
+        elif most_recent == today - timedelta(days=1):
+            expected = today - timedelta(days=1)
+        else:
+            return 0  # most recent activity is >1 day ago: streak is broken
+
         streak = 0
-        expected = date.today()
         for row in rows:
             d = date.fromisoformat(row["d"])
             if d == expected:

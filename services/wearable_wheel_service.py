@@ -793,6 +793,11 @@ def compute_wearable_wheel(user_id: int) -> dict:
         readiness_100 = _weighted_average(weighted_readiness)
         resilience_100 = _weighted_average(weighted_resilience)
 
+        # A domain with no available metrics has no real score. We keep a
+        # neutral placeholder for display but flag has_data=False so it is
+        # excluded from the overall/readiness/resilience means below — a 50.0
+        # placebo must not be averaged in as if it were a measured value.
+        has_data = score_100 is not None
         if score_100 is None:
             score_100 = 50.0
         if readiness_100 is None:
@@ -802,6 +807,7 @@ def compute_wearable_wheel(user_id: int) -> dict:
 
         domains[domain_code] = {
             "code": domain_code,
+            "has_data": has_data,
             "name": domain_spec["name"],
             "short": domain_spec["short"],
             "color": domain_spec["color"],
@@ -823,9 +829,12 @@ def compute_wearable_wheel(user_id: int) -> dict:
             "metric_codes_used": available_codes,
         }
 
-    domain_scores = [domains[d]["score_100"] for d in DOMAIN_ORDER]
-    domain_readiness = [domains[d]["readiness_100"] for d in DOMAIN_ORDER]
-    domain_resilience = [domains[d]["resilience_100"] for d in DOMAIN_ORDER]
+    # Only domains with real data contribute to the overall means; empty
+    # domains carry a display placeholder that must not dilute the aggregate.
+    scored_domains = [d for d in DOMAIN_ORDER if domains[d].get("has_data")]
+    domain_scores = [domains[d]["score_100"] for d in scored_domains]
+    domain_readiness = [domains[d]["readiness_100"] for d in scored_domains]
+    domain_resilience = [domains[d]["resilience_100"] for d in scored_domains]
 
     overall_score_100 = round(sum(domain_scores) / len(domain_scores), 1) if domain_scores else 0.0
     overall_readiness_100 = round(sum(domain_readiness) / len(domain_readiness), 1) if domain_readiness else 0.0

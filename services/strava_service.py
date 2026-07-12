@@ -52,6 +52,74 @@ def _get_client_secret():
         return None
 
 
+# ---------------------------------------------------------------------------
+#  Token encryption at rest (opt-in)
+#
+#  OAuth access/refresh tokens are secrets and should not sit in the database
+#  in plaintext. Encryption activates automatically when BOTH (a) the optional
+#  `cryptography` package is installed and (b) a Fernet key is configured via
+#  STRAVA_TOKEN_KEY (env or st.secrets). It is intentionally optional so the
+#  app keeps running — and deploying — without adding a hard native dependency;
+#  reads transparently handle legacy plaintext rows, so enabling it later needs
+#  no migration. Generate a key with:
+#     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# ---------------------------------------------------------------------------
+
+_ENC_PREFIX = "enc:v1:"
+_TOKEN_CIPHER_CACHE = []  # single-slot memo: [] unresolved, [None] none, [obj] cipher
+
+
+def _get_token_key():
+    val = os.environ.get("STRAVA_TOKEN_KEY")
+    if val:
+        return val
+    try:
+        import streamlit as st
+        return st.secrets.get("STRAVA_TOKEN_KEY")
+    except Exception:
+        return None
+
+
+def _token_cipher():
+    """Return a Fernet cipher if available+configured, else None (cached)."""
+    if _TOKEN_CIPHER_CACHE:
+        return _TOKEN_CIPHER_CACHE[0]
+    cipher = None
+    key = _get_token_key()
+    if key:
+        try:
+            from cryptography.fernet import Fernet
+            cipher = Fernet(key.encode() if isinstance(key, str) else key)
+        except Exception:
+            cipher = None
+    _TOKEN_CIPHER_CACHE.append(cipher)
+    return cipher
+
+
+def _encrypt_token(token):
+    """Encrypt a token for storage when a cipher is configured; else pass through."""
+    if not token:
+        return token
+    cipher = _token_cipher()
+    if cipher is None:
+        return token
+    return _ENC_PREFIX + cipher.encrypt(token.encode()).decode()
+
+
+def _decrypt_token(value):
+    """Decrypt a stored token. Legacy plaintext rows pass through unchanged;
+    an encrypted value we can no longer decrypt returns None (forces reconnect)."""
+    if not value or not isinstance(value, str) or not value.startswith(_ENC_PREFIX):
+        return value
+    cipher = _token_cipher()
+    if cipher is None:
+        return None
+    try:
+        return cipher.decrypt(value[len(_ENC_PREFIX):].encode()).decode()
+    except Exception:
+        return None
+
+
 def is_strava_configured():
     """Check if Strava client credentials are available."""
     return bool(_get_client_id() and _get_client_secret())
@@ -174,7 +242,8 @@ def _save_connection(user_id, athlete_id, access_token, refresh_token, expires_a
                  access_token = excluded.access_token,
                  refresh_token = excluded.refresh_token,
                  token_expires_at = excluded.token_expires_at""",
-            (user_id, athlete_id, access_token, refresh_token, expires_at),
+            (user_id, athlete_id, _encrypt_token(access_token),
+             _encrypt_token(refresh_token), expires_at),
         )
         conn.commit()
     finally:
@@ -182,13 +251,20 @@ def _save_connection(user_id, athlete_id, access_token, refresh_token, expires_a
 
 
 def get_strava_connection(user_id):
-    """Get stored Strava connection info."""
+    """Get stored Strava connection info (tokens decrypted transparently)."""
     conn = get_connection()
     try:
         row = conn.execute(
             "SELECT * FROM strava_connections WHERE user_id = ?", (user_id,),
         ).fetchone()
-        return dict(row) if row else None
+        if not row:
+            return None
+        info = dict(row)
+        if "access_token" in info:
+            info["access_token"] = _decrypt_token(info["access_token"])
+        if "refresh_token" in info:
+            info["refresh_token"] = _decrypt_token(info["refresh_token"])
+        return info
     finally:
         conn.close()
 

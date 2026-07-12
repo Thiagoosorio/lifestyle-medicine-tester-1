@@ -520,11 +520,27 @@ def get_all_time_stats(user_id: int) -> dict:
             (user_id,),
         ).fetchall()
 
+        # Consecutive fully-completed weeks, newest first. The current week is
+        # skipped while still in progress so it doesn't reset the streak
+        # mid-week (#25), and weeks must be consecutive Mondays — a week with no
+        # challenges (missing row) breaks the streak rather than being bridged
+        # (#36).
+        current_week_start = _get_week_start()
         perfect_streak = 0
+        prev_week = None
         for wr in weeks_rows:
             w = dict(wr)
-            if w["completed"] == w["total"] and w["total"] > 0:
+            ws = w["week_start"]
+            is_perfect = w["total"] > 0 and w["completed"] == w["total"]
+            if ws == current_week_start and not is_perfect:
+                continue  # in-progress current week; don't count or break on it
+            if prev_week is not None:
+                expected = (date.fromisoformat(prev_week) - timedelta(days=7)).isoformat()
+                if ws != expected:
+                    break  # gap: an intervening week had no challenges
+            if is_perfect:
                 perfect_streak += 1
+                prev_week = ws
             else:
                 break
 

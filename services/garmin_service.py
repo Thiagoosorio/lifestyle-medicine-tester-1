@@ -1,8 +1,31 @@
 """Garmin Connect integration — import sleep, activity, body composition, heart rate."""
 
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from db.database import get_connection
+
+
+def _garmin_hhmm(ts) -> str | None:
+    """Extract a local HH:MM from a Garmin timestamp.
+
+    Garmin's ``sleepStart/EndTimestampLocal`` fields are epoch-millisecond
+    integers (already offset to local wall-clock), not ISO strings — the old
+    code string-sliced them, which raised on an int and silently skipped every
+    night. Handle both an int/float epoch-ms and an ISO string.
+    """
+    if ts is None or ts == "":
+        return None
+    if isinstance(ts, (int, float)):
+        try:
+            # The "Local" epoch-ms already encodes local wall-clock, so read it
+            # as UTC to recover the intended clock time.
+            return datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%H:%M")
+        except (ValueError, OverflowError, OSError):
+            return None
+    s = str(ts)
+    if len(s) > 16 and s[10] in ("T", " "):
+        return s[11:16]
+    return None
 
 LOGGER = logging.getLogger(__name__)
 
@@ -81,12 +104,12 @@ def import_sleep_data(user_id, client, days=7):
                     continue
 
                 dto = sleep["dailySleepDTO"]
-                sleep_start = dto.get("sleepStartTimestampLocal", "")
-                sleep_end = dto.get("sleepEndTimestampLocal", "")
+                sleep_start = dto.get("sleepStartTimestampLocal")
+                sleep_end = dto.get("sleepEndTimestampLocal")
 
-                # Extract times from timestamps
-                bedtime = sleep_start[11:16] if len(sleep_start) > 16 else None
-                wake_time = sleep_end[11:16] if len(sleep_end) > 16 else None
+                # Garmin sends these as epoch-ms integers, not ISO strings.
+                bedtime = _garmin_hhmm(sleep_start)
+                wake_time = _garmin_hhmm(sleep_end)
                 total_min = round(dto.get("sleepTimeSeconds", 0) / 60)
                 awakenings = dto.get("awakeSleepSeconds", 0)
                 wake_dur_min = round(awakenings / 60) if awakenings else 0
@@ -156,18 +179,22 @@ def import_activity_data(user_id, client, days=7):
                 else:
                     rating = 2
 
-                # Update daily checkin activity_rating if checkin exists
+                # Fill the daily checkin activity_rating from Garmin steps only
+                # when the user has not entered one — never overwrite a
+                # self-reported rating with a step-count-derived value.
                 existing = conn.execute(
                     "SELECT id FROM daily_checkins WHERE user_id = ? AND checkin_date = ?",
                     (user_id, d.isoformat()),
                 ).fetchone()
 
                 if existing:
-                    conn.execute(
-                        "UPDATE daily_checkins SET activity_rating = ? WHERE id = ?",
+                    cur = conn.execute(
+                        "UPDATE daily_checkins SET activity_rating = ? "
+                        "WHERE id = ? AND activity_rating IS NULL",
                         (rating, existing["id"]),
                     )
-                    imported += 1
+                    if cur.rowcount > 0:
+                        imported += 1
             except Exception:
                 LOGGER.exception("Failed to import Garmin activity for %s", d.isoformat())
                 continue

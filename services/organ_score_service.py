@@ -902,23 +902,24 @@ def calc_mcauley_index(fasting_insulin: float, tg_mgdl: float) -> float | None:
 
 
 def calc_glasgow_prognostic(crp: float, albumin: float) -> int | None:
-    """Glasgow Prognostic Score (modified GPS).
+    """Glasgow Prognostic Score (modified GPS / mGPS).
 
-    GPS 0: CRP <=10 AND Albumin >=3.5
-    GPS 1: CRP >10 OR Albumin <3.5 (but not both)
-    GPS 2: CRP >10 AND Albumin <3.5
+    In the *modified* GPS the albumin point is only awarded in the presence of
+    systemic inflammation (CRP > 10), so isolated hypoalbuminaemia scores 0 —
+    unlike the original GPS. This matches the McMillan reference below.
+
+    mGPS 0: CRP <=10 (regardless of albumin)
+    mGPS 1: CRP >10 AND Albumin >=3.5
+    mGPS 2: CRP >10 AND Albumin <3.5
 
     CRP in mg/L, Albumin in g/dL.
     PMID: 22995477 — McMillan DC. Cancer Treat Rev 2013.
     """
     if crp is None or albumin is None:
         return None
-    score = 0
-    if crp > 10:
-        score += 1
-    if albumin < 3.5:
-        score += 1
-    return score
+    if crp <= 10:
+        return 0
+    return 2 if albumin < 3.5 else 1
 
 
 def calc_sii(platelets: float, neutrophils: float, lymphocytes: float) -> float | None:
