@@ -185,12 +185,17 @@ Cycle ergometer
 Age 42 years
 Weight 82.0 kg
 Exercise Duration 10.4 min
+Averaging window 30 s
+Resting VO2 3.2 mL/kg/min
+Resting RER 0.78
+Resting VE 8.5 L/min
 Peak VO2 42.5 mL/kg/min
 Peak VO2 absolute 3.49 L/min
 Peak VO2 % predicted 118 %
 Peak RER 1.12
 Resting HR 62 bpm
 Peak HR 184 bpm
+HR Recovery 1 min 24 bpm
 Predicted HR 188 bpm
 VT1 VO2 25.0 mL/kg/min
 VT1 HR 142 bpm
@@ -200,7 +205,10 @@ VT2 HR 168 bpm
 VT2 Power 265 W
 VE/VCO2 slope 28.5
 Breathing Reserve 24 %
+Peak RR 58 breaths/min
 O2 pulse % predicted 102 %
+O2 pulse 50% 11.0 mL/beat
+O2 pulse 75% 15.0 mL/beat
 VO2/work-rate slope 10.1 mL/min/W
 PETCO2 at AT 39 mmHg
 SpO2 nadir 96 %
@@ -219,10 +227,18 @@ def test_extract_cpet_from_text_finds_core_metrics():
     assert metrics["peak_vo2_l_min"] == 3.49
     assert metrics["peak_vo2_pct_pred"] == 118.0
     assert metrics["peak_rer"] == 1.12
+    assert metrics["averaging_window_sec"] == 30.0
+    assert metrics["rest_vo2_ml_kg_min"] == 3.2
+    assert metrics["rest_rer"] == 0.78
+    assert metrics["rest_ve_l_min"] == 8.5
     assert metrics["vt1_hr_bpm"] == 142.0
     assert metrics["vt2_power_w"] == 265.0
     assert metrics["ve_vco2_slope"] == 28.5
     assert metrics["breathing_reserve_pct"] == 24.0
+    assert metrics["peak_rr_bpm"] == 58.0
+    assert metrics["hr_recovery_1min_bpm"] == 24.0
+    assert metrics["o2_pulse_50_pct_ml_beat"] == 11.0
+    assert metrics["o2_pulse_75_pct_ml_beat"] == 15.0
 
 
 def test_normalize_cpet_metrics_derives_hr_vo2_and_threshold_percentages():
@@ -249,6 +265,7 @@ def test_normalize_cpet_metrics_derives_hr_vo2_and_threshold_percentages():
     assert metrics["o2_pulse_ml_beat"] == 18.2
     assert metrics["vt1_pct_peak_vo2"] == 60.0
     assert metrics["vt2_pct_peak_vo2"] == 90.0
+    assert metrics["mets_peak"] == 11.4
 
 
 def test_cpet_summary_flags_quality_medical_and_zone_items():
@@ -278,12 +295,39 @@ def test_cpet_summary_flags_quality_medical_and_zone_items():
     assert "Athlete predicted norms" in areas
 
 
+def test_validity_gate_uses_resting_quality_averaging_and_hr_recovery():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 32,
+            "peak_rer": 1.08,
+            "rest_vo2_ml_kg_min": 6.2,
+            "rest_rer": 0.90,
+            "rest_ve_l_min": 14.0,
+            "averaging_window_sec": 5,
+            "vo2_wr_slope_ml_min_w": 7.4,
+            "hr_recovery_1min_bpm": 8,
+            "vt1_hr_bpm": 110,
+            "vt2_hr_bpm": 145,
+        }
+    )
+
+    statuses = {row["Gate"]: row["Status"] for row in summary["validity_gate"]}
+    assert statuses["Resting VO2"] == "Resting caution"
+    assert statuses["Resting RER"] == "Resting caution"
+    assert statuses["Resting ventilation"] == "Resting caution"
+    assert statuses["Averaging window"] == "Protocol caution"
+    assert statuses["VO2/work-rate check"] == "Clinical review"
+    assert statuses["HR recovery"] == "Clinical review"
+    assert any(flag["Area"] == "HR recovery" and flag["Priority"] == "High" for flag in summary["coach_flags"])
+
+
 def test_cpet_summary_includes_detailed_results_and_next_steps():
     summary = build_cpet_coach_summary(
         {
             "peak_vo2_ml_kg_min": 36,
             "sex": "female",
             "age_years": 25,
+            "averaging_window_sec": 30,
             "peak_rer": 1.10,
             "peak_hr_bpm": 167,
             "predicted_hr_bpm": 175,
@@ -311,6 +355,41 @@ def test_cpet_summary_includes_detailed_results_and_next_steps():
     assert any(row["Focus"] == "Base training" and "89-99 W" in row["Dose / target"] for row in plan)
     assert any(row["Focus"] == "Raise the threshold" and "164 W" in row["Dose / target"] for row in plan)
     assert any(row["Focus"] == "Strength and repeat testing" for row in plan)
+
+
+def test_cpet_summary_adds_athlete_overlay_limiter_and_retest_targets():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 61,
+            "peak_vo2_pct_pred": 138,
+            "sex": "female",
+            "age_years": 25,
+            "averaging_window_sec": 30,
+            "peak_rer": 1.13,
+            "peak_hr_bpm": 178,
+            "predicted_hr_bpm": 190,
+            "rest_hr_bpm": 45,
+            "vt1_vo2_ml_kg_min": 35,
+            "vt2_vo2_ml_kg_min": 45,
+            "vt1_hr_bpm": 140,
+            "vt2_hr_bpm": 166,
+            "vt1_power_w": 210,
+            "vt2_power_w": 285,
+            "peak_power_w": 360,
+            "breathing_reserve_pct": 8,
+            "spo2_nadir_pct": 96,
+            "o2_pulse_pct_pred": 132,
+            "vo2_wr_slope_ml_min_w": 10.2,
+            "peak_rr_bpm": 62,
+        },
+        client_context="endurance",
+        modality="cycle ergometer",
+    )
+
+    assert summary["limiter_profile"]["Archetype"] == "High engine, threshold-limited"
+    assert any("Breathing reserve" in row["Finding"] for row in summary["athlete_overlay"])
+    assert any(row["Focus"] == "Limiter-specific block" for row in summary["action_plan"])
+    assert any(row["Metric"] == "Estimated critical power" and row["Current"] == "268 W" for row in summary["retest_targets"])
 
 
 def test_cpet_action_plan_prioritizes_safety_review_for_clinical_flags():

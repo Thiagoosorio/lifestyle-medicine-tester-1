@@ -332,7 +332,21 @@ def _zone_table(summary: dict, has_power: bool) -> str:
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
+def _service_rows_table(rows: list[dict[str, Any]], columns: list[str]) -> str:
+    if not rows:
+        return ""
+    head = "".join(f"<th>{_esc(col)}</th>" for col in columns)
+    body = []
+    for row in rows:
+        body.append("<tr>" + "".join(f'<td class="small">{_esc(row.get(col, ""))}</td>' for col in columns) + "</tr>")
+    return f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+
+
 def _action_plan(metrics: dict, summary: dict, has_power: bool) -> str:
+    service_plan = summary.get("action_plan") or []
+    if service_plan:
+        return _service_rows_table(service_plan, ["Focus", "Do this", "Dose / target", "Guardrail"])
+
     z2 = (summary.get("training_zones") or {}).get("zone2") or {}
     vt2_hr, vt2_pw = _num(metrics.get("vt2_hr_bpm")), _num(metrics.get("vt2_power_w"))
     z2_prescr = z2.get("power") if (has_power and z2.get("power")) else z2.get("hr", "your Zone 2 band")
@@ -497,12 +511,16 @@ def generate_cpet_client_report(
               + '</div>')
 
     # ── S9 limiter / efficiency
-    limiter, why = _primary_limiter(metrics)
+    limiter_profile = summary.get("limiter_profile") or {}
+    limiter = limiter_profile.get("Limiter") or limiter_profile.get("Archetype", "not fully classified")
+    why = limiter_profile.get("Program emphasis", "")
     slope = _num(metrics.get("ve_vco2_slope"))
     br = _num(metrics.get("breathing_reserve_pct"))
     s9 = ('<div class="section-title">Your primary limiter</div><div class="card">'
           f'<p class="lead">Putting it together, your primary limiter is <b>{_esc(limiter)}</b> — {_esc(why)}.</p>'
           '<div class="table-wrap"><table><tbody>'
+          + (f'<tr><td>Limiter</td><td class="num">{_esc(limiter_profile.get("Limiter", ""))}</td></tr>' if limiter_profile else '')
+          + (f'<tr><td>Evidence</td><td class="num">{_esc(limiter_profile.get("Evidence", ""))}</td></tr>' if limiter_profile else '')
           + (f'<tr><td>Ventilatory efficiency (VE/VCO2 slope)</td><td class="num">{_r1(slope)} · {_esc(_arena_label(slope))}</td></tr>' if slope is not None else '')
           + (f'<tr><td>Breathing reserve</td><td class="num">{_r0(br)}%</td></tr>' if br is not None else '')
           + (f'<tr><td>O2 pulse (stroke-volume proxy)</td><td class="num">{_r1(_num(metrics.get("o2_pulse_ml_beat")))} mL/beat</td></tr>' if metrics.get("o2_pulse_ml_beat") else '')
@@ -512,6 +530,14 @@ def generate_cpet_client_report(
     # ── S10 action plan
     s10 = ('<div class="section-title">Your training plan</div><div class="card">'
            + _action_plan(metrics, summary, has_power) + '</div><div class="page-break"></div>')
+
+    s_retest = ''
+    if summary.get("retest_targets"):
+        s_retest = (
+            '<div class="section-title">What should improve on retest</div><div class="card">'
+            + _service_rows_table(summary.get("retest_targets", []), ["Priority", "Metric", "Current", "Target", "Why it matters"])
+            + '</div>'
+        )
 
     # ── S11 methodology + disclaimer
     qc = f'<p class="footnote">&Dagger; Plot quality was screened automatically ({_esc(qc_verdict)}) and reviewed by your physiologist.</p>' if qc_verdict else ''
@@ -535,7 +561,7 @@ def generate_cpet_client_report(
         'before starting or significantly changing an exercise program.</div></div>')
 
     effort = _effort_badge(metrics)
-    body = header + effort + hero + s4 + s5 + s6 + s7 + s8 + s9 + s10 + methodology
+    body = header + effort + hero + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s_retest + methodology
 
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'

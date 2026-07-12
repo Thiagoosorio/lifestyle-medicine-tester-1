@@ -103,13 +103,15 @@ def _anthropic_client():
 
 # Numeric CPET fields the extractor may fill; kept in sync with cpet_service specs.
 _EXTRACT_NUMERIC_FIELDS = [
-    "age_years", "weight_kg", "height_cm", "test_duration_min",
+    "age_years", "weight_kg", "height_cm", "test_duration_min", "averaging_window_sec",
+    "rest_vo2_ml_kg_min", "rest_rer", "rest_ve_l_min",
     "peak_vo2_ml_kg_min", "peak_vo2_l_min", "peak_vo2_pct_pred", "peak_power_w",
-    "peak_rer", "rest_hr_bpm", "peak_hr_bpm", "predicted_hr_bpm", "hr_pct_pred",
+    "peak_rer", "rest_hr_bpm", "peak_hr_bpm", "hr_recovery_1min_bpm", "predicted_hr_bpm", "hr_pct_pred",
     "vt1_vo2_ml_kg_min", "vt1_hr_bpm", "vt1_power_w",
     "vt2_vo2_ml_kg_min", "vt2_hr_bpm", "vt2_power_w",
-    "ve_vco2_slope", "ve_vco2_nadir", "breathing_reserve_pct", "peak_ve_l_min",
-    "mvv_l_min", "o2_pulse_ml_beat", "o2_pulse_pct_pred", "petco2_at_mmhg",
+    "ve_vco2_slope", "ve_vco2_nadir", "breathing_reserve_pct", "peak_ve_l_min", "peak_rr_bpm",
+    "mvv_l_min", "o2_pulse_ml_beat", "o2_pulse_pct_pred",
+    "o2_pulse_50_pct_ml_beat", "o2_pulse_75_pct_ml_beat", "petco2_at_mmhg",
     "spo2_nadir_pct", "peak_lactate_mmol_l", "fatmax_hr_bpm",
 ]
 

@@ -67,6 +67,10 @@ FIELD_LAYOUT = [
     ("weight_kg", "Weight (kg)", 25.0, 250.0, 0.1, "%.1f"),
     ("height_cm", "Height (cm)", 120.0, 220.0, 0.5, "%.1f"),
     ("test_duration_min", "Incremental duration (min)", 2.0, 40.0, 0.1, "%.1f"),
+    ("averaging_window_sec", "VO2 averaging window (sec)", 5.0, 120.0, 1.0, "%.0f"),
+    ("rest_vo2_ml_kg_min", "Resting VO2 (mL/kg/min)", 1.0, 15.0, 0.1, "%.1f"),
+    ("rest_rer", "Resting RER", 0.5, 1.3, 0.01, "%.2f"),
+    ("rest_ve_l_min", "Resting VE (L/min)", 2.0, 30.0, 0.1, "%.1f"),
     ("peak_vo2_ml_kg_min", "Peak VO2 (mL/kg/min)", 5.0, 100.0, 0.1, "%.1f"),
     ("peak_vo2_l_min", "Peak VO2 absolute (L/min)", 0.5, 9.0, 0.01, "%.2f"),
     ("peak_vo2_pct_pred", "Peak VO2 % predicted", 10.0, 250.0, 1.0, "%.0f"),
@@ -74,6 +78,7 @@ FIELD_LAYOUT = [
     ("peak_rer", "Peak RER", 0.6, 1.6, 0.01, "%.2f"),
     ("rest_hr_bpm", "Resting HR (bpm)", 25.0, 140.0, 1.0, "%.0f"),
     ("peak_hr_bpm", "Peak HR (bpm)", 60.0, 230.0, 1.0, "%.0f"),
+    ("hr_recovery_1min_bpm", "HR recovery at 1 min (bpm)", 0.0, 100.0, 1.0, "%.0f"),
     ("predicted_hr_bpm", "Predicted HR (bpm)", 80.0, 230.0, 1.0, "%.0f"),
     ("hr_pct_pred", "Peak HR % predicted", 30.0, 130.0, 1.0, "%.0f"),
     ("vt1_vo2_ml_kg_min", "VT1 VO2 (mL/kg/min)", 3.0, 90.0, 0.1, "%.1f"),
@@ -88,9 +93,12 @@ FIELD_LAYOUT = [
     ("ve_vco2_nadir", "VE/VCO2 nadir", 10.0, 80.0, 0.1, "%.1f"),
     ("breathing_reserve_pct", "Breathing reserve (%)", -20.0, 80.0, 1.0, "%.0f"),
     ("peak_ve_l_min", "Peak VE (L/min)", 10.0, 300.0, 1.0, "%.0f"),
+    ("peak_rr_bpm", "Peak respiratory rate (breaths/min)", 10.0, 90.0, 1.0, "%.0f"),
     ("mvv_l_min", "MVV (L/min)", 20.0, 300.0, 1.0, "%.0f"),
     ("o2_pulse_ml_beat", "O2 pulse (mL/beat)", 2.0, 40.0, 0.1, "%.1f"),
     ("o2_pulse_pct_pred", "O2 pulse % predicted", 20.0, 200.0, 1.0, "%.0f"),
+    ("o2_pulse_50_pct_ml_beat", "O2 pulse @ 50% VO2peak", 1.0, 40.0, 0.1, "%.1f"),
+    ("o2_pulse_75_pct_ml_beat", "O2 pulse @ 75% VO2peak", 1.0, 40.0, 0.1, "%.1f"),
     ("vo2_wr_slope_ml_min_w", "VO2/WR slope (mL/min/W)", 3.0, 20.0, 0.1, "%.1f"),
     ("petco2_at_mmhg", "PETCO2 at AT (mmHg)", 10.0, 60.0, 1.0, "%.0f"),
     ("petco2_peak_mmhg", "Peak PETCO2 (mmHg)", 10.0, 60.0, 1.0, "%.0f"),
@@ -135,7 +143,7 @@ def _format_value(field: str, value) -> str:
     if numeric is None:
         return "--"
     unit = CPET_METRIC_SPECS.get(field, {}).get("unit", "")
-    if field == "peak_rer":
+    if field in {"peak_rer", "rest_rer"}:
         return f"{numeric:.2f}"
     if unit == "%":
         return f"{numeric:.0f}%"
@@ -293,10 +301,25 @@ def _render_result_overview(summary: dict) -> None:
         st.markdown("**Detailed result interpretation**")
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
+    limiter = summary.get("limiter_profile") or {}
+    if limiter:
+        st.markdown("**Limiter / archetype**")
+        st.dataframe(pd.DataFrame([limiter]), use_container_width=True, hide_index=True)
+
+    athlete_overlay = summary.get("athlete_overlay") or []
+    if athlete_overlay:
+        st.markdown("**Athlete overlay**")
+        st.dataframe(pd.DataFrame(athlete_overlay), use_container_width=True, hide_index=True)
+
     plan = summary.get("action_plan") or []
     if plan:
         st.markdown("**What to do next**")
         st.dataframe(pd.DataFrame(plan), use_container_width=True, hide_index=True)
+
+    retest_targets = summary.get("retest_targets") or []
+    if retest_targets:
+        st.markdown("**Retest targets**")
+        st.dataframe(pd.DataFrame(retest_targets), use_container_width=True, hide_index=True)
 
 
 def _render_training_zones(zones: dict | None, narrative: str | None) -> None:

@@ -50,6 +50,42 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "min": 2,
         "max": 40,
     },
+    "averaging_window_sec": {
+        "label": "Averaging window",
+        "unit": "s",
+        "layer": "Quality",
+        "coach_use": "VO2peak changes with the breath-averaging window; serial tests need the same window.",
+        "labels": ["Averaging window", "Average window", "Breath averaging", "VO2 averaging window"],
+        "min": 5,
+        "max": 120,
+    },
+    "rest_vo2_ml_kg_min": {
+        "label": "Resting VO2",
+        "unit": "mL/kg/min",
+        "layer": "Quality",
+        "coach_use": "Resting stability check before interpreting the incremental phase.",
+        "labels": ["Resting VO2", "Rest VO2", "VO2 rest"],
+        "min": 1,
+        "max": 15,
+    },
+    "rest_rer": {
+        "label": "Resting RER",
+        "unit": "ratio",
+        "layer": "Quality",
+        "coach_use": "Resting stability and substrate context before the ramp.",
+        "labels": ["Resting RER", "Rest RER", "RER rest"],
+        "min": 0.5,
+        "max": 1.3,
+    },
+    "rest_ve_l_min": {
+        "label": "Resting VE",
+        "unit": "L/min",
+        "layer": "Quality",
+        "coach_use": "Resting ventilation stability check; high values can reflect anxiety, leak, or poor rest baseline.",
+        "labels": ["Resting VE", "Rest VE", "VE rest", "Minute ventilation rest"],
+        "min": 2,
+        "max": 30,
+    },
     "peak_vo2_ml_kg_min": {
         "label": "Peak VO2",
         "unit": "mL/kg/min",
@@ -103,6 +139,15 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "labels": ["Peak HR", "HR peak", "Maximum HR", "Max HR"],
         "min": 60,
         "max": 230,
+    },
+    "hr_recovery_1min_bpm": {
+        "label": "HR recovery 1 min",
+        "unit": "bpm",
+        "layer": "Derived",
+        "coach_use": "Autonomic recovery marker; low recovery is a clinical review signal, not a coaching diagnosis.",
+        "labels": ["HR Recovery 1 min", "HRR1", "1-min HR recovery", "Heart rate recovery 1 min"],
+        "min": 0,
+        "max": 100,
     },
     "predicted_hr_bpm": {
         "label": "Predicted HR",
@@ -230,6 +275,15 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "min": 10,
         "max": 300,
     },
+    "peak_rr_bpm": {
+        "label": "Peak respiratory rate",
+        "unit": "breaths/min",
+        "layer": "Measured",
+        "coach_use": "High peak respiratory rates can be normal in trained athletes; interpret with symptoms and spirometry.",
+        "labels": ["Peak RR", "Peak respiratory rate", "Maximum respiratory rate", "BF peak", "Breathing frequency peak"],
+        "min": 10,
+        "max": 90,
+    },
     "mvv_l_min": {
         "label": "MVV",
         "unit": "L/min",
@@ -256,6 +310,24 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "labels": ["O2 pulse % predicted", "Oxygen pulse % predicted", "% predicted O2 pulse"],
         "min": 20,
         "max": 200,
+    },
+    "o2_pulse_50_pct_ml_beat": {
+        "label": "O2 pulse at 50% VO2peak",
+        "unit": "mL/beat",
+        "layer": "Measured",
+        "coach_use": "Submaximal O2-pulse point for central/peripheral training-pattern review.",
+        "labels": ["O2 pulse 50%", "Oxygen pulse 50%", "O2 pulse at 50%"],
+        "min": 1,
+        "max": 40,
+    },
+    "o2_pulse_75_pct_ml_beat": {
+        "label": "O2 pulse at 75% VO2peak",
+        "unit": "mL/beat",
+        "layer": "Measured",
+        "coach_use": "Submaximal O2-pulse point for central/peripheral training-pattern review.",
+        "labels": ["O2 pulse 75%", "Oxygen pulse 75%", "O2 pulse at 75%"],
+        "min": 1,
+        "max": 40,
     },
     "vo2_wr_slope_ml_min_w": {
         "label": "VO2/work-rate slope",
@@ -346,6 +418,24 @@ CPET_METRIC_SPECS: dict[str, dict[str, Any]] = {
         "labels": ["Peak Power", "Peak work rate", "Max work rate", "Maximum work rate"],
         "min": 20,
         "max": 800,
+    },
+    "critical_power_est_w": {
+        "label": "Estimated critical power",
+        "unit": "W",
+        "layer": "Derived",
+        "coach_use": "Rough field-training bridge, estimated from RCP/VT2 power; confirm with sport-specific testing.",
+        "labels": ["Critical Power", "CP", "Estimated critical power"],
+        "min": 20,
+        "max": 800,
+    },
+    "mets_peak": {
+        "label": "Peak METs",
+        "unit": "METs",
+        "layer": "Derived",
+        "coach_use": "Simple clinical communication unit derived from VO2 / 3.5.",
+        "labels": ["Peak METs", "METs", "MET max"],
+        "min": 1,
+        "max": 30,
     },
     "height_cm": {
         "label": "Height",
@@ -632,6 +722,7 @@ def normalize_cpet_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     rest_hr = _as_float(normalized.get("rest_hr_bpm"))
     peak_ve = _as_float(normalized.get("peak_ve_l_min"))
     mvv = _as_float(normalized.get("mvv_l_min"))
+    vt2_power = _as_float(normalized.get("vt2_power_w"))
 
     if pred_hr is None and age is not None:
         pred_hr = round(208 - 0.7 * age)
@@ -651,12 +742,15 @@ def normalize_cpet_metrics(metrics: dict[str, Any]) -> dict[str, Any]:
     if peak_vo2_abs and peak_hr and "o2_pulse_ml_beat" not in normalized:
         normalized["o2_pulse_ml_beat"] = round((peak_vo2_abs * 1000.0) / peak_hr, 1)
     if peak_vo2_rel:
+        normalized.setdefault("mets_peak", round(peak_vo2_rel / 3.5, 1))
         vt1 = _as_float(normalized.get("vt1_vo2_ml_kg_min"))
         vt2 = _as_float(normalized.get("vt2_vo2_ml_kg_min"))
         if vt1 is not None:
             normalized.setdefault("vt1_pct_peak_vo2", round(vt1 / peak_vo2_rel * 100, 1))
         if vt2 is not None:
             normalized.setdefault("vt2_pct_peak_vo2", round(vt2 / peak_vo2_rel * 100, 1))
+    if vt2_power is not None and "critical_power_est_w" not in normalized:
+        normalized["critical_power_est_w"] = round(vt2_power * 0.94)
 
     return normalized
 
@@ -676,8 +770,15 @@ def build_cpet_coach_summary(
     metabolic_profile = build_metabolic_profile(normalized)
     consistency_rows = _build_consistency_checks(normalized, fitness, raw_metrics=metrics)
     trend_notes = _build_trend_notes(normalized, previous_metrics or {})
-    result_rows = _build_result_rows(normalized, fitness, validity, flags, training_zones, metabolic_profile, trend_notes)
-    action_plan = _build_action_plan(normalized, client_context, fitness, flags, training_zones, metabolic_profile)
+    athlete_overlay = _build_athlete_overlay(normalized, client_context, fitness)
+    limiter_profile = _build_limiter_profile(normalized, client_context, fitness, flags, training_zones)
+    retest_targets = _build_retest_targets(normalized, training_zones, limiter_profile, metabolic_profile, flags)
+    result_rows = _build_result_rows(
+        normalized, fitness, validity, flags, training_zones, metabolic_profile, trend_notes, limiter_profile
+    )
+    action_plan = _build_action_plan(
+        normalized, client_context, fitness, flags, training_zones, metabolic_profile, limiter_profile
+    )
 
     if not flags:
         flags.append(
@@ -697,6 +798,9 @@ def build_cpet_coach_summary(
         "result_headline": _build_result_headline(normalized, fitness, validity, flags, training_zones),
         "result_rows": result_rows,
         "action_plan": action_plan,
+        "athlete_overlay": athlete_overlay,
+        "limiter_profile": limiter_profile,
+        "retest_targets": retest_targets,
         "training_zones": training_zones,
         "metabolic_profile": metabolic_profile,
         "training_narrative": _training_narrative(normalized, training_zones),
@@ -1167,6 +1271,51 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
     rer = _as_float(metrics.get("peak_rer"))
     hr_pct = _as_float(metrics.get("hr_pct_pred"))
     duration = _as_float(metrics.get("test_duration_min"))
+    rest_vo2 = _as_float(metrics.get("rest_vo2_ml_kg_min"))
+    rest_rer = _as_float(metrics.get("rest_rer"))
+    rest_ve = _as_float(metrics.get("rest_ve_l_min"))
+    avg_window = _as_float(metrics.get("averaging_window_sec"))
+    vo2_wr = _as_float(metrics.get("vo2_wr_slope_ml_min_w"))
+    hrr1 = _as_float(metrics.get("hr_recovery_1min_bpm"))
+    lactate = _as_float(metrics.get("peak_lactate_mmol_l"))
+
+    if rest_vo2 is not None:
+        rows.append(
+            {
+                "Gate": "Resting VO2",
+                "Status": "Stable" if rest_vo2 < 5 else "Resting caution",
+                "Interpretation": (
+                    f"Resting VO2 was {rest_vo2:.1f} mL/kg/min; target is <5 before the ramp."
+                    if rest_vo2 >= 5
+                    else f"Resting VO2 {rest_vo2:.1f} mL/kg/min supports a stable baseline."
+                ),
+            }
+        )
+    if rest_rer is not None:
+        rows.append(
+            {
+                "Gate": "Resting RER",
+                "Status": "Stable" if rest_rer < 0.85 else "Resting caution",
+                "Interpretation": (
+                    f"Resting RER was {rest_rer:.2f}; values >=0.85 suggest the baseline may not have settled."
+                    if rest_rer >= 0.85
+                    else f"Resting RER {rest_rer:.2f} supports a stable baseline."
+                ),
+            }
+        )
+    if rest_ve is not None:
+        stable = 6 <= rest_ve <= 12
+        rows.append(
+            {
+                "Gate": "Resting ventilation",
+                "Status": "Stable" if stable else "Resting caution",
+                "Interpretation": (
+                    f"Resting VE was {rest_ve:.1f} L/min; the usual settled range is about 6-12 L/min."
+                    if not stable
+                    else f"Resting VE {rest_ve:.1f} L/min supports a stable baseline."
+                ),
+            }
+        )
 
     if rer is None:
         rows.append(
@@ -1197,6 +1346,19 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
             }
         )
 
+    if lactate is not None:
+        rows.append(
+            {
+                "Gate": "Lactate effort context",
+                "Status": "Supportive" if lactate >= 8 else "Caution",
+                "Interpretation": (
+                    f"Peak lactate {lactate:.1f} mmol/L supports high anaerobic contribution."
+                    if lactate >= 8
+                    else f"Peak lactate {lactate:.1f} mmol/L is below a common maximal-effort support marker."
+                ),
+            }
+        )
+
     if hr_pct is not None:
         if hr_pct >= 90:
             status = "Supportive"
@@ -1209,6 +1371,19 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
                 "Gate": "Heart-rate response",
                 "Status": status,
                 "Interpretation": f"Peak HR reached {hr_pct:.0f}% predicted; medication and chronotropic context matter.",
+            }
+        )
+
+    if hrr1 is not None:
+        rows.append(
+            {
+                "Gate": "HR recovery",
+                "Status": "Recovered" if hrr1 > 12 else "Clinical review",
+                "Interpretation": (
+                    f"HR fell {hrr1:.0f} bpm in the first minute."
+                    if hrr1 > 12
+                    else f"HR fell only {hrr1:.0f} bpm in the first minute; low recovery is a clinician-review signal."
+                ),
             }
         )
 
@@ -1228,6 +1403,22 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
                 }
             )
 
+    if vo2_wr is not None:
+        if 8.5 <= vo2_wr <= 11.5:
+            status = "Expected"
+            interpretation = f"VO2/work-rate slope {vo2_wr:.1f} mL/min/W is close to the usual ~10 expectation."
+        elif vo2_wr < 8:
+            status = "Clinical review"
+            interpretation = (
+                f"VO2/work-rate slope {vo2_wr:.1f} mL/min/W is low; review for oxygen-delivery or technical pattern."
+            )
+        else:
+            status = "Check"
+            interpretation = (
+                f"VO2/work-rate slope {vo2_wr:.1f} mL/min/W is outside the usual range; check calibration, units, and protocol."
+            )
+        rows.append({"Gate": "VO2/work-rate check", "Status": status, "Interpretation": interpretation})
+
     if duration is not None:
         if 8 <= duration <= 12:
             status = "Ideal ramp"
@@ -1240,6 +1431,28 @@ def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
                 "Gate": "Ramp duration",
                 "Status": status,
                 "Interpretation": f"Incremental phase was {duration:.1f} min; ramp length affects peak and threshold detection.",
+            }
+        )
+
+    if avg_window is None:
+        rows.append(
+            {
+                "Gate": "Averaging window",
+                "Status": "Needs documentation",
+                "Interpretation": "The VO2 averaging window was not entered; serial comparison is less reliable without it.",
+            }
+        )
+    else:
+        ok_window = 10 <= avg_window <= 60
+        rows.append(
+            {
+                "Gate": "Averaging window",
+                "Status": "Documented" if ok_window else "Protocol caution",
+                "Interpretation": (
+                    f"VO2 averaging window was {avg_window:.0f} s."
+                    if ok_window
+                    else f"VO2 averaging window was {avg_window:.0f} s; compare only with the same method."
+                ),
             }
         )
 
@@ -1324,6 +1537,318 @@ def _build_consistency_checks(
     return rows
 
 
+def _is_athlete_context(
+    client_context: str,
+    metrics: dict[str, Any],
+    fitness: dict[str, Any] | None,
+) -> bool:
+    if client_context in {"endurance", "hybrid"}:
+        return True
+    peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
+    if peak_pct is not None and peak_pct >= 120:
+        return True
+    return bool(fitness and _as_float(fitness.get("percentile")) is not None and float(fitness["percentile"]) >= 80)
+
+
+def _build_athlete_overlay(
+    metrics: dict[str, Any],
+    client_context: str,
+    fitness: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    """Athlete-specific caveats that prevent overcalling fit-person physiology."""
+    if not _is_athlete_context(client_context, metrics, fitness):
+        return []
+
+    rows: list[dict[str, str]] = []
+    br = _as_float(metrics.get("breathing_reserve_pct"))
+    spo2 = _as_float(metrics.get("spo2_nadir_pct"))
+    peak_rer = _as_float(metrics.get("peak_rer"))
+    ci = _as_float(metrics.get("chronotropic_index"))
+    o2_pulse_pct = _as_float(metrics.get("o2_pulse_pct_pred"))
+    vo2_wr = _as_float(metrics.get("vo2_wr_slope_ml_min_w"))
+    rr = _as_float(metrics.get("peak_rr_bpm"))
+    peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
+    ve_slope = _as_float(metrics.get("ve_vco2_slope"))
+    ve_nadir = _as_float(metrics.get("ve_vco2_nadir"))
+
+    if br is not None and br < 15 and peak_rer is not None and peak_rer >= 1.10 and spo2 is not None and spo2 >= 94:
+        rows.append(
+            {
+                "Finding": f"Breathing reserve {br:.0f}% at maximal effort with preserved SpO2.",
+                "Athlete overlay": "A very low breathing reserve can be a normal ventilation ceiling in a trained athlete.",
+                "Coach use": "Do not progress intensity from this value alone; confirm no limiting dyspnea and prefer measured MVV/spirometry.",
+            }
+        )
+
+    if ci is not None and ci < 0.8 and (peak_pct is None or peak_pct >= 120):
+        rows.append(
+            {
+                "Finding": f"Chronotropic index {ci:.2f}.",
+                "Athlete overlay": "A low chronotropic index can be normal when a fit athlete produces high VO2 at a lower peak HR.",
+                "Coach use": "Anchor training to measured VT1/VT2 rather than age-predicted HR formulas.",
+            }
+        )
+
+    if o2_pulse_pct is not None and o2_pulse_pct >= 120 and (vo2_wr is None or vo2_wr >= 8):
+        rows.append(
+            {
+                "Finding": f"O2 pulse {o2_pulse_pct:.0f}% predicted.",
+                "Athlete overlay": "High O2 pulse with a normal VO2/work slope argues against low stroke-volume reserve.",
+                "Coach use": "If the curve flattens only near peak and ECG/symptoms are clean, treat it as likely VO2 plateau context.",
+            }
+        )
+
+    if rr is not None and rr >= 55:
+        rows.append(
+            {
+                "Finding": f"Peak respiratory rate {rr:.0f} breaths/min.",
+                "Athlete overlay": "Very high peak breathing frequency can occur in trained endurance athletes.",
+                "Coach use": "Interpret with symptoms, spirometry, SpO2, and breathing reserve rather than RR alone.",
+            }
+        )
+
+    if spo2 is not None and 90 <= spo2 <= 94:
+        efficient = (ve_nadir is not None and ve_nadir < 30) or (ve_slope is not None and ve_slope < 30)
+        rows.append(
+            {
+                "Finding": f"SpO2 nadir {spo2:.0f}%.",
+                "Athlete overlay": (
+                    "Mild near-peak desaturation can occur in very fit athletes."
+                    if efficient else "Mild desaturation needs context from VE/VCO2, symptoms, and clinician review."
+                ),
+                "Coach use": "Confirm it was near peak, asymptomatic, and not progressive before using it as a benign athlete finding.",
+            }
+        )
+
+    if peak_pct is not None and peak_pct < 120 and client_context in {"endurance", "hybrid"}:
+        rows.append(
+            {
+                "Finding": f"Peak VO2 {peak_pct:.0f}% predicted.",
+                "Athlete overlay": "Normal predicted VO2 can still be underperforming for a trained athlete.",
+                "Coach use": "Compare to sport demands, prior CPET, threshold power/pace, and recent training load.",
+            }
+        )
+
+    return rows
+
+
+def _build_limiter_profile(
+    metrics: dict[str, Any],
+    client_context: str,
+    fitness: dict[str, Any] | None,
+    flags: list[dict[str, str]],
+    zones: dict[str, Any],
+) -> dict[str, str]:
+    """Convert the CPET pattern into a training archetype without making a diagnosis."""
+    safety_flags = _clinical_review_flags(flags, priority="High")
+    if safety_flags:
+        return {
+            "Archetype": "Clinical review first",
+            "Limiter": "Medical-pattern signal",
+            "Evidence": "; ".join(flag.get("Area", "Review") for flag in safety_flags[:3]),
+            "Program emphasis": "Hold hard progression until clinician review defines limits.",
+            "Retest target": "Repeat only when clinically appropriate and comparable.",
+            "Confidence": "High",
+        }
+
+    peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    vt1_pct = _as_float(metrics.get("vt1_pct_peak_vo2"))
+    vt2_pct = _as_float(metrics.get("vt2_pct_peak_vo2"))
+    o2_pulse_pct = _as_float(metrics.get("o2_pulse_pct_pred"))
+    vo2_wr = _as_float(metrics.get("vo2_wr_slope_ml_min_w"))
+    mfo = _as_float(metrics.get("fatmax_g_min"))
+    percentile = _as_float((fitness or {}).get("percentile"))
+    peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
+    has_zones = zones.get("has_zones")
+
+    if o2_pulse_pct is not None and o2_pulse_pct < 80:
+        return {
+            "Archetype": "Oxygen-delivery review",
+            "Limiter": "Low O2 pulse",
+            "Evidence": f"O2 pulse {o2_pulse_pct:.0f}% predicted.",
+            "Program emphasis": "Clinician-led interpretation first; keep training easy until cleared.",
+            "Retest target": "O2 pulse and VO2/work slope reviewed with curve shape.",
+            "Confidence": "High",
+        }
+    if vo2_wr is not None and vo2_wr < 8:
+        return {
+            "Archetype": "Oxygen-delivery / technical review",
+            "Limiter": "Low VO2/work-rate slope",
+            "Evidence": f"VO2/WR {vo2_wr:.1f} mL/min/W.",
+            "Program emphasis": "Review calibration, effort, and clinical pattern before hard intervals.",
+            "Retest target": "VO2/WR returns near the usual ~10 mL/min/W expectation.",
+            "Confidence": "Medium",
+        }
+
+    if has_zones and ((percentile is not None and percentile >= 90) or (peak_pct is not None and peak_pct >= 120)) and vt2_pct is not None and vt2_pct < 80:
+        return {
+            "Archetype": "High engine, threshold-limited",
+            "Limiter": "VT2/RCP is modest relative to VO2peak",
+            "Evidence": f"VT2 is {vt2_pct:.0f}% of peak VO2 with high aerobic capacity.",
+            "Program emphasis": "Maintain VO2peak; prioritize threshold power/pace, economy, and durability.",
+            "Retest target": "Power/pace at VT2 rises while VO2peak may stay stable.",
+            "Confidence": "High",
+        }
+
+    if has_zones and vt1_pct is not None and vt1_pct < 45:
+        return {
+            "Archetype": "Base / peripheral limiter",
+            "Limiter": "Early VT1",
+            "Evidence": f"VT1 is {vt1_pct:.0f}% of peak VO2.",
+            "Program emphasis": "More below-VT1 volume, longer steady aerobic work, and progressive tempo only after tolerance improves.",
+            "Retest target": "VT1 VO2 and VT1 power/pace shift right.",
+            "Confidence": "Medium",
+        }
+
+    if mfo is not None and mfo < 0.40:
+        return {
+            "Archetype": "Metabolic-flexibility block",
+            "Limiter": "Low maximal fat oxidation",
+            "Evidence": f"MFO {mfo:.2f} g/min.",
+            "Program emphasis": "Consistent below-VT1 volume; use FatMax as the lower shoulder, not the ceiling.",
+            "Retest target": "MFO rises and FatMax shifts closer to VT1.",
+            "Confidence": "Medium",
+        }
+
+    if has_zones and vt2_pct is not None and vt2_pct >= 85:
+        return {
+            "Archetype": "High fractional utilization",
+            "Limiter": "Durability, economy, and sport specificity",
+            "Evidence": f"VT2 is {vt2_pct:.0f}% of peak VO2.",
+            "Program emphasis": "Protect the aerobic base; add economy work, strength, fueling, and sport-specific durability.",
+            "Retest target": "Same or higher VT2 fraction with higher absolute power/pace.",
+            "Confidence": "Medium",
+        }
+
+    if peak_vo2 is None or not has_zones:
+        return {
+            "Archetype": "Incomplete CPET profile",
+            "Limiter": "Insufficient anchors",
+            "Evidence": "Peak VO2 or VT1/VT2 anchors are missing.",
+            "Program emphasis": "Use conservative easy training until the missing CPET values are entered.",
+            "Retest target": "Complete peak, VT1, VT2, effort, SpO2, and protocol data.",
+            "Confidence": "Low",
+        }
+
+    return {
+        "Archetype": "Balanced threshold plan",
+        "Limiter": "No single dominant limiter from entered values",
+        "Evidence": "Capacity, thresholds, and medical-pattern clues do not point to one dominant bottleneck.",
+        "Program emphasis": "Build below-VT1 volume first, add controlled VT2 work, and monitor recovery.",
+        "Retest target": "VT1/VT2 power or pace rises with stable or improved VO2peak.",
+        "Confidence": "Medium",
+    }
+
+
+def _build_retest_targets(
+    metrics: dict[str, Any],
+    zones: dict[str, Any],
+    limiter_profile: dict[str, str],
+    metabolic_profile: dict[str, Any] | None,
+    flags: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+
+    vt2_power = _as_float(metrics.get("vt2_power_w"))
+    vt2_speed = _as_float(metrics.get("vt2_speed_kmh"))
+    vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
+    vt1_power = _as_float(metrics.get("vt1_power_w"))
+    vt1_speed = _as_float(metrics.get("vt1_speed_kmh"))
+    vt1_vo2 = _as_float(metrics.get("vt1_vo2_ml_kg_min"))
+    peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    critical_power = _as_float(metrics.get("critical_power_est_w"))
+
+    if zones.get("has_zones"):
+        current = []
+        if vt2_power is not None:
+            current.append(f"{round(vt2_power)} W")
+        if vt2_speed is not None:
+            current.append(f"{vt2_speed:.1f} km/h")
+        if vt2_hr is not None:
+            current.append(f"{round(vt2_hr)} bpm")
+        rows.append(
+            {
+                "Priority": "1",
+                "Metric": "VT2/RCP power or pace",
+                "Current": " / ".join(current) if current else "entered threshold",
+                "Target": "Higher absolute power/pace at the same or lower perceived strain.",
+                "Why it matters": limiter_profile.get("Retest target", "Key performance threshold."),
+            }
+        )
+
+        current_vt1 = []
+        if vt1_power is not None:
+            current_vt1.append(f"{round(vt1_power)} W")
+        if vt1_speed is not None:
+            current_vt1.append(f"{vt1_speed:.1f} km/h")
+        if vt1_vo2 is not None:
+            current_vt1.append(f"{vt1_vo2:.1f} mL/kg/min")
+        rows.append(
+            {
+                "Priority": "2",
+                "Metric": "VT1 shift",
+                "Current": " / ".join(current_vt1) if current_vt1 else "entered VT1",
+                "Target": "VT1 moves right while easy sessions still feel controlled.",
+                "Why it matters": "Shows improved aerobic base and lower cost below threshold.",
+            }
+        )
+
+    if critical_power is not None:
+        rows.append(
+            {
+                "Priority": "3",
+                "Metric": "Estimated critical power",
+                "Current": f"{round(critical_power)} W",
+                "Target": "Confirm or improve with sport-specific field testing.",
+                "Why it matters": "Approximate bridge from lab RCP to sustainable field power.",
+            }
+        )
+
+    if peak_vo2 is not None:
+        rows.append(
+            {
+                "Priority": "4",
+                "Metric": "VO2peak",
+                "Current": f"{peak_vo2:.1f} mL/kg/min",
+                "Target": "Stable or higher; flat is acceptable if VT2 power/pace improves.",
+                "Why it matters": "The ceiling matters, but the actionable performance gain is often threshold or economy.",
+            }
+        )
+
+    if metabolic_profile:
+        rows.append(
+            {
+                "Priority": "5",
+                "Metric": "MFO / FatMax",
+                "Current": metabolic_profile.get("mfo_class", "recorded"),
+                "Target": "MFO rises or FatMax shifts closer to VT1.",
+                "Why it matters": "Shows better fuel use during submaximal endurance work.",
+            }
+        )
+
+    if _clinical_review_flags(flags):
+        rows.append(
+            {
+                "Priority": "Clinical",
+                "Metric": "Clinical-pattern signals",
+                "Current": "; ".join(flag.get("Area", "Review") for flag in _clinical_review_flags(flags)[:3]),
+                "Target": "Clinician-defined stability or improvement.",
+                "Why it matters": "Safety and medical interpretation come before performance progression.",
+            }
+        )
+
+    rows.append(
+        {
+            "Priority": "Method",
+            "Metric": "Comparability",
+            "Current": "same lab/protocol/averaging window",
+            "Target": "Repeat under matching preparation, medication timing, modality, and ramp.",
+            "Why it matters": "A CPET trend is only meaningful when the method is comparable.",
+        }
+    )
+    return rows
+
+
 def _build_result_headline(
     metrics: dict[str, Any],
     fitness: dict[str, Any] | None,
@@ -1393,6 +1918,7 @@ def _build_result_rows(
     zones: dict[str, Any],
     metabolic_profile: dict[str, Any] | None,
     trend_notes: list[str],
+    limiter_profile: dict[str, str],
 ) -> list[dict[str, str]]:
     """Create detailed result rows: finding, meaning, and coach response."""
     rows: list[dict[str, str]] = []
@@ -1519,6 +2045,16 @@ def _build_result_rows(
             }
         )
 
+    if limiter_profile:
+        rows.append(
+            {
+                "Domain": "Limiter / archetype",
+                "Finding": limiter_profile.get("Archetype", "Pattern not classified"),
+                "What it means": limiter_profile.get("Evidence", ""),
+                "Coach response": limiter_profile.get("Program emphasis", ""),
+            }
+        )
+
     if trend_notes:
         rows.append(
             {
@@ -1539,6 +2075,7 @@ def _build_action_plan(
     flags: list[dict[str, str]],
     zones: dict[str, Any],
     metabolic_profile: dict[str, Any] | None,
+    limiter_profile: dict[str, str],
 ) -> list[dict[str, str]]:
     """Turn the CPET result into coach-safe next steps."""
     plan: list[dict[str, str]] = []
@@ -1590,6 +2127,8 @@ def _build_action_plan(
         missing.append("VT1 and VT2 anchors")
     if "spo2_nadir_pct" not in metrics:
         missing.append("SpO2 nadir")
+    if "averaging_window_sec" not in metrics:
+        missing.append("VO2 averaging window")
     if missing:
         plan.append(
             {
@@ -1629,6 +2168,17 @@ def _build_action_plan(
                 "Guardrail": "Skip this step during illness, poor recovery, new symptoms, or unresolved high-priority flags.",
             }
         )
+        if limiter_profile and limiter_profile.get("Archetype") not in {"Balanced threshold plan", "Clinical review first", "Incomplete CPET profile"}:
+            plan.append(
+                {
+                    "Priority": "5",
+                    "Focus": "Limiter-specific block",
+                    "Do this": limiter_profile.get("Program emphasis", "Match the block to the dominant limiter pattern."),
+                    "Dose / target": limiter_profile.get("Limiter", "CPET-derived limiter"),
+                    "Why": limiter_profile.get("Evidence", "This is the most actionable CPET pattern."),
+                    "Guardrail": "Retest and change the block if the expected target does not move.",
+                }
+            )
     else:
         plan.append(
             {
@@ -1645,7 +2195,7 @@ def _build_action_plan(
         mfo_class = metabolic_profile.get("mfo_class", "detected")
         plan.append(
             {
-                "Priority": "5",
+                "Priority": "6",
                 "Focus": "Fuel-system follow-up",
                 "Do this": "Track whether FatMax shifts closer to VT1 and whether MFO rises after a base block.",
                 "Dose / target": f"MFO class: {mfo_class}",
@@ -1656,7 +2206,7 @@ def _build_action_plan(
 
     plan.append(
         {
-            "Priority": "6",
+            "Priority": "7",
             "Focus": "Strength and repeat testing",
             "Do this": "Add whole-body resistance training and schedule a like-for-like CPET reassessment.",
             "Dose / target": "Strength 2 days/week; retest after a 6-8 week block with the same modality and protocol.",
@@ -1678,6 +2228,7 @@ _CLINICAL_REVIEW_AREAS = {
     "VO2/work-rate slope",
     "PETCO2",
     "Exercise oxygen saturation",
+    "HR recovery",
 }
 
 
@@ -1726,12 +2277,15 @@ def _build_coach_flags(
     peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
     peak_pct = _as_float(metrics.get("peak_vo2_pct_pred"))
     ve_slope = _as_float(metrics.get("ve_vco2_slope"))
+    ve_nadir = _as_float(metrics.get("ve_vco2_nadir"))
     age = _as_float(metrics.get("age_years"))
     br = _as_float(metrics.get("breathing_reserve_pct"))
     o2_pulse_pct = _as_float(metrics.get("o2_pulse_pct_pred"))
     vo2_wr = _as_float(metrics.get("vo2_wr_slope_ml_min_w"))
     petco2_at = _as_float(metrics.get("petco2_at_mmhg"))
     spo2 = _as_float(metrics.get("spo2_nadir_pct"))
+    hrr1 = _as_float(metrics.get("hr_recovery_1min_bpm"))
+    peak_rr = _as_float(metrics.get("peak_rr_bpm"))
     vt1_pct = _as_float(metrics.get("vt1_pct_peak_vo2"))
     vt2_pct = _as_float(metrics.get("vt2_pct_peak_vo2"))
     peak_rer = _as_float(metrics.get("peak_rer"))
@@ -1899,6 +2453,25 @@ def _build_coach_flags(
             }
         )
 
+    if ve_nadir is not None and ve_nadir > 40:
+        flags.append(
+            {
+                "Priority": "High",
+                "Area": "Ventilatory efficiency",
+                "Signal": f"VE/VCO2 nadir is {ve_nadir:.1f}.",
+                "Coach action": "High nadir can indicate inefficient ventilation/dead-space physiology; clinician should interpret before intensity progression.",
+            }
+        )
+    elif ve_nadir is not None and ve_nadir >= 34:
+        flags.append(
+            {
+                "Priority": "Medium",
+                "Area": "Ventilatory efficiency",
+                "Signal": f"VE/VCO2 nadir is {ve_nadir:.1f}.",
+                "Coach action": "Borderline-high nadir; read with VE/VCO2 slope, PETCO2, SpO2, symptoms, and athlete context.",
+            }
+        )
+
     if br is not None:
         maximal_effort = peak_rer is not None and peak_rer >= 1.10
         spo2_confirmed_ok = spo2 is not None and spo2 >= 94
@@ -1993,6 +2566,16 @@ def _build_coach_flags(
             }
         )
 
+    if hrr1 is not None and hrr1 <= 12:
+        flags.append(
+            {
+                "Priority": "High",
+                "Area": "HR recovery",
+                "Signal": f"1-minute HR recovery is {hrr1:.0f} bpm.",
+                "Coach action": "Low HR recovery is a clinician-review item; do not use it as a standalone training diagnosis.",
+            }
+        )
+
     if spo2 is not None and spo2 < 90:
         flags.append(
             {
@@ -2000,6 +2583,16 @@ def _build_coach_flags(
                 "Area": "Exercise oxygen saturation",
                 "Signal": f"SpO2 nadir is {spo2:.0f}%.",
                 "Coach action": "Exercise desaturation is a medical review item; avoid unsupervised intensity escalation.",
+            }
+        )
+
+    if peak_rr is not None and peak_rr >= 60 and (spo2 is not None and spo2 < 94 or br is not None and br < 15):
+        flags.append(
+            {
+                "Priority": "Medium",
+                "Area": "Breathing pattern",
+                "Signal": f"Peak respiratory rate is {peak_rr:.0f}/min with low reserve or oxygen-saturation context.",
+                "Coach action": "Interpret with symptoms, spirometry, breathing reserve, and athlete status; high RR alone can be normal in trained athletes.",
             }
         )
 
@@ -2254,7 +2847,7 @@ def _find_protocol(text: str) -> str | None:
 
 
 def _round_metric(field: str, value: float) -> float:
-    if field in {"peak_rer", "chronotropic_index"}:
+    if field in {"peak_rer", "rest_rer", "chronotropic_index"}:
         return round(value, 2)
     if "pct" in field or field.endswith("_pct_pred"):
         return round(value, 1)
@@ -2271,7 +2864,7 @@ def _format_metric_value(field: str, value: Any) -> str:
     unit = spec.get("unit", "")
     if numeric is None:
         return "--"
-    if field in {"peak_rer", "chronotropic_index"}:
+    if field in {"peak_rer", "rest_rer", "chronotropic_index"}:
         return f"{numeric:.2f}"
     if unit == "%":
         return f"{numeric:.1f}%"
