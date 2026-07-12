@@ -96,7 +96,7 @@ ORGAN_SCORE_DEFINITIONS = [
                 {"min": 45, "max": 59, "label": "G3a: Mildly to moderately decreased", "severity": "elevated"},
                 {"min": 30, "max": 44, "label": "G3b: Moderately to severely decreased", "severity": "high"},
                 {"min": 15, "max": 29, "label": "G4: Severely decreased", "severity": "critical"},
-                {"max": 14, "label": "G5: Kidney failure", "severity": "critical"},
+                {"max": 15, "label": "G5: Kidney failure", "severity": "critical"},
             ]
         }),
         "citation_pmid": "34554658",
@@ -1164,7 +1164,7 @@ ORGAN_SCORE_DEFINITIONS = [
         "organ_system": "biological_age",
         "tier": "validated",
         "formula_key": "calc_phenoage",
-        "required_biomarkers": ["albumin", "creatinine", "fasting_glucose", "hs_crp", "lymphocytes_abs", "mcv", "rdw", "wbc"],
+        "required_biomarkers": ["albumin", "creatinine", "fasting_glucose", "hs_crp", "lymphocytes_abs", "mcv", "rdw", "wbc", "alkaline_phosphatase"],
         "required_clinical": ["age"],
         "interpretation": json.dumps({
             "ranges": [

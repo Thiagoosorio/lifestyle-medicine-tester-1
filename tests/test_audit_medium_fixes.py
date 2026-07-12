@@ -36,35 +36,25 @@ def test_mgps_none_inputs_return_none():
 
 # ── HEI-2020 moderation components (#17) ─────────────────────────────────
 
-def test_hei_moderation_uses_worst_answer():
-    """When two answers map to the same moderation component, the unhealthier
-    (lower) value must win so it can pull the diet score down."""
-    from config.diet_data import DIET_QUIZ_QUESTIONS, HEI_COMPONENTS
-
-    # Find a moderation component and two questions that map to it with
-    # differing values; if the quiz doesn't exercise that, the test is a no-op.
-    moderation = {k for k, v in HEI_COMPONENTS.items() if v.get("type") == "moderation"}
-    # Build synthetic answers: pick each question's option with the LOWEST
-    # moderation mapping where present, and confirm the estimate never exceeds
-    # taking the max of those same options.
-    # Deterministic invariant: min-based aggregation <= max-based aggregation.
-    answers_low = []
-    for q in DIET_QUIZ_QUESTIONS:
-        hei_map = q.get("hei_map", {})
-        if not hei_map:
-            answers_low.append(0)
-            continue
-        # option whose mapped moderation values are lowest
-        def mod_sum(opt):
-            return sum(v for c, v in hei_map[opt].items() if c in moderation)
-        opt = min(hei_map.keys(), key=mod_sum)
-        answers_low.append(opt)
-    total, comps = _estimate_hei_from_answers(answers_low)
-    # Every moderation component must equal the min of its mapped values, so
-    # none can exceed its own max_score and the total is a valid 0..100.
-    assert 0 <= total <= 100
-    for comp in moderation:
-        assert comps[comp] <= HEI_COMPONENTS[comp]["max_score"]
+def test_hei_moderation_uses_min_adequacy_uses_max(monkeypatch):
+    """Pin the actual reduction: a moderation component with a good (8) and a
+    bad (2) mapped answer must resolve to 2 (min), while an adequacy component
+    resolves to its best (max). This fails if the code reverts to max() for
+    moderation."""
+    import config.diet_data as dd
+    monkeypatch.setattr(dd, "HEI_COMPONENTS", {
+        "sodium": {"max_score": 10, "type": "moderation", "label": "Sodium"},
+        "total_fruits": {"max_score": 5, "type": "adequacy", "label": "Fruits"},
+    })
+    monkeypatch.setattr(dd, "DIET_QUIZ_QUESTIONS", [
+        {"hei_map": {0: {"sodium": 8}}},                 # q0: good sodium
+        {"hei_map": {0: {"sodium": 2}}},                 # q1: bad sodium
+        {"hei_map": {0: {"total_fruits": 1}, 1: {"total_fruits": 5}}},  # q2
+    ])
+    total, comps = _estimate_hei_from_answers([0, 0, 1])
+    assert comps["sodium"] == 2          # min([8, 2]) — bad answer pulls it down
+    assert comps["total_fruits"] == 5    # max([5]) — best adequacy evidence
+    assert total == 7
 
 
 # ── Garmin epoch-ms timestamps (#19) ─────────────────────────────────────
@@ -116,6 +106,11 @@ def test_sex_dependent_biomarker_not_scored_on_male_band_when_sex_unknown():
     # sex is unknown (previously it hit the male-defaulted floor).
     assert classify_result(40, testo) == "in_range"
     assert classify_result(40, testo, sex="female") == "in_range"
+    # A normal-for-MALE value must NOT be flagged critical_high just because
+    # the female band has an upper critical of 150 — the union must treat the
+    # male band's unbounded (None) upper limit as unbounded, not absent.
+    assert classify_result(600, testo) == "in_range"
+    assert classify_result(600, testo, sex="male") == "in_range"
     # Genuinely extreme values are still flagged sex-agnostically.
     assert classify_result(5, testo) == "critical_low"
 

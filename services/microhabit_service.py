@@ -436,12 +436,15 @@ def get_completion_heatmap_data(user_id: int, weeks: int = 12,
             return {}
 
         # Get all completions in the date range
+        # Count only distinct *active* habits — logs for deactivated habits
+        # must not push a day's completion ratio above 100% (total_habits is the
+        # active count).
         logs = conn.execute(
-            "SELECT log_date, COUNT(DISTINCT habit_id) AS done "
-            "FROM habit_log "
-            "WHERE user_id = ? AND log_date >= ? AND log_date <= ? "
-            "AND completed_count > 0 "
-            "GROUP BY log_date",
+            "SELECT hl.log_date, COUNT(DISTINCT hl.habit_id) AS done "
+            "FROM habit_log hl JOIN habits h ON h.id = hl.habit_id AND h.is_active = 1 "
+            "WHERE hl.user_id = ? AND hl.log_date >= ? AND hl.log_date <= ? "
+            "AND hl.completed_count > 0 "
+            "GROUP BY hl.log_date",
             (user_id, start.isoformat(), ref_date.isoformat()),
         ).fetchall()
 
@@ -452,7 +455,7 @@ def get_completion_heatmap_data(user_id: int, weeks: int = 12,
         for i in range(weeks * 7 + 1):
             d = (start + timedelta(days=i)).isoformat()
             done = log_map.get(d, 0)
-            result[d] = round(done / total_habits, 2)
+            result[d] = min(round(done / total_habits, 2), 1.0)
         return result
     finally:
         conn.close()

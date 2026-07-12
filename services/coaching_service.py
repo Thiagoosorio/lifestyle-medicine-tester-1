@@ -221,6 +221,16 @@ def _get_conversation_history(user_id: int, limit: int = 20, context_type: str |
         conn.close()
 
 
+def _trim_to_user_start(history: list) -> list:
+    """Drop any leading non-user turns so the history handed to the Anthropic
+    API starts with a user message. The API rejects a history that begins with
+    an assistant turn, which silently degraded every coach to its canned
+    fallback once the conversation grew past the fetch window."""
+    while history and history[0]["role"] != "user":
+        history.pop(0)
+    return history
+
+
 def _save_message(user_id: int, role: str, content: str, context_type: str = None):
     conn = get_connection()
     try:
@@ -243,14 +253,10 @@ def get_coaching_response(user_id: int, message: str, context_type: str = "gener
     context_prompt = get_context_prompt(context_type)
     system_prompt = BASE_SYSTEM_PROMPT + "\n\n" + context_prompt + "\n\n" + CONTEXT_TEMPLATE.format(user_context=user_context)
 
-    # Get conversation history. Once the total exceeds the window, the oldest
-    # message in the slice can be an assistant turn; the Anthropic API rejects
-    # any history that does not start with a 'user' message (which silently
-    # degraded the coach to its canned fallback after ~10 exchanges). Trim any
-    # leading non-user turns so the first message is always a user turn.
-    history = _get_conversation_history(user_id, limit=20)
-    while history and history[0]["role"] != "user":
-        history.pop(0)
+    # Get conversation history, trimmed so it always starts with a user turn
+    # (the Anthropic API rejects otherwise — which silently degraded the coach
+    # to its canned fallback after ~10 exchanges).
+    history = _trim_to_user_start(_get_conversation_history(user_id, limit=20))
 
     # Call LLM
     provider = _get_llm_provider()
@@ -349,7 +355,9 @@ def get_gptcoach_response(user_id: int, message: str) -> str:
         + "\n\n"
         + CONTEXT_TEMPLATE.format(user_context=user_context)
     )
-    history = _get_conversation_history(user_id, limit=20, context_type=context_type)
+    history = _trim_to_user_start(
+        _get_conversation_history(user_id, limit=20, context_type=context_type)
+    )
 
     provider = _get_llm_provider()
     try:

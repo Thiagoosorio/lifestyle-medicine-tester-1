@@ -44,9 +44,21 @@ def resolve_reference_range(biomarker_def: dict,
     if not sex_letter and sex_variants:
         combined = dict(resolved)
         for key in _RANGE_KEYS:
-            vals = [v[key] for v in sex_variants if v.get(key) is not None]
-            if vals:
-                combined[key] = min(vals) if key.endswith("_low") else max(vals)
+            # Effective per-sex bound: the variant's own value, or the base
+            # value when the variant leaves it unset (mirrors the known-sex
+            # path). A None bound means "unbounded in that direction" for that
+            # sex — so if ANY sex is unbounded, the sex-agnostic union must be
+            # unbounded too, otherwise a value that is perfectly normal for
+            # that sex gets flagged (e.g. a male's high-normal testosterone was
+            # being called Critical High against the female upper limit).
+            effective = [
+                (v[key] if v.get(key) is not None else resolved.get(key))
+                for v in sex_variants
+            ]
+            if any(e is None for e in effective):
+                combined[key] = None
+            else:
+                combined[key] = min(effective) if key.endswith("_low") else max(effective)
         return combined
     for variant in variants:
         v_sex = variant.get("sex")

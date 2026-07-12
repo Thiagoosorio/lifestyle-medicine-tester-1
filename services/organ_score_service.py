@@ -2483,12 +2483,6 @@ def calc_tfqi(tsh: float, free_t4_ngdl: float) -> float | None:
     return round(cdf_ft4 - (1 - cdf_tsh), 3)
 
 
-# Population-mean alkaline phosphatase (U/L, NHANES adults) used to impute the
-# ALP term when a user has no ALP result, so PhenoAge stays available without
-# dropping the term entirely.
-_PHENOAGE_ALP_MEAN = 68.0
-
-
 def calc_phenoage(age: float, albumin: float, creatinine: float,
                   glucose_mgdl: float, crp: float, lymph_pct: float,
                   mcv: float, rdw: float, wbc: float,
@@ -2507,18 +2501,20 @@ def calc_phenoage(age: float, albumin: float, creatinine: float,
     ALP U/L. The published predictor uses albumin g/L, creatinine umol/L and
     glucose mmol/L, so those are converted here. The chronological-age term
     (0.0804*age) and the ALP term (0.00188*ALP) are part of the model and are
-    NOT dropped; WBC carries its own coefficient (0.0554). If ALP is missing it
-    is imputed at the population mean rather than borrowing another coefficient.
+    NOT dropped; WBC carries its own coefficient (0.0554). ALP is required (not
+    imputed) so this path matches the config-engine twin
+    (system_wide.calc_phenoage_acceleration) exactly — the same labs must not
+    yield PhenoAge on one screen and "unavailable" on another.
     """
-    required = (age, albumin, creatinine, glucose_mgdl, crp, lymph_pct, mcv, rdw, wbc)
+    required = (age, albumin, creatinine, glucose_mgdl, crp, lymph_pct, mcv, rdw, alp, wbc)
     if any(v is None for v in required):
         return None
     if age <= 0 or albumin <= 0 or creatinine <= 0 or glucose_mgdl <= 0:
         return None
-    if mcv <= 0 or rdw <= 0 or wbc <= 0:
+    if mcv <= 0 or rdw <= 0 or alp <= 0 or wbc <= 0:
         return None
 
-    alp_val = alp if (alp is not None and alp > 0) else _PHENOAGE_ALP_MEAN
+    alp_val = alp
 
     # hs-CRP is supplied in mg/L; the model uses ln(CRP mg/dL).
     crp_mgdl = crp / 10.0

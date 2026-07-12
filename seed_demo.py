@@ -98,6 +98,7 @@ MARIA_ORGAN_SCORE_BIOMARKERS = {
     "triglycerides": 186.0,
     "apob": 132.0,
     "ggt": 42.0,
+    "alkaline_phosphatase": 72.0,
     "total_cholesterol": 248.0,
     "lpa": 42.0,
     "homocysteine": 11.8,
@@ -724,17 +725,17 @@ def main():
     # Clean any existing demo data
     conn = get_connection()
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (USERNAME,)).fetchone()
+
+    # Remove every row the demo user owns plus the shared tables we reseed, as
+    # ONE atomic unit. The user-scoped tables are discovered dynamically (any
+    # table with a user_id column) rather than hardcoded, so a newly added
+    # table — e.g. cpet_reports, inbody_reports, habit_stacks,
+    # cycling_progression_levels — can never be forgotten and leave a FOREIGN
+    # KEY constraint failure when the users row is deleted (which previously
+    # half-wiped the database). FK enforcement is deferred for the whole wipe so
+    # delete order cannot matter and the reset commits once (or rolls back).
+    user_tables = []
     if existing:
-        uid = existing["id"]
-        # Remove every row this demo user owns. The target tables are
-        # discovered dynamically (any table with a user_id column) rather than
-        # hardcoded, so a newly added user-scoped table — e.g. cpet_reports,
-        # inbody_reports, habit_stacks, cycling_progression_levels — can never
-        # be forgotten and leave a FOREIGN KEY constraint failure when the
-        # users row is deleted (which previously half-wiped the database).
-        # FK enforcement is deferred for the wipe so delete order cannot
-        # matter, and the reset commits once (or rolls back) atomically.
-        user_tables = []
         for trow in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' "
             "AND name NOT LIKE 'sqlite_%'"
@@ -746,21 +747,22 @@ def main():
             if "user_id" in cols:
                 user_tables.append(tname)
 
-        conn.commit()  # close any implicit txn so the PRAGMA takes effect
-        conn.execute("PRAGMA foreign_keys = OFF")
-        try:
+    conn.commit()  # close any implicit txn so the PRAGMA takes effect
+    conn.execute("PRAGMA foreign_keys = OFF")
+    try:
+        if existing:
+            uid = existing["id"]
             for tname in user_tables:
                 conn.execute(f'DELETE FROM "{tname}" WHERE user_id = ?', (uid,))
             conn.execute("DELETE FROM users WHERE id = ?", (uid,))
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.execute("PRAGMA foreign_keys = ON")
-    # Reset shared tables
-    conn.execute("DELETE FROM micro_lessons")
-    conn.commit()
+        # Shared, non-user-scoped table reset — part of the same atomic unit.
+        conn.execute("DELETE FROM micro_lessons")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys = ON")
     conn.close()
 
     # Create Maria's account

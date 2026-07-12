@@ -129,6 +129,34 @@ def test_compute_all_scores_prefers_valid_iso_lab_date_when_some_inputs_unknown(
     assert out[0]["lab_date"] == "2026-01-05"
 
 
+def _phenoage_legacy_inputs(**overrides):
+    base = dict(age=55, albumin=4.2, creatinine=1.0, glucose_mgdl=100, crp=2.0,
+                lymph_pct=28, mcv=90, rdw=13.5, wbc=6.5, alp=65)
+    base.update(overrides)
+    return base
+
+
+def test_calc_phenoage_pins_reference_value():
+    # Guards the corrected linear predictor in the legacy organ-score path:
+    # age term, ALP term, WBC's own coefficient, and the albumin g/L /
+    # creatinine umol/L unit conversions must all be present.
+    assert oss.calc_phenoage(**_phenoage_legacy_inputs()) == -2.4
+
+
+def test_calc_phenoage_requires_alp_like_the_engine_twin():
+    # No ALP -> None (not an imputed number), so the same labs never yield a
+    # PhenoAge on one screen and "unavailable" on another.
+    assert oss.calc_phenoage(**_phenoage_legacy_inputs(alp=None)) is None
+
+
+def test_calc_phenoage_worsens_with_inflammation_and_dysglycaemia():
+    healthy = oss.calc_phenoage(**_phenoage_legacy_inputs(
+        glucose_mgdl=90, crp=0.8, rdw=12.5))
+    sick = oss.calc_phenoage(**_phenoage_legacy_inputs(
+        glucose_mgdl=170, crp=9.0, rdw=15.5))
+    assert sick > healthy + 1.0
+
+
 def test_albi_score_matches_reference_equation():
     value = oss.calc_albi_score(total_bilirubin_mgdl=0.8, albumin_gdl=4.5)
     assert value == -3.075

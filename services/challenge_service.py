@@ -527,17 +527,25 @@ def get_all_time_stats(user_id: int) -> dict:
         # (#36).
         current_week_start = _get_week_start()
         perfect_streak = 0
-        prev_week = None
+        # Anchor the streak HEAD at the current week: the first counted week
+        # must be adjacent to now, so a streak that ended weeks ago reports 0
+        # rather than being treated as current.
+        prev_week = current_week_start
         for wr in weeks_rows:
             w = dict(wr)
             ws = w["week_start"]
             is_perfect = w["total"] > 0 and w["completed"] == w["total"]
-            if ws == current_week_start and not is_perfect:
-                continue  # in-progress current week; don't count or break on it
-            if prev_week is not None:
-                expected = (date.fromisoformat(prev_week) - timedelta(days=7)).isoformat()
-                if ws != expected:
-                    break  # gap: an intervening week had no challenges
+            if ws == current_week_start:
+                # Current week: count it only if already perfect; otherwise skip
+                # the in-progress week but keep the anchor so last week must be
+                # adjacent (a missing intervening week then breaks the streak).
+                if is_perfect:
+                    perfect_streak += 1
+                    prev_week = ws
+                continue
+            expected = (date.fromisoformat(prev_week) - timedelta(days=7)).isoformat()
+            if ws != expected:
+                break  # gap / stale head: an intervening week is missing
             if is_perfect:
                 perfect_streak += 1
                 prev_week = ws
