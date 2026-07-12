@@ -2482,55 +2482,68 @@ def calc_tfqi(tsh: float, free_t4_ngdl: float) -> float | None:
     return round(cdf_ft4 - (1 - cdf_tsh), 3)
 
 
+# Population-mean alkaline phosphatase (U/L, NHANES adults) used to impute the
+# ALP term when a user has no ALP result, so PhenoAge stays available without
+# dropping the term entirely.
+_PHENOAGE_ALP_MEAN = 68.0
+
+
 def calc_phenoage(age: float, albumin: float, creatinine: float,
                   glucose_mgdl: float, crp: float, lymph_pct: float,
-                  mcv: float, rdw: float, wbc: float) -> float | None:
-    """Levine PhenoAge biological age acceleration.
+                  mcv: float, rdw: float, wbc: float,
+                  alp: float | None = None) -> float | None:
+    """Levine/Liu PhenoAge biological-age acceleration.
 
-    Step 1: Mortality score from 9 biomarkers via Gompertz model.
-    Step 2: Convert to PhenoAge.
+    Step 1: Mortality linear predictor xb from age + 9 biomarkers.
+    Step 2: Gompertz mortality score over 120 months.
     Step 3: Return PhenoAge - chronological age (acceleration).
 
-    Coefficients from Levine ME et al. Aging 2018; PMID: 29676998.
-    Trained on NHANES III (n=9,926), validated NHANES IV (n=11,432).
+    Coefficients from Levine ME et al. Aging 2018 (PMID 29676998) /
+    Liu 2018 clinical-chemistry variant.
 
-    Units: albumin g/dL, creatinine mg/dL, glucose mg/dL, CRP mg/dL (!),
-    lymphocyte %, MCV fL, RDW %, WBC 10^3/uL, ALP U/L.
-    Note: ALP is not always available so we use the simplified 8-biomarker
-    variant that excludes ALP (sets its contribution to mean).
+    Inputs are supplied in clinical units: albumin g/dL, creatinine mg/dL,
+    glucose mg/dL, hs-CRP mg/L, lymphocyte %, MCV fL, RDW %, WBC 10^3/uL,
+    ALP U/L. The published predictor uses albumin g/L, creatinine umol/L and
+    glucose mmol/L, so those are converted here. The chronological-age term
+    (0.0804*age) and the ALP term (0.00188*ALP) are part of the model and are
+    NOT dropped; WBC carries its own coefficient (0.0554). If ALP is missing it
+    is imputed at the population mean rather than borrowing another coefficient.
     """
-    # CRP: input is in mg/L (hs-CRP), convert to mg/dL for the model
-    crp_mgdl = crp / 10.0 if crp > 0.3 else crp  # if >0.3, likely mg/L
-    ln_crp = math.log(max(crp_mgdl, 0.001))
-
-    # PhenoAge Gompertz model coefficients (Levine 2018, Table 2)
-    # xb = sum of (coefficient * biomarker)
-    xb = (
-        -19.9067
-        - 0.0336 * albumin      # albumin g/dL (protective)
-        + 0.0095 * creatinine    # creatinine mg/dL
-        + 0.1953 * glucose_mgdl / 18.0  # glucose mmol/L
-        + 0.0954 * ln_crp        # ln(CRP mg/dL)
-        - 0.0120 * lymph_pct     # lymphocyte %
-        + 0.0268 * mcv           # MCV fL
-        + 0.3306 * rdw           # RDW %
-        + 0.00188 * wbc          # WBC 10^3/uL (small coefficient)
-        # ALP term omitted — contributes ~0 at population mean
-    )
-
-    # Gompertz mortality hazard
-    gamma = 0.0076927
-    lambda_val = 0.0022802
-
-    # Mortality score (10-year probability)
-    mort_score = 1 - math.exp(-math.exp(xb) * (math.exp(120 * gamma) - 1) / gamma)
-
-    # Invert to PhenoAge
-    if mort_score <= 0 or mort_score >= 1:
+    required = (age, albumin, creatinine, glucose_mgdl, crp, lymph_pct, mcv, rdw, wbc)
+    if any(v is None for v in required):
+        return None
+    if age <= 0 or albumin <= 0 or creatinine <= 0 or glucose_mgdl <= 0:
+        return None
+    if mcv <= 0 or rdw <= 0 or wbc <= 0:
         return None
 
-    phenoage = 141.50225 + math.log(-0.00553 * math.log(1 - mort_score)) / 0.090165
+    alp_val = alp if (alp is not None and alp > 0) else _PHENOAGE_ALP_MEAN
 
+    # hs-CRP is supplied in mg/L; the model uses ln(CRP mg/dL).
+    crp_mgdl = crp / 10.0
+    ln_crp = math.log(max(crp_mgdl, 0.001))
+
+    xb = (
+        -19.9067
+        - 0.0336 * (albumin * 10.0)         # g/dL -> g/L
+        + 0.0095 * (creatinine * 88.42)     # mg/dL -> umol/L
+        + 0.1953 * (glucose_mgdl / 18.0)    # mg/dL -> mmol/L
+        + 0.0954 * ln_crp
+        - 0.0120 * lymph_pct
+        + 0.0268 * mcv
+        + 0.3306 * rdw
+        + 0.00188 * alp_val
+        + 0.0554 * wbc
+        + 0.0804 * age
+    )
+
+    gamma = 0.0076927
+    mort_score = 1 - math.exp(-math.exp(xb) * (math.exp(120 * gamma) - 1) / gamma)
+    # Clamp the saturated tails into the open interval so an extreme profile
+    # yields a large finite PhenoAge (bounded downstream) rather than None.
+    mort_score = min(max(mort_score, 1e-12), 1 - 1e-12)
+
+    phenoage = 141.50225 + math.log(-0.00553 * math.log(1 - mort_score)) / 0.090165
     return round(phenoage - age, 1)
 
 
@@ -2945,6 +2958,7 @@ def _build_phenoage_args(bio, clin):
         "creatinine": bio.get("creatinine"), "glucose_mgdl": bio.get("fasting_glucose"),
         "crp": bio.get("hs_crp"), "lymph_pct": lymph_pct,
         "mcv": bio.get("mcv"), "rdw": bio.get("rdw"), "wbc": wbc,
+        "alp": bio.get("alkaline_phosphatase"),
     }
 
 def _build_kfre_args(bio, clin):
@@ -3055,10 +3069,24 @@ FORMULA_DISPATCH = {
 # SCORE INTERPRETATION
 # ══════════════════════════════════════════════════════════════════════════════
 
+# Ordering of severity labels, worst last. Used to break ties when a value
+# falls into a gap between two equidistant bands — we err toward the more
+# severe band so a borderline value is never under-flagged.
+_SEVERITY_RANK = {"optimal": 0, "normal": 1, "elevated": 2, "high": 3, "critical": 4}
+
+
 def interpret_score(value: float, definition: dict) -> dict:
     """Match a score value against its interpretation ranges.
 
     Returns {"label": str, "severity": str}.
+
+    Primary pass is exact interval containment (with shared-boundary
+    de-overlap). If the value falls through every band — which happens when
+    band edges leave a fractional gap (e.g. G4 max=29 then G5... with no cover
+    for 29.x) or when the value is outside all declared intervals — it is
+    snapped to the nearest band by edge distance rather than silently returned
+    as "normal". This prevents e.g. an eGFR of 14.3 (kidney failure) from being
+    mislabelled normal. Ties resolve to the more severe band.
     """
     if value is None:
         return {"label": "Unable to compute", "severity": "normal"}
@@ -3086,6 +3114,28 @@ def interpret_score(value: float, definition: dict) -> dict:
             upper_ok = value <= r_max if upper_inclusive else value < r_max
             if upper_ok:
                 return {"label": r["label"], "severity": r["severity"]}
+
+    # Fallback: no band contained the value. Snap to the nearest band by
+    # distance to its interval so gap/out-of-range values are never dropped to
+    # a false "normal".
+    def _edge_distance(r: dict) -> float:
+        lo, hi = r.get("min"), r.get("max")
+        if lo is not None and value < lo:
+            return lo - value
+        if hi is not None and value > hi:
+            return value - hi
+        return 0.0
+
+    best = None  # (distance, -severity_rank), range
+    for r in ranges:
+        if "label" not in r or "severity" not in r:
+            continue
+        key = (_edge_distance(r), -_SEVERITY_RANK.get(r.get("severity"), 1))
+        if best is None or key < best[0]:
+            best = (key, r)
+    if best is not None:
+        r = best[1]
+        return {"label": r["label"], "severity": r["severity"]}
 
     return {"label": f"Score: {value}", "severity": "normal"}
 

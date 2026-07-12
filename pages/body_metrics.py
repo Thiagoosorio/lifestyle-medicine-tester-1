@@ -19,6 +19,7 @@ from services.body_metrics_service import (
 )
 from components.custom_theme import render_section_header
 from components.organ_health_display import render_frax_workflow_panel
+from models.clinical_profile import get_profile
 
 A = APPLE
 user_id = st.session_state.user_id
@@ -65,22 +66,30 @@ def bmi_bar_color(bmi):
 
 
 def waist_hip_zone(ratio, gender="unknown"):
-    """Return (label, color) health zone for waist-to-hip ratio."""
+    """Return (label, color) health zone for waist-to-hip ratio.
+
+    Thresholds follow the WHO 2008 "substantially increased risk" cutoffs
+    (WHR > 0.90 men, > 0.85 women); the moderate band is the approach zone
+    just below the cutoff. Sex is required — the male and female cutoffs
+    differ, so an unknown sex is reported as indeterminate rather than being
+    scored on the (more lenient) male bands.
+    """
     if ratio is None:
         return ("--", "#AEAEB2")
-    # General guidelines (WHO)
-    if gender == "female":
-        if ratio <= 0.80:
+    g = str(gender).strip().lower()
+    if g == "female":
+        if ratio < 0.80:
             return ("Low Risk", "#4CAF50")
         if ratio <= 0.85:
             return ("Moderate Risk", "#FF9800")
         return ("High Risk", "#F44336")
-    else:
-        if ratio <= 0.90:
+    if g == "male":
+        if ratio < 0.85:
             return ("Low Risk", "#4CAF50")
-        if ratio <= 0.95:
+        if ratio <= 0.90:
             return ("Moderate Risk", "#FF9800")
         return ("High Risk", "#F44336")
+    return ("Risk N/A (set sex)", "#AEAEB2")
 
 
 # ── Page Title ──────────────────────────────────────────────────────────────
@@ -245,11 +254,21 @@ with tab_tracker:
     current_bmi = compute_bmi(current_weight, height)
     bmi_label, bmi_color = bmi_category(current_bmi)
 
-    # Waist-to-hip ratio from latest available
-    latest_waist = df.loc[df["waist_cm"].notna(), "waist_cm"].iloc[-1] if df["waist_cm"].notna().any() else None
-    latest_hip = df.loc[df["hip_cm"].notna(), "hip_cm"].iloc[-1] if df["hip_cm"].notna().any() else None
-    wh_ratio = round(latest_waist / latest_hip, 2) if (latest_waist and latest_hip and latest_hip > 0) else None
-    wh_label, wh_color = waist_hip_zone(wh_ratio)
+    # Waist-to-hip ratio from the most recent entry that has BOTH waist and
+    # hip measured on the same day — mixing a waist from one date with a hip
+    # from another produces a meaningless ratio.
+    wh_pairs = df[df["waist_cm"].notna() & df["hip_cm"].notna()]
+    if not wh_pairs.empty:
+        wh_row = wh_pairs.iloc[-1]
+        latest_waist, latest_hip = wh_row["waist_cm"], wh_row["hip_cm"]
+        wh_ratio = round(latest_waist / latest_hip, 2) if latest_hip and latest_hip > 0 else None
+    else:
+        wh_ratio = None
+    # Sex-specific risk thresholds (WHO): female users must not be scored on the
+    # more lenient male bands.
+    _profile = get_profile(user_id) or {}
+    _sex = str(_profile.get("sex") or "unknown").strip().lower()
+    wh_label, wh_color = waist_hip_zone(wh_ratio, gender=_sex)
 
     latest_bf = df.loc[df["body_fat_pct"].notna(), "body_fat_pct"].iloc[-1] if df["body_fat_pct"].notna().any() else None
 

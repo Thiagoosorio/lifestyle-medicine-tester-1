@@ -521,15 +521,32 @@ def compute_correlations(user_id, days=90):
 
 
 def _spearman_rho(x, y):
-    """Compute Spearman rank correlation coefficient (pure Python)."""
+    """Compute Spearman rank correlation coefficient (pure Python).
+
+    Computed as the Pearson correlation of the (tie-averaged) ranks, NOT the
+    ``1 - 6*sum(d^2)/(n(n^2-1))`` shortcut. The shortcut is only valid when
+    there are no ties; a FODMAP group that was never eaten is a column of
+    identical values (all ranks tie), and the shortcut would then report a
+    spurious "strong" association. When either variable has no variance
+    (fewer than two distinct values) the correlation is undefined and we
+    return (None, None) so the pair is dropped rather than fabricated.
+    """
     n = len(x)
     if n < 10:
+        return None, None
+    if len(set(x)) < 2 or len(set(y)) < 2:
         return None, None
 
     rx = _rank(x)
     ry = _rank(y)
-    d_sq = sum((rx[i] - ry[i]) ** 2 for i in range(n))
-    rho = 1 - (6 * d_sq) / (n * (n ** 2 - 1))
+    mean_rx = sum(rx) / n
+    mean_ry = sum(ry) / n
+    cov = sum((rx[i] - mean_rx) * (ry[i] - mean_ry) for i in range(n))
+    var_x = sum((r - mean_rx) ** 2 for r in rx)
+    var_y = sum((r - mean_ry) ** 2 for r in ry)
+    if var_x <= 0 or var_y <= 0:
+        return None, None
+    rho = cov / math.sqrt(var_x * var_y)
 
     # t-approximation for two-tailed p-value
     if abs(rho) >= 1.0:

@@ -74,9 +74,20 @@ def test_caide_minimal_risk_for_younger_active_user():
     assert val == Decimal("0")
 
 
+def test_caide_midlife_age_band_scores_three():
+    """50yo (the 47-53 band, previously zeroed by a shifted cutoff) must score
+    3 age points; here it is the only risk factor so the total is exactly 3."""
+    val = calc_caide({
+        "age": 50, "sex": "female", "education_years": 12,
+        "sbp_mmhg": 115, "bmi": 22, "total_chol_mgdl": 180,
+        "physically_active": True,
+    })
+    assert val == Decimal("3")
+
+
 def test_caide_high_risk_classic_case():
     """65yo male, low education, hypertensive, obese, hyperchol, sedentary.
-    age>=61 (4) + edu<7 (3) + male (1) + sbp>=140 (2) + bmi>30 (2) + chol>=6.5 (2)
+    age>=54 (4) + edu<7 (3) + male (1) + sbp>=140 (2) + bmi>30 (2) + chol>=6.5 (2)
     + inactive (1) = 15 (max)."""
     val = calc_caide({
         "age": 65, "sex": "male", "education_years": 5,

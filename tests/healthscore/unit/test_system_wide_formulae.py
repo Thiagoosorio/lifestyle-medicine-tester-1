@@ -31,7 +31,7 @@ def _pheno_inputs(**overrides):
     base = dict(
         age=55, albumin_gdl=4.2, creatinine_mgdl=1.0, fasting_glucose_mgdl=100,
         hs_crp_mgL=2.0, lymphocyte_pct=28, mcv_fL=90, rdw_pct=13.5,
-        wbc_10e9L=6.5,
+        alkaline_phosphatase_uL=65, wbc_10e9L=6.5,
     )
     base.update(overrides)
     return base
@@ -40,6 +40,21 @@ def _pheno_inputs(**overrides):
 def test_phenoage_returns_a_decimal():
     val = calc_phenoage_acceleration(_pheno_inputs())
     assert isinstance(val, Decimal)
+
+
+def test_phenoage_pins_reference_value():
+    """Guards the corrected linear predictor: the age term (0.0804*age), the
+    ALP term (0.00188*ALP, with WBC on its own 0.0554 coefficient), and the
+    albumin g/L / creatinine umol/L unit conversions must all be present.
+    Dropping any of them shifts the result by many years."""
+    val = float(calc_phenoage_acceleration(_pheno_inputs()))
+    assert val == pytest.approx(-2.40, abs=0.1)
+
+
+def test_phenoage_requires_alkaline_phosphatase():
+    inputs = _pheno_inputs()
+    del inputs["alkaline_phosphatase_uL"]
+    assert calc_phenoage_acceleration(inputs) is None
 
 
 def test_phenoage_accelerates_with_higher_inflammation_and_glucose():

@@ -128,8 +128,12 @@ def _get_training_load_component(user_id):
     conn.close()
 
     if not rows:
-        # No exercise data at all — treat as neutral (no load info)
-        return {"score": 90, "raw": 0, "label": "Training Load", "icon": "&#9878;"}
+        # No exercise data at all — this is *absence of information*, not a
+        # logged rest day. Return raw=None (neutral score) so the whole-app
+        # "no data" guard in get_recovery_components() fires instead of
+        # fabricating a boosted recovery score. The rest-day boost below only
+        # applies when rows exist but sum to zero load.
+        return {"score": 50, "raw": None, "label": "Training Load", "icon": "&#9878;"}
 
     load = 0.0
     for r in rows:

@@ -110,7 +110,14 @@ def calc_phenoage_acceleration(raw_inputs: Mapping[str, object]) -> Decimal | No
         age (years), albumin_gdl (g/dL), creatinine_mgdl (mg/dL),
         fasting_glucose_mgdl (mg/dL), hs_crp_mgL (high-sensitivity CRP, mg/L),
         lymphocyte_pct (%), mcv_fL (fL), rdw_pct (%),
-        wbc_10e9L (10^9/L = 10^3/uL — same numeric value).
+        alkaline_phosphatase_uL (U/L), wbc_10e9L (10^9/L = 10^3/uL).
+
+    The published Liu 2018 / Levine linear predictor takes albumin in g/L,
+    creatinine in umol/L and glucose in mmol/L, so those three are converted
+    here from the clinical units the config supplies. The chronological-age
+    term (0.0804*age) and the alkaline-phosphatase term (0.00188*ALP) are both
+    part of the predictor and must not be dropped, and WBC carries its own
+    coefficient (0.0554) — not ALP's.
     """
     age = _to_float(raw_inputs, "age")
     albumin = _to_float(raw_inputs, "albumin_gdl")
@@ -120,15 +127,16 @@ def calc_phenoage_acceleration(raw_inputs: Mapping[str, object]) -> Decimal | No
     lymph_pct = _to_float(raw_inputs, "lymphocyte_pct")
     mcv = _to_float(raw_inputs, "mcv_fL")
     rdw = _to_float(raw_inputs, "rdw_pct")
+    alp = _to_float(raw_inputs, "alkaline_phosphatase_uL")
     wbc = _to_float(raw_inputs, "wbc_10e9L")
-    if None in (age, albumin, creatinine, glucose, crp_mgl, lymph_pct, mcv, rdw, wbc):
+    if None in (age, albumin, creatinine, glucose, crp_mgl, lymph_pct, mcv, rdw, alp, wbc):
         return None
     assert age is not None and albumin is not None and creatinine is not None
     assert glucose is not None and crp_mgl is not None and lymph_pct is not None
-    assert mcv is not None and rdw is not None and wbc is not None
+    assert mcv is not None and rdw is not None and alp is not None and wbc is not None
     if age <= 0 or albumin <= 0 or creatinine <= 0 or glucose <= 0:
         return None
-    if mcv <= 0 or rdw <= 0 or wbc <= 0:
+    if mcv <= 0 or rdw <= 0 or alp <= 0 or wbc <= 0:
         return None
 
     # Convert hs-CRP mg/L -> mg/dL for the Levine 2018 xb form.
@@ -137,19 +145,24 @@ def calc_phenoage_acceleration(raw_inputs: Mapping[str, object]) -> Decimal | No
 
     xb = (
         -19.9067
-        - 0.0336 * albumin
-        + 0.0095 * creatinine
-        + 0.1953 * glucose / 18.0          # mg/dL -> mmol/L
+        - 0.0336 * (albumin * 10.0)        # g/dL -> g/L
+        + 0.0095 * (creatinine * 88.42)    # mg/dL -> umol/L
+        + 0.1953 * (glucose / 18.0)        # mg/dL -> mmol/L
         + 0.0954 * ln_crp
         - 0.0120 * lymph_pct
         + 0.0268 * mcv
         + 0.3306 * rdw
-        + 0.00188 * wbc
+        + 0.00188 * alp
+        + 0.0554 * wbc
+        + 0.0804 * age
     )
     gamma = 0.0076927
     mort = 1 - math.exp(-math.exp(xb) * (math.exp(120 * gamma) - 1) / gamma)
-    if mort <= 0 or mort >= 1:
-        return None
+    # An extreme (very healthy or very sick) profile can saturate the Gompertz
+    # probability to 0 or 1; clamp into the open interval so PhenoAge stays a
+    # large finite number (then bounded by the output clamp) instead of
+    # vanishing to None for exactly the patients who most need a flag.
+    mort = min(max(mort, 1e-12), 1 - 1e-12)
     phenoage = 141.50225 + math.log(-0.00553 * math.log(1 - mort)) / 0.090165
     return Decimal(str(round(phenoage - age, 4)))
 

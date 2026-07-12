@@ -215,7 +215,7 @@ if report:
         if pillar_vals:
             fig = go.Figure(go.Bar(
                 x=pillar_names, y=pillar_vals,
-                marker_color=[PILLARS[pid]["color"] for pid in sorted(stats["pillar_avgs"].keys()) if stats["pillar_avgs"][pid] is not None],
+                marker_color=[PILLARS[int(pid)]["color"] for pid in sorted(stats["pillar_avgs"].keys()) if stats["pillar_avgs"][pid] is not None],
             ))
             fig.update_layout(
                 title="Average Pillar Ratings This Week",

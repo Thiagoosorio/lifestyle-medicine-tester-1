@@ -95,9 +95,9 @@ def calc_gad7(raw_inputs: Mapping[str, object]) -> Decimal | None:
 # stratifier. 0..15 points.
 #
 # Items + weights (Kivipelto 2006 Table 4):
-#   age 47-53          0
-#   age 54-60          3
-#   age >= 61          4
+#   age < 47           0
+#   age 47-53          3
+#   age >= 54          4
 #   education years 10+              0
 #   education 7-9                    2
 #   education 0-6                    3
@@ -128,8 +128,8 @@ def calc_caide(raw_inputs: Mapping[str, object]) -> Decimal | None:
         return None
 
     score = 0
-    if age >= 61:   score += 4
-    elif age >= 54: score += 3
+    if age >= 54:   score += 4
+    elif age >= 47: score += 3
     if edu < 7:     score += 3
     elif edu < 10:  score += 2
     if not female:  score += 1

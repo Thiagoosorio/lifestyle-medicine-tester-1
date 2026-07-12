@@ -495,11 +495,13 @@ def main() -> None:
             spec_a = organ["spec_a"]
             spec_b = organ["spec_b"]
             colour = _domain_score_color(spec_a)
+            spec_a_txt = f"{spec_a:.0f}" if spec_a is not None else "--"
+            spec_b_txt = f"{spec_b:.0f}" if spec_b is not None else "--"
             st.markdown(
                 f'<div style="display:flex;align-items:center;gap:10px;margin:14px 0 6px 0;">'
                 f'<span style="font-size:1.1em;">{organ_icon}</span>'
                 f'<span style="font-size:1.0em;font-weight:600;color:{A["label_primary"]};">{organ_label}</span>'
-                f'<span style="color:{colour};font-weight:700;">{spec_a:.0f} / {spec_b:.0f}</span>'
+                f'<span style="color:{colour};font-weight:700;">{spec_a_txt} / {spec_b_txt}</span>'
                 f'<span style="color:#79747E;font-size:0.85em;">Spec A · Spec B</span>'
                 f'</div>',
                 unsafe_allow_html=True,

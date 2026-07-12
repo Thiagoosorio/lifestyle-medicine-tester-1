@@ -30,6 +30,45 @@ def test_interpret_score_keeps_inclusive_upper_when_no_next_overlap():
     assert oss.interpret_score(1, definition)["label"] == "OneToTwo"
 
 
+def test_interpret_score_snaps_fractional_gap_to_nearest_band():
+    # Descending eGFR-style bands with off-by-one edges leave (14,15), (29,30)
+    # etc. uncovered. Such values must NOT fall through to a false "normal".
+    definition = {
+        "interpretation": {
+            "ranges": [
+                {"min": 90, "label": "G1", "severity": "optimal"},
+                {"min": 60, "max": 89, "label": "G2", "severity": "normal"},
+                {"min": 30, "max": 44, "label": "G3b", "severity": "high"},
+                {"min": 15, "max": 29, "label": "G4", "severity": "critical"},
+                {"max": 14, "label": "G5", "severity": "critical"},
+            ]
+        }
+    }
+    # eGFR 14.3 = kidney failure, previously mislabelled normal (critical bug).
+    assert oss.interpret_score(14.3, definition)["severity"] == "critical"
+    assert oss.interpret_score(29.5, definition)["severity"] == "critical"
+    assert oss.interpret_score(44.5, definition)["severity"] == "high"
+    # Exact-band values still resolve normally.
+    assert oss.interpret_score(95, definition)["label"] == "G1"
+    assert oss.interpret_score(70, definition)["label"] == "G2"
+
+
+def test_interpret_score_snaps_ascending_gap_upward():
+    # Ascending ApoB-style bands: (89,90) gap must snap to the higher band.
+    definition = {
+        "interpretation": {
+            "ranges": [
+                {"max": 89, "label": "Optimal", "severity": "optimal"},
+                {"min": 90, "max": 109, "label": "Borderline", "severity": "normal"},
+                {"min": 130, "label": "High", "severity": "high"},
+            ]
+        }
+    }
+    assert oss.interpret_score(89.5, definition)["label"] == "Borderline"
+    assert oss.interpret_score(119.5, definition)["label"] == "High"
+    assert oss.interpret_score(200, definition)["label"] == "High"
+
+
 def test_most_recent_iso_lab_date_ignores_unknown_and_invalid_entries():
     assert (
         oss._most_recent_iso_lab_date(

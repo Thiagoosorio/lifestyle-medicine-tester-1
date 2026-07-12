@@ -243,8 +243,14 @@ def get_coaching_response(user_id: int, message: str, context_type: str = "gener
     context_prompt = get_context_prompt(context_type)
     system_prompt = BASE_SYSTEM_PROMPT + "\n\n" + context_prompt + "\n\n" + CONTEXT_TEMPLATE.format(user_context=user_context)
 
-    # Get conversation history
+    # Get conversation history. Once the total exceeds the window, the oldest
+    # message in the slice can be an assistant turn; the Anthropic API rejects
+    # any history that does not start with a 'user' message (which silently
+    # degraded the coach to its canned fallback after ~10 exchanges). Trim any
+    # leading non-user turns so the first message is always a user turn.
     history = _get_conversation_history(user_id, limit=20)
+    while history and history[0]["role"] != "user":
+        history.pop(0)
 
     # Call LLM
     provider = _get_llm_provider()

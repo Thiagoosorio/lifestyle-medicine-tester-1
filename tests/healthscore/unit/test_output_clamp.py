@@ -64,8 +64,10 @@ def test_phenoage_negative_tail_is_clamped_to_minus25(phenoage_config):
     res = evaluate_score(
         phenoage_config,
         raw_inputs=_phenoage_inputs(
-            age=50, albumin_gdl=4.5, fasting_glucose_mgdl=90,
-            hs_crp_mgL=0.8, rdw_pct=12.5,
+            age=50, albumin_gdl=5.2, creatinine_mgdl=0.6,
+            fasting_glucose_mgdl=75, hs_crp_mgL=0.2, lymphocyte_pct=45,
+            mcv_fL=82, rdw_pct=11.5, wbc_10e9L=4.0,
+            alkaline_phosphatase_uL=40,
         ),
         prior_results={}, formula=lookup_formula(phenoage_config.formula),
         gate=None,
@@ -119,8 +121,10 @@ def test_phenoage_clamp_drives_q_floor_and_ceiling(phenoage_config):
     low = evaluate_score(
         phenoage_config,
         raw_inputs=_phenoage_inputs(
-            age=50, albumin_gdl=4.5, fasting_glucose_mgdl=90,
-            hs_crp_mgL=0.8, rdw_pct=12.5,
+            age=50, albumin_gdl=5.2, creatinine_mgdl=0.6,
+            fasting_glucose_mgdl=75, hs_crp_mgL=0.2, lymphocyte_pct=45,
+            mcv_fL=82, rdw_pct=11.5, wbc_10e9L=4.0,
+            alkaline_phosphatase_uL=40,
         ),
         prior_results={}, formula=lookup_formula(phenoage_config.formula),
         gate=None,
