@@ -676,6 +676,8 @@ def build_cpet_coach_summary(
     metabolic_profile = build_metabolic_profile(normalized)
     consistency_rows = _build_consistency_checks(normalized, fitness, raw_metrics=metrics)
     trend_notes = _build_trend_notes(normalized, previous_metrics or {})
+    result_rows = _build_result_rows(normalized, fitness, validity, flags, training_zones, metabolic_profile, trend_notes)
+    action_plan = _build_action_plan(normalized, client_context, fitness, flags, training_zones, metabolic_profile)
 
     if not flags:
         flags.append(
@@ -692,6 +694,9 @@ def build_cpet_coach_summary(
         "fitness_classification": fitness,
         "validity_gate": validity,
         "coach_flags": flags,
+        "result_headline": _build_result_headline(normalized, fitness, validity, flags, training_zones),
+        "result_rows": result_rows,
+        "action_plan": action_plan,
         "training_zones": training_zones,
         "metabolic_profile": metabolic_profile,
         "training_narrative": _training_narrative(normalized, training_zones),
@@ -1317,6 +1322,399 @@ def _build_consistency_checks(
             )
 
     return rows
+
+
+def _build_result_headline(
+    metrics: dict[str, Any],
+    fitness: dict[str, Any] | None,
+    validity: list[dict[str, str]],
+    flags: list[dict[str, str]],
+    zones: dict[str, Any],
+) -> dict[str, str]:
+    """Build the plain-language result headline shown above the detailed tables."""
+    peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    peak_rer = _as_float(metrics.get("peak_rer"))
+
+    if peak_vo2 is None:
+        return {
+            "Level": "Caution",
+            "Headline": "Key CPET values are still missing.",
+            "Meaning": "Peak VO2 was not entered, so the aerobic-capacity result cannot be classified.",
+            "Next step": "Add peak VO2, RER, VT1, VT2, and SpO2 before making a detailed plan.",
+        }
+
+    safety_flags = _clinical_review_flags(flags, priority="High")
+    if safety_flags:
+        return {
+            "Level": "High",
+            "Headline": "Medical-pattern review comes before training progression.",
+            "Meaning": (
+                f"{len(safety_flags)} high-priority CPET signal(s) were detected. Use this as coaching decision-support "
+                "and keep diagnosis, clearance, and abnormal-pattern interpretation with the supervising clinician."
+            ),
+            "Next step": "Resolve the high-priority review flags before adding unsupervised intensity.",
+        }
+
+    submax = any(row.get("Status") in {"Submaximal", "Borderline"} for row in validity)
+    if submax:
+        return {
+            "Level": "Caution",
+            "Headline": "The result is useful, but peak capacity may be underestimated.",
+            "Meaning": (
+                "Effort quality was not clearly maximal. Thresholds, VE/VCO2, symptoms, and serial comparison may be "
+                "more reliable than a one-number VO2peak headline."
+            ),
+            "Next step": "Coach from measured thresholds and consider whether a repeat test is clinically useful.",
+        }
+
+    fitness_label = None
+    if fitness and fitness.get("percentile") is not None:
+        fitness_label = f"{fitness.get('category')} ({fitness.get('percentile_label')})"
+    elif fitness and fitness.get("insufficient_context"):
+        fitness_label = "not yet classified against age/sex norms"
+    else:
+        fitness_label = "ready for coarse interpretation"
+
+    zone_phrase = "with threshold-based zones available" if zones.get("has_zones") else "but threshold zones are incomplete"
+    effort_phrase = "maximal effort confirmed" if peak_rer is not None and peak_rer >= 1.10 else "effort context incomplete"
+    return {
+        "Level": "Routine",
+        "Headline": f"Peak VO2 is {peak_vo2:.1f} mL/kg/min, {fitness_label}, {zone_phrase}.",
+        "Meaning": f"{effort_phrase}; use the measured thresholds to turn the result into training targets.",
+        "Next step": "Start with the action plan below, then retest with the same protocol after the next training block.",
+    }
+
+
+def _build_result_rows(
+    metrics: dict[str, Any],
+    fitness: dict[str, Any] | None,
+    validity: list[dict[str, str]],
+    flags: list[dict[str, str]],
+    zones: dict[str, Any],
+    metabolic_profile: dict[str, Any] | None,
+    trend_notes: list[str],
+) -> list[dict[str, str]]:
+    """Create detailed result rows: finding, meaning, and coach response."""
+    rows: list[dict[str, str]] = []
+
+    peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
+    if peak_vo2 is None:
+        rows.append(
+            {
+                "Domain": "Aerobic capacity",
+                "Finding": "Peak VO2 missing.",
+                "What it means": "The main aerobic-capacity result cannot be graded.",
+                "Coach response": "Enter peak VO2 plus age, sex, modality, and effort markers before explaining fitness.",
+            }
+        )
+    elif fitness and fitness.get("percentile") is not None:
+        rows.append(
+            {
+                "Domain": "Aerobic capacity",
+                "Finding": (
+                    f"{peak_vo2:.1f} mL/kg/min, {fitness.get('category')} "
+                    f"({fitness.get('percentile_label')}) for {fitness.get('reference_group', 'this profile')}."
+                ),
+                "What it means": (
+                    "This is the age/sex/modality-normalized fitness headline. It is more useful for coaching than "
+                    "a cart-generated label or percent-predicted value alone."
+                ),
+                "Coach response": "Use this as the capacity baseline; judge sport performance with thresholds and durability too.",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "Domain": "Aerobic capacity",
+                "Finding": f"{peak_vo2:.1f} mL/kg/min.",
+                "What it means": "Age, biological sex, or modality are missing, so only a coarse interpretation is possible.",
+                "Coach response": "Add demographics and modality to classify VO2peak against the right reference norms.",
+            }
+        )
+
+    if validity:
+        effort = next((row for row in validity if row.get("Gate") == "Peak effort"), validity[0])
+        rows.append(
+            {
+                "Domain": "Effort validity",
+                "Finding": f"{effort.get('Status', 'Unknown')}: {effort.get('Interpretation', '')}",
+                "What it means": "Peak VO2 is most trustworthy when effort, HR response, symptoms, and ramp duration agree.",
+                "Coach response": (
+                    "If effort was submaximal, do not frame a low VO2peak as the client's ceiling; use thresholds and "
+                    "consider repeat testing when appropriate."
+                ),
+            }
+        )
+
+    z2 = zones.get("zone2") or {}
+    if zones.get("has_zones"):
+        anchors = [value for value in (z2.get("power"), z2.get("speed"), z2.get("hr")) if value]
+        target = z2.get("target_hr") or "the top of the VT1-bounded Zone 2 band"
+        rows.append(
+            {
+                "Domain": "Training zones",
+                "Finding": f"Zones are anchored to measured VT1 and VT2 using {zones.get('primary_anchor', 'measured data')}.",
+                "What it means": (
+                    "Zone 2 ends at VT1/LT1; the between-thresholds range is tempo/grey-zone work, not the base zone."
+                ),
+                "Coach response": (
+                    f"Prescribe Zone 2 at {' / '.join(anchors) if anchors else 'the measured threshold band'}; "
+                    f"aim near {target} and cap easy work at VT1."
+                ),
+            }
+        )
+    else:
+        rows.append(
+            {
+                "Domain": "Training zones",
+                "Finding": "VT1/VT2 anchors are incomplete.",
+                "What it means": "Percent-HRmax zones are less individualized and can misplace easy, tempo, and hard work.",
+                "Coach response": "Enter threshold HR, power, speed, or VO2 before giving a threshold-based plan.",
+            }
+        )
+
+    medical_flags = _clinical_review_flags(flags)
+    if medical_flags:
+        top = sorted(medical_flags, key=lambda item: _priority_rank(item.get("Priority")))[0]
+        rows.append(
+            {
+                "Domain": "Medical-pattern clues",
+                "Finding": f"{top.get('Priority', 'Review')}: {top.get('Signal', '')}",
+                "What it means": "These values can suggest cardiopulmonary, pulmonary vascular, ventilatory, or oxygen-delivery patterns.",
+                "Coach response": top.get("Coach action", "Keep interpretation with the supervising clinician."),
+            }
+        )
+    else:
+        rows.append(
+            {
+                "Domain": "Medical-pattern clues",
+                "Finding": "No entered VE/VCO2, breathing-reserve, O2-pulse, PETCO2, or SpO2 value triggered a review flag.",
+                "What it means": "No obvious abnormal pattern was detected from the values entered.",
+                "Coach response": "Continue to treat CPET pattern interpretation as clinician-led, especially if symptoms were present.",
+            }
+        )
+
+    if metabolic_profile:
+        mfo = metabolic_profile.get("mfo_g_min")
+        fatmax_hr = metabolic_profile.get("fatmax_hr")
+        rows.append(
+            {
+                "Domain": "Fuel use",
+                "Finding": (
+                    f"MFO {mfo:g} g/min; FatMax {fatmax_hr} bpm."
+                    if mfo is not None and fatmax_hr is not None
+                    else "FatMax or MFO was detected."
+                ),
+                "What it means": "FatMax helps set the floor of endurance work; it is not the full Zone 2 target.",
+                "Coach response": "Build consistent below-VT1 volume and recheck whether MFO rises or shifts closer to VT1.",
+            }
+        )
+    else:
+        rows.append(
+            {
+                "Domain": "Fuel use",
+                "Finding": "FatMax/MFO data not entered.",
+                "What it means": "The plan can still use VT1/VT2 zones, but substrate-specific claims should be avoided.",
+                "Coach response": "Only discuss fat oxidation if the report includes valid submaximal substrate data.",
+            }
+        )
+
+    if trend_notes:
+        rows.append(
+            {
+                "Domain": "Trend",
+                "Finding": " ".join(trend_notes[:2]),
+                "What it means": "Serial CPET is most useful when protocol, modality, preparation, and effort are comparable.",
+                "Coach response": "Use the same lab/protocol where possible and compare changes larger than expected test noise.",
+            }
+        )
+
+    return rows
+
+
+def _build_action_plan(
+    metrics: dict[str, Any],
+    client_context: str,
+    fitness: dict[str, Any] | None,
+    flags: list[dict[str, str]],
+    zones: dict[str, Any],
+    metabolic_profile: dict[str, Any] | None,
+) -> list[dict[str, str]]:
+    """Turn the CPET result into coach-safe next steps."""
+    plan: list[dict[str, str]] = []
+    safety_flags = _clinical_review_flags(flags, priority="High")
+    peak_rer = _as_float(metrics.get("peak_rer"))
+    effort_limited = peak_rer is not None and peak_rer < 1.05
+    zones_ready = bool(zones.get("has_zones"))
+
+    if safety_flags:
+        plan.append(
+            {
+                "Priority": "1",
+                "Focus": "Safety handoff",
+                "Do this": "Review high-priority CPET signals with the supervising clinician before progressing intensity.",
+                "Dose / target": "; ".join(flag.get("Area", "Review") for flag in safety_flags[:3]),
+                "Why": "CPET can reveal cardiac, pulmonary, vascular, or oxygen-delivery patterns that are not coaching diagnoses.",
+                "Guardrail": "No unsupervised hard intervals until the clinician confirms clearance and limits.",
+            }
+        )
+    elif effort_limited:
+        plan.append(
+            {
+                "Priority": "1",
+                "Focus": "Validity cleanup",
+                "Do this": "Do not downgrade fitness from this peak VO2 alone; confirm symptoms, protocol, and whether the test ended early.",
+                "Dose / target": f"Peak RER {peak_rer:.2f}",
+                "Why": "Submaximal effort can make peak VO2 look lower than true capacity.",
+                "Guardrail": "Use VT1/VT2 and VE/VCO2 more than the peak value until effort is clarified.",
+            }
+        )
+    else:
+        plan.append(
+            {
+                "Priority": "1",
+                "Focus": "Clearance boundary",
+                "Do this": "Keep the CPET medical interpretation separate from the coaching plan.",
+                "Dose / target": "Confirm no chest pain, unusual dyspnea, dizziness, arrhythmia symptoms, or clinician restrictions.",
+                "Why": "A coaching plan can use thresholds, but abnormal-pattern interpretation remains clinical.",
+                "Guardrail": "Stop and refer back if symptoms appear or clinician limits are unclear.",
+            }
+        )
+
+    missing: list[str] = []
+    if not (fitness and fitness.get("percentile") is not None):
+        missing.append("age/sex/modality for VO2 percentile")
+    if "peak_rer" not in metrics:
+        missing.append("peak RER")
+    if not zones_ready:
+        missing.append("VT1 and VT2 anchors")
+    if "spo2_nadir_pct" not in metrics:
+        missing.append("SpO2 nadir")
+    if missing:
+        plan.append(
+            {
+                "Priority": "2",
+                "Focus": "Complete the dataset",
+                "Do this": "Fill the missing fields before presenting the result as final.",
+                "Dose / target": ", ".join(missing),
+                "Why": "These fields change the fitness grade, effort confidence, safety interpretation, and zone prescription.",
+                "Guardrail": "Label the plan provisional until the missing values are added.",
+            }
+        )
+
+    z2 = zones.get("zone2") or {}
+    if zones_ready:
+        z2_targets = [value for value in (z2.get("power"), z2.get("speed"), z2.get("hr")) if value]
+        plan.append(
+            {
+                "Priority": "3",
+                "Focus": "Base training",
+                "Do this": "Move most aerobic work below VT1, with steady sessions near the top of Zone 2 when recovered.",
+                "Dose / target": (
+                    f"{' / '.join(z2_targets)}; aim {z2.get('target_hr', 'just under VT1')}; "
+                    f"hard cap {z2.get('ceiling_hr', 'VT1')} bpm"
+                ),
+                "Why": "Below-VT1 work builds aerobic durability and fat oxidation with lower recovery cost.",
+                "Guardrail": "If HR drifts above VT1, reduce power/pace or end the steady block.",
+            }
+        )
+        vt2_target = _format_threshold_target(metrics, zones.get("primary_anchor"))
+        plan.append(
+            {
+                "Priority": "4",
+                "Focus": "Raise the threshold",
+                "Do this": _context_quality_session(client_context, safety_flags),
+                "Dose / target": vt2_target,
+                "Why": "Work near VT2 targets the sustainable ceiling after the base work is stable.",
+                "Guardrail": "Skip this step during illness, poor recovery, new symptoms, or unresolved high-priority flags.",
+            }
+        )
+    else:
+        plan.append(
+            {
+                "Priority": "3",
+                "Focus": "Interim training",
+                "Do this": "Use easy conversational training until threshold anchors are available.",
+                "Dose / target": "RPE 3-4/10; talk-test positive; avoid fixed %HRmax as the main prescription.",
+                "Why": "Without VT1/VT2, the app cannot separate easy, tempo, and hard domains precisely.",
+                "Guardrail": "Add CPET threshold values before progressing structured intensity.",
+            }
+        )
+
+    if metabolic_profile:
+        mfo_class = metabolic_profile.get("mfo_class", "detected")
+        plan.append(
+            {
+                "Priority": "5",
+                "Focus": "Fuel-system follow-up",
+                "Do this": "Track whether FatMax shifts closer to VT1 and whether MFO rises after a base block.",
+                "Dose / target": f"MFO class: {mfo_class}",
+                "Why": "A rightward FatMax shift usually means better use of fat at higher sustainable intensities.",
+                "Guardrail": "Do not use substrate numbers from stages where RER is near or above 1.0.",
+            }
+        )
+
+    plan.append(
+        {
+            "Priority": "6",
+            "Focus": "Strength and repeat testing",
+            "Do this": "Add whole-body resistance training and schedule a like-for-like CPET reassessment.",
+            "Dose / target": "Strength 2 days/week; retest after a 6-8 week block with the same modality and protocol.",
+            "Why": "Strength supports health and performance; serial CPET shows whether VO2, VT1/VT2, and VE/VCO2 moved.",
+            "Guardrail": "Compare only against similar preparation, medication timing, and effort quality.",
+        }
+    )
+    return plan
+
+
+def _priority_rank(priority: str | None) -> int:
+    return {"High": 0, "Medium": 1, "Routine": 2}.get(priority or "", 3)
+
+
+_CLINICAL_REVIEW_AREAS = {
+    "Ventilatory efficiency",
+    "Breathing reserve",
+    "O2 pulse",
+    "VO2/work-rate slope",
+    "PETCO2",
+    "Exercise oxygen saturation",
+}
+
+
+def _clinical_review_flags(
+    flags: list[dict[str, str]],
+    priority: str | None = None,
+) -> list[dict[str, str]]:
+    review_flags = [flag for flag in flags if flag.get("Area") in _CLINICAL_REVIEW_AREAS]
+    if priority is not None:
+        review_flags = [flag for flag in review_flags if flag.get("Priority") == priority]
+    return review_flags
+
+
+def _format_threshold_target(metrics: dict[str, Any], primary_anchor: str | None) -> str:
+    vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
+    vt2_power = _as_float(metrics.get("vt2_power_w"))
+    vt2_speed = _as_float(metrics.get("vt2_speed_kmh"))
+    targets: list[str] = []
+    if primary_anchor == "power" and vt2_power is not None:
+        targets.append(f"around {round(vt2_power)} W")
+    elif primary_anchor == "pace" and vt2_speed is not None:
+        targets.append(f"around {vt2_speed:.1f} km/h")
+    if vt2_hr is not None:
+        targets.append(f"near {round(vt2_hr)} bpm")
+    return " / ".join(targets) if targets else "around measured VT2/RCP"
+
+
+def _context_quality_session(client_context: str, high_flags: list[dict[str, str]]) -> str:
+    if high_flags:
+        return "Hold hard training until the high-priority clinical review is resolved."
+    if client_context == "cardiology":
+        return "Use only clinician-approved intensity ceilings; prioritize supervised or prescribed sessions."
+    if client_context == "hybrid":
+        return "Use one threshold-focused aerobic session, then progress sport-specific repeated efforts only after base tolerance is stable."
+    if client_context == "endurance":
+        return "Use one to two controlled threshold sessions per week, keeping most total time below VT1."
+    return "Use one controlled threshold session per week only after easy volume is tolerated."
 
 
 def _build_coach_flags(

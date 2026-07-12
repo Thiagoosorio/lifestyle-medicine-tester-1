@@ -270,6 +270,35 @@ def _render_fitness_banner(fitness: dict | None) -> None:
         st.caption(caveat)
 
 
+def _render_result_overview(summary: dict) -> None:
+    headline = summary.get("result_headline") or {}
+    if headline:
+        level = headline.get("Level")
+        body = (
+            f"**{headline.get('Headline', '')}**\n\n"
+            f"{headline.get('Meaning', '')}\n\n"
+            f"**Next:** {headline.get('Next step', '')}"
+        )
+        if level == "High":
+            st.error(body)
+        elif level == "Caution":
+            st.warning(body)
+        elif level == "Routine":
+            st.success(body)
+        else:
+            st.info(body)
+
+    rows = summary.get("result_rows") or []
+    if rows:
+        st.markdown("**Detailed result interpretation**")
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+    plan = summary.get("action_plan") or []
+    if plan:
+        st.markdown("**What to do next**")
+        st.dataframe(pd.DataFrame(plan), use_container_width=True, hide_index=True)
+
+
 def _render_training_zones(zones: dict | None, narrative: str | None) -> None:
     if not zones:
         return
@@ -339,6 +368,7 @@ def _render_summary(
     )
 
     _render_fitness_banner(summary.get("fitness_classification"))
+    _render_result_overview(summary)
 
     validity = summary["validity_gate"]
     if validity:

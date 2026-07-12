@@ -278,6 +278,64 @@ def test_cpet_summary_flags_quality_medical_and_zone_items():
     assert "Athlete predicted norms" in areas
 
 
+def test_cpet_summary_includes_detailed_results_and_next_steps():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 36,
+            "sex": "female",
+            "age_years": 25,
+            "peak_rer": 1.10,
+            "peak_hr_bpm": 167,
+            "predicted_hr_bpm": 175,
+            "vt1_hr_bpm": 95,
+            "vt2_hr_bpm": 151,
+            "vt1_power_w": 99,
+            "vt2_power_w": 164,
+            "peak_power_w": 190,
+            "ve_vco2_slope": 22.8,
+            "spo2_nadir_pct": 96,
+            "fatmax_hr_bpm": 86,
+            "fatmax_g_min": 0.53,
+        },
+        modality="cycle ergometer",
+    )
+
+    headline = summary["result_headline"]
+    assert headline["Level"] == "Routine"
+    assert "Peak VO2 is 36.0" in headline["Headline"]
+
+    domains = {row["Domain"] for row in summary["result_rows"]}
+    assert {"Aerobic capacity", "Effort validity", "Training zones", "Medical-pattern clues", "Fuel use"} <= domains
+
+    plan = summary["action_plan"]
+    assert any(row["Focus"] == "Base training" and "89-99 W" in row["Dose / target"] for row in plan)
+    assert any(row["Focus"] == "Raise the threshold" and "164 W" in row["Dose / target"] for row in plan)
+    assert any(row["Focus"] == "Strength and repeat testing" for row in plan)
+
+
+def test_cpet_action_plan_prioritizes_safety_review_for_clinical_flags():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 24,
+            "sex": "male",
+            "age_years": 58,
+            "peak_rer": 1.11,
+            "vt1_hr_bpm": 105,
+            "vt2_hr_bpm": 138,
+            "breathing_reserve_pct": 8,
+            "spo2_nadir_pct": 88,
+            "o2_pulse_pct_pred": 72,
+        },
+        modality="treadmill",
+    )
+
+    assert summary["result_headline"]["Level"] == "High"
+    first_step = summary["action_plan"][0]
+    assert first_step["Focus"] == "Safety handoff"
+    assert "Breathing reserve" in first_step["Dose / target"]
+    assert "clinician" in first_step["Do this"].lower()
+
+
 def test_training_zone2_tops_out_at_vt1_not_vt2():
     # The core fix: endurance Zone 2 must end at VT1, never span to VT2.
     zones = build_training_zones(
