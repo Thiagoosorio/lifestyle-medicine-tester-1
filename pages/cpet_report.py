@@ -27,6 +27,32 @@ from services.cpet_vision_service import (
     render_pdf_pages_to_images,
     vision_model,
 )
+from services.cpet_report_html import generate_cpet_client_report
+
+
+def _render_client_report_download(metrics: dict, *, key: str, athlete_default: str,
+                                   test_date: str, modality: str | None, protocol: str | None) -> None:
+    """Athlete-name + branding inputs, generate, and download the client HTML report."""
+    cols = st.columns([2, 2, 1])
+    name = cols[0].text_input("Athlete name (on the report)", value=athlete_default or "", key=f"{key}_name")
+    org = cols[1].text_input("Lab / coach name", value=st.session_state.get(f"{key}_org", "Performance Lab"), key=f"{key}_org")
+    if cols[2].button("Generate", key=f"{key}_gen", use_container_width=True):
+        try:
+            st.session_state[f"{key}_html"] = generate_cpet_client_report(
+                metrics, athlete_name=name or "Athlete", test_date=test_date or "",
+                modality=modality, protocol=protocol, org_name=org or "Performance Lab",
+            )
+        except Exception as exc:  # never let report-gen crash the page
+            st.error(f"Could not build the report: {exc}")
+    if st.session_state.get(f"{key}_html"):
+        safe = (name or "athlete").strip().replace(" ", "_") or "athlete"
+        st.download_button(
+            "Download client report (HTML — open & print to PDF)",
+            data=st.session_state[f"{key}_html"],
+            file_name=f"cpet_report_{safe}_{test_date or 'report'}.html",
+            mime="text/html", use_container_width=True, type="primary", key=f"{key}_dl",
+        )
+        st.caption("Open the file in any browser and print to PDF (Ctrl/Cmd+P) to share a polished, branded PDF with your client.")
 
 
 A = APPLE
@@ -403,6 +429,16 @@ def _render_saved_report(report: dict, previous: dict | None = None) -> None:
         if report.get("notes"):
             st.markdown("**Coach notes**")
             st.write(report["notes"])
+        st.divider()
+        st.markdown("**Client report** — a polished, shareable summary of this test")
+        _render_client_report_download(
+            metrics,
+            key=f"clirep_{report['id']}",
+            athlete_default="",
+            test_date=report.get("test_date", ""),
+            modality=report.get("test_modality"),
+            protocol=report.get("protocol"),
+        )
         if st.button("Delete CPET report", key=f"delete_cpet_{report['id']}", type="secondary"):
             delete_cpet_report(user_id, report["id"])
             st.toast("CPET report deleted.")
@@ -617,6 +653,17 @@ with tab_upload:
             previous_metrics=latest["metrics"] if latest else None,
             modality=extracted.get("test_modality"),
         )
+        if extracted.get("metrics"):
+            st.divider()
+            st.markdown("**Client report** — generate a polished, shareable summary from these values")
+            _render_client_report_download(
+                extracted["metrics"],
+                key="clirep_extracted",
+                athlete_default="",
+                test_date=extracted.get("test_date") or "",
+                modality=extracted.get("test_modality"),
+                protocol=extracted.get("protocol"),
+            )
 
         with st.form("cpet_extracted_form"):
             test_date, context, modality, protocol, metrics, notes = _collect_report_form(extracted, "cpet_extracted")

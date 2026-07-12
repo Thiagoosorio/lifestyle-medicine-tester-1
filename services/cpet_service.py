@@ -859,6 +859,29 @@ def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -
         zone2["speed"] = f"{ZONE2_FLOOR_COEFF * vt1_sp:.1f}-{vt1_sp:.1f} km/h"
     result["zone2"] = zone2
 
+    # Numeric anchors for charting (zone bar). None-safe; edges are the shared
+    # thresholds so the SVG never re-derives them.
+    peak_hr = _as_float(metrics.get("peak_hr_bpm"))
+    peak_pw = _as_float(metrics.get("peak_power_w"))
+    chart: dict[str, Any] = {}
+    if vt1_hr is not None and vt2_hr is not None:
+        chart["hr"] = {
+            "floor": round(zone2_floor_hr) if zone2_floor_hr is not None else None,
+            "vt1": round(vt1_hr), "mid": round((vt1_hr + vt2_hr) / 2), "vt2": round(vt2_hr),
+            "peak": round(peak_hr) if peak_hr is not None else round(vt2_hr + 12),
+            "fatmax_low": round(fatmax_low) if fatmax_low is not None else None,
+            "fatmax_high": round(min(fatmax_high, vt1_hr)) if fatmax_high is not None else None,
+            "target": round(vt1_hr - ZONE2_TARGET_OFFSET_BPM),
+            "core_lo": round(vt1_hr - ZONE2_CORE_WIDTH_BPM),
+        }
+    if vt1_pw is not None and vt2_pw is not None:
+        chart["power"] = {
+            "floor": round(ZONE2_FLOOR_COEFF * vt1_pw), "vt1": round(vt1_pw),
+            "mid": round((vt1_pw + vt2_pw) / 2), "vt2": round(vt2_pw),
+            "peak": round(peak_pw) if peak_pw is not None else round(vt2_pw * 1.15),
+        }
+    result["chart"] = chart
+
     # Polarized 3-zone monitor (distribution monitoring only — NOT the prescriptive Z2).
     def _pol(v1, v2, unit, dec):
         if v1 is None or v2 is None:
