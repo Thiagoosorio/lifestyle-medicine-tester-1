@@ -1286,7 +1286,7 @@ def _section_recommendations(data):
             low_habits.append(h["name"])
     if low_habits:
         if len(low_habits) <= 3:
-            names = ", ".join(f'"{n}"' for n in low_habits)
+            names = ", ".join(f'"{_esc(n)}"' for n in low_habits)
         else:
             names = f"{len(low_habits)} habits"
         recs.append(

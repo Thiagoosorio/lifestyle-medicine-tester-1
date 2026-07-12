@@ -35,10 +35,14 @@ def test_build_critical_communication_plan_applies_analyte_protocol():
     assert potassium["notify_within_minutes"] == 15
     assert potassium["urgency_level"] == "immediate"
     assert potassium["critical_threshold"].startswith(">")
+    assert "emergency care" in potassium["patient_action"].lower()
+    assert "chest pain" in potassium["red_flag_symptoms"]
 
     hs_crp = next(r for r in plan["alerts"] if r["code"] == "hs_crp")
     assert hs_crp["notify_within_minutes"] == 60
     assert hs_crp["urgency_level"] == "urgent_review"
+    assert "responsible clinician" in hs_crp["patient_action"]
+    assert hs_crp["red_flag_symptoms"]
 
 
 def test_build_critical_communication_plan_from_results_detects_critical():

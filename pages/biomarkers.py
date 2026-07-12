@@ -59,6 +59,7 @@ def _critical_rows(plan: dict) -> list[dict]:
                 "Notify <= (min)": row.get("notify_within_minutes"),
                 "Escalate after (min)": row.get("escalate_after_minutes"),
                 "Urgency": row.get("urgency_level"),
+                "Patient Action": row.get("patient_action"),
             }
         )
     return rows
@@ -113,7 +114,21 @@ with tab_dashboard:
         results = get_latest_results(user_id)
         critical_plan = build_critical_communication_plan_from_results(results)
         if critical_plan.get("has_critical"):
-            st.error("Critical lab values detected. Use urgent communication workflow immediately.")
+            st.error(
+                "Critical lab values detected. Use urgent communication workflow immediately; "
+                "patients with red-flag symptoms should seek emergency care now."
+            )
+            for alert in critical_plan.get("alerts", []):
+                with st.container(border=True):
+                    st.markdown(
+                        f"**{alert.get('name')}**: {alert.get('value')} {alert.get('unit') or ''} "
+                        f"({alert.get('classification')}, threshold {alert.get('critical_threshold')})"
+                    )
+                    st.markdown(alert.get("recommended_action") or "")
+                    if alert.get("patient_action"):
+                        st.warning(alert["patient_action"])
+                    if alert.get("red_flag_symptoms"):
+                        st.caption("Red flags: " + ", ".join(alert["red_flag_symptoms"]))
             rows = _critical_rows(critical_plan)
             if rows:
                 st.dataframe(rows, use_container_width=True, hide_index=True)
@@ -411,7 +426,8 @@ with tab_upload:
         f'<div style="font-size:13px;color:{A["label_secondary"]};line-height:19px">'
         f'<strong>How it works:</strong> Upload one or many PDF lab reports at once. '
         f'AI reads each report, auto-detects the lab date and name, extracts biomarkers, '
-        f'and groups everything by date for review. Works with any lab worldwide.'
+        f'and groups recognized biomarkers by date for review. Extraction quality depends '
+        f'on PDF readability, language, units, and report layout.'
         f'</div></div>'
     )
     st.markdown(info_html, unsafe_allow_html=True)

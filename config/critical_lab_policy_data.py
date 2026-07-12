@@ -26,6 +26,7 @@ CRITICAL_COMMUNICATION_POLICY = {
     ],
     "workflow_steps": [
         "Verify result integrity (sample identity, unit, obvious pre-analytical issues).",
+        "Screen for red-flag symptoms and direct symptomatic patients to emergency care.",
         "Notify responsible clinician within the configured time window.",
         "Require read-back confirmation of marker, value, and units.",
         "Escalate if no acknowledgment within escalation window.",
@@ -66,30 +67,95 @@ CRITICAL_ANALYTE_PROTOCOL = {
         "notify_within_minutes": 15,
         "escalate_after_minutes": 10,
         "recommended_action": "Immediate clinician callback; confirm ECG/arrhythmia risk triage.",
+        "patient_action": (
+            "If palpitations, chest pain, severe weakness, fainting, confusion, or shortness of breath "
+            "are present, seek emergency care now. If asymptomatic, contact the responsible clinician "
+            "immediately and do not change potassium intake or medications without instructions."
+        ),
+        "red_flag_symptoms": [
+            "palpitations",
+            "chest pain",
+            "severe weakness",
+            "fainting",
+            "confusion",
+            "shortness of breath",
+        ],
     },
     "sodium": {
         "urgency_level": "immediate",
         "notify_within_minutes": 15,
         "escalate_after_minutes": 10,
         "recommended_action": "Immediate clinician callback; assess acute neurologic risk and volume status.",
+        "patient_action": (
+            "If confusion, seizure, severe headache, repeated vomiting, fainting, or marked drowsiness "
+            "are present, seek emergency care now. If asymptomatic, contact the responsible clinician "
+            "immediately and avoid rapid fluid or salt correction unless directed."
+        ),
+        "red_flag_symptoms": [
+            "confusion",
+            "seizure",
+            "severe headache",
+            "repeated vomiting",
+            "fainting",
+            "marked drowsiness",
+        ],
     },
     "calcium": {
         "urgency_level": "immediate",
         "notify_within_minutes": 15,
         "escalate_after_minutes": 10,
         "recommended_action": "Immediate clinician callback; triage for neuromuscular/cardiac instability.",
+        "patient_action": (
+            "If confusion, severe weakness, fainting, chest pain, irregular heartbeat, or muscle spasms "
+            "are present, seek emergency care now. If asymptomatic, contact the responsible clinician "
+            "immediately before taking supplements or changing medication."
+        ),
+        "red_flag_symptoms": [
+            "confusion",
+            "severe weakness",
+            "fainting",
+            "chest pain",
+            "irregular heartbeat",
+            "muscle spasms",
+        ],
     },
     "hemoglobin": {
         "urgency_level": "urgent",
         "notify_within_minutes": 30,
         "escalate_after_minutes": 15,
         "recommended_action": "Urgent clinician callback; assess bleeding/hemodynamic context.",
+        "patient_action": (
+            "If chest pain, shortness of breath at rest, fainting, black stools, vomiting blood, or heavy "
+            "active bleeding are present, seek emergency care now. If asymptomatic, contact the responsible "
+            "clinician urgently for same-day guidance."
+        ),
+        "red_flag_symptoms": [
+            "chest pain",
+            "shortness of breath at rest",
+            "fainting",
+            "black stools",
+            "vomiting blood",
+            "heavy active bleeding",
+        ],
     },
     "platelets": {
         "urgency_level": "urgent",
         "notify_within_minutes": 30,
         "escalate_after_minutes": 15,
         "recommended_action": "Urgent clinician callback; assess bleeding/thrombotic risk context.",
+        "patient_action": (
+            "If uncontrolled bleeding, new neurologic symptoms, severe headache, chest pain, shortness of "
+            "breath, or extensive new bruising are present, seek emergency care now. If asymptomatic, "
+            "contact the responsible clinician urgently and avoid aspirin/NSAIDs unless directed."
+        ),
+        "red_flag_symptoms": [
+            "uncontrolled bleeding",
+            "new neurologic symptoms",
+            "severe headache",
+            "chest pain",
+            "shortness of breath",
+            "extensive new bruising",
+        ],
     },
 }
 
@@ -99,5 +165,19 @@ DEFAULT_CRITICAL_PROTOCOL = {
     "notify_within_minutes": CRITICAL_COMMUNICATION_POLICY["default_notify_within_minutes"],
     "escalate_after_minutes": CRITICAL_COMMUNICATION_POLICY["default_escalate_after_minutes"],
     "recommended_action": "Notify responsible clinician promptly and document read-back.",
+    "patient_action": (
+        "If severe symptoms, chest pain, shortness of breath, fainting, confusion, seizure, major bleeding, "
+        "or rapidly worsening condition are present, seek emergency care now. Otherwise contact the "
+        "responsible clinician promptly for individualized instructions."
+    ),
+    "red_flag_symptoms": [
+        "chest pain",
+        "shortness of breath",
+        "fainting",
+        "confusion",
+        "seizure",
+        "major bleeding",
+        "rapidly worsening condition",
+    ],
 }
 

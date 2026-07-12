@@ -177,6 +177,7 @@ def _critical_policy_rows(plan: dict) -> list[dict]:
                 "Escalate after (min)": row.get("escalate_after_minutes"),
                 "Urgency": row.get("urgency_level"),
                 "Recommended Action": row.get("recommended_action"),
+                "Patient Action": row.get("patient_action"),
             }
         )
     return rows
@@ -213,6 +214,10 @@ def _render_critical_policy_block(snapshot: dict) -> None:
             )
             st.markdown(deadline_text)
             st.markdown(alert.get("recommended_action") or "")
+            if alert.get("patient_action"):
+                st.warning(alert["patient_action"])
+            if alert.get("red_flag_symptoms"):
+                st.caption("Red flags: " + ", ".join(alert["red_flag_symptoms"]))
             st.caption(
                 f"Detected {alert.get('detected_at_iso')} | "
                 f"Escalate if no acknowledgment by {alert.get('escalate_by_iso')} | "

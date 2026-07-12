@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 import streamlit as st
+from components.html_utils import escape_html
 from config.env_flags import is_demo_mode
 from db.database import get_connection, init_db
 
@@ -152,7 +153,7 @@ else:
         }
     )
     with st.sidebar:
-        display = st.session_state.get("display_name", "User")
+        display = escape_html(st.session_state.get("display_name", "User"))
         sidebar_html = (
             '<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.10);'
             'border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">'

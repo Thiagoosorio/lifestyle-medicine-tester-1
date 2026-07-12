@@ -278,6 +278,99 @@ def _render_fitness_banner(fitness: dict | None) -> None:
         st.caption(caveat)
 
 
+def _render_raw_table(label: str, rows: list[dict] | dict) -> None:
+    if not rows:
+        return
+    table_rows = rows if isinstance(rows, list) else [rows]
+    with st.expander(label):
+        st.dataframe(pd.DataFrame(table_rows), use_container_width=True, hide_index=True)
+
+
+def _render_result_cards(rows: list[dict]) -> None:
+    if not rows:
+        return
+    st.markdown("**Detailed result interpretation**")
+    for row in rows:
+        with st.container(border=True):
+            st.markdown(f"**{row.get('Domain', 'CPET finding')}**")
+            st.markdown(row.get("Finding", ""))
+            cols = st.columns(2)
+            with cols[0]:
+                st.markdown("**What it means**")
+                st.markdown(row.get("What it means", ""))
+            with cols[1]:
+                st.markdown("**Coach response**")
+                st.markdown(row.get("Coach response", ""))
+    _render_raw_table("View raw result table", rows)
+
+
+def _render_limiter_card(limiter: dict) -> None:
+    if not limiter:
+        return
+    st.markdown("**Limiter / archetype**")
+    with st.container(border=True):
+        st.markdown(f"**{limiter.get('Archetype') or limiter.get('Limiter') or 'Pattern not classified'}**")
+        if limiter.get("Evidence"):
+            st.markdown(limiter["Evidence"])
+        if limiter.get("Program emphasis"):
+            st.markdown(f"**Program emphasis:** {limiter['Program emphasis']}")
+        details = []
+        if limiter.get("Limiter"):
+            details.append(f"Limiter: {limiter['Limiter']}")
+        if limiter.get("Retest target"):
+            details.append(f"Retest target: {limiter['Retest target']}")
+        if details:
+            st.caption(" | ".join(details))
+    _render_raw_table("View raw limiter table", limiter)
+
+
+def _render_overlay_cards(rows: list[dict]) -> None:
+    if not rows:
+        return
+    st.markdown("**Athlete overlay**")
+    for row in rows:
+        with st.container(border=True):
+            st.markdown(f"**{row.get('Finding', 'Sport-context finding')}**")
+            if row.get("What it means"):
+                st.markdown(row["What it means"])
+            if row.get("Coach response"):
+                st.markdown(f"**Coach response:** {row['Coach response']}")
+    _render_raw_table("View raw athlete-overlay table", rows)
+
+
+def _render_action_cards(plan: list[dict]) -> None:
+    if not plan:
+        return
+    st.markdown("**What to do next**")
+    for idx, row in enumerate(plan):
+        title = f"{row.get('Priority', idx + 1)}. {row.get('Focus', 'Next step')}"
+        with st.expander(title, expanded=idx < 2):
+            st.markdown(row.get("Do this", ""))
+            if row.get("Dose / target"):
+                st.markdown(f"**Dose / target:** {row['Dose / target']}")
+            if row.get("Why"):
+                st.markdown(f"**Why:** {row['Why']}")
+            if row.get("Guardrail"):
+                st.warning(row["Guardrail"])
+    _render_raw_table("View raw action-plan table", plan)
+
+
+def _render_retest_cards(rows: list[dict]) -> None:
+    if not rows:
+        return
+    st.markdown("**Retest targets**")
+    for row in rows:
+        with st.container(border=True):
+            title = row.get("Metric") or row.get("Focus") or "Retest target"
+            st.markdown(f"**{title}**")
+            st.markdown(f"Current: **{row.get('Current', 'not available')}**")
+            if row.get("Target"):
+                st.markdown(f"Target: **{row['Target']}**")
+            if row.get("Why it matters"):
+                st.caption(row["Why it matters"])
+    _render_raw_table("View raw retest-target table", rows)
+
+
 def _render_result_overview(summary: dict) -> None:
     headline = summary.get("result_headline") or {}
     if headline:
@@ -297,29 +390,19 @@ def _render_result_overview(summary: dict) -> None:
             st.info(body)
 
     rows = summary.get("result_rows") or []
-    if rows:
-        st.markdown("**Detailed result interpretation**")
-        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+    _render_result_cards(rows)
 
     limiter = summary.get("limiter_profile") or {}
-    if limiter:
-        st.markdown("**Limiter / archetype**")
-        st.dataframe(pd.DataFrame([limiter]), use_container_width=True, hide_index=True)
+    _render_limiter_card(limiter)
 
     athlete_overlay = summary.get("athlete_overlay") or []
-    if athlete_overlay:
-        st.markdown("**Athlete overlay**")
-        st.dataframe(pd.DataFrame(athlete_overlay), use_container_width=True, hide_index=True)
+    _render_overlay_cards(athlete_overlay)
 
     plan = summary.get("action_plan") or []
-    if plan:
-        st.markdown("**What to do next**")
-        st.dataframe(pd.DataFrame(plan), use_container_width=True, hide_index=True)
+    _render_action_cards(plan)
 
     retest_targets = summary.get("retest_targets") or []
-    if retest_targets:
-        st.markdown("**Retest targets**")
-        st.dataframe(pd.DataFrame(retest_targets), use_container_width=True, hide_index=True)
+    _render_retest_cards(retest_targets)
 
 
 def _render_training_zones(zones: dict | None, narrative: str | None) -> None:

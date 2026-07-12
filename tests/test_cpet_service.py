@@ -506,3 +506,48 @@ def test_cpet_report_reader_self_heals_missing_table(db_conn, test_user, monkeyp
         conn.close()
 
     assert row is not None
+
+
+def test_cpet_report_schema_migrates_legacy_table(db_conn, test_user, monkeypatch):
+    monkeypatch.setattr(cpet_service, "get_connection", db_conn)
+    conn = db_conn()
+    try:
+        conn.execute("DROP TABLE IF EXISTS cpet_reports")
+        conn.execute(
+            """
+            CREATE TABLE cpet_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id),
+                test_date TEXT NOT NULL,
+                metrics_json TEXT NOT NULL,
+                UNIQUE(user_id, test_date)
+            )
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+    save_cpet_report(
+        user_id=test_user,
+        test_date="2026-06-01",
+        client_context="hybrid",
+        source_filename="legacy.pdf",
+        test_modality="cycle",
+        protocol="ramp",
+        metrics={"peak_vo2_ml_kg_min": 42.0, "peak_rer": 1.12},
+        notes="Migrated row",
+    )
+
+    reports = get_cpet_reports(test_user)
+    assert reports[0]["client_context"] == "hybrid"
+    assert reports[0]["source_filename"] == "legacy.pdf"
+    assert reports[0]["metrics"]["peak_vo2_ml_kg_min"] == 42.0
+
+    conn = db_conn()
+    try:
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(cpet_reports)")}
+    finally:
+        conn.close()
+
+    assert {"client_context", "source_filename", "test_modality", "updated_at"} <= columns

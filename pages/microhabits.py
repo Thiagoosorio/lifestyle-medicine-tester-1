@@ -4,6 +4,7 @@ import streamlit as st
 import plotly.graph_objects as go
 from datetime import date, timedelta
 
+from components.html_utils import escape_html
 from components.custom_theme import (
     APPLE, render_hero_banner, render_section_header,
     render_hero_stats, render_glass_card,
@@ -563,12 +564,13 @@ with tab_miss:
         for h in habits:
             streak = get_habit_streak(h["id"], user_id)
             pillar_color = PILLARS.get(h["pillar_id"], {}).get("color", A["blue"])
+            habit_name = escape_html(h["name"])
             name_html = (
                 f'<div style="font-family:{A["font_text"]};font-size:14px;'
                 f'color:{A["label_primary"]};margin-top:12px">'
                 f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
                 f'background:{pillar_color};margin-right:8px"></span>'
-                f'{h["name"]} <span style="color:{A["label_tertiary"]};font-size:12px">'
+                f'{habit_name} <span style="color:{A["label_tertiary"]};font-size:12px">'
                 f'({streak}d streak)</span></div>'
             )
             st.markdown(name_html, unsafe_allow_html=True)

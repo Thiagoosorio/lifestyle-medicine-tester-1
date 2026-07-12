@@ -457,59 +457,64 @@ def render_hero_banner(title: str, subtitle: str = "") -> None:
 
 def render_hero_stats(stats: list) -> None:
     """Render Material-style stat cards."""
-    cols = st.columns(len(stats))
-    for i, col in enumerate(cols):
-        with col:
-            s = stats[i]
-            icon = s.get("icon", "")
-            value = s.get("value", "")
-            label = s.get("label", "")
-            color = s.get("color", A["green"])
-            delta = s.get("delta")
+    if not stats:
+        return
+    max_cols = 4
+    for row_start in range(0, len(stats), max_cols):
+        row_stats = stats[row_start: row_start + max_cols]
+        cols = st.columns(len(row_stats))
+        for i, col in enumerate(cols):
+            with col:
+                s = row_stats[i]
+                icon = s.get("icon", "")
+                value = s.get("value", "")
+                label = s.get("label", "")
+                color = s.get("color", A["green"])
+                delta = s.get("delta")
 
-            delta_html = ""
-            if delta is not None and str(delta) != "":
-                d = str(delta)
-                if d.startswith("+"):
-                    delta_html = (
-                        f'<div style="font-size:13px;font-weight:600;'
-                        f'margin-top:8px;color:{A["green"]}">&#9650; {d}</div>'
-                    )
-                elif d.startswith("-"):
-                    delta_html = (
-                        f'<div style="font-size:13px;font-weight:600;'
-                        f'margin-top:8px;color:{A["red"]}">&#9660; {d}</div>'
-                    )
-                else:
-                    delta_html = (
-                        f'<div style="font-size:13px;margin-top:8px;'
-                        f'color:{A["label_tertiary"]}">{d}</div>'
-                    )
+                delta_html = ""
+                if delta is not None and str(delta) != "":
+                    d = str(delta)
+                    if d.startswith("+"):
+                        delta_html = (
+                            f'<div style="font-size:13px;font-weight:600;'
+                            f'margin-top:8px;color:{A["green"]}">&#9650; {d}</div>'
+                        )
+                    elif d.startswith("-"):
+                        delta_html = (
+                            f'<div style="font-size:13px;font-weight:600;'
+                            f'margin-top:8px;color:{A["red"]}">&#9660; {d}</div>'
+                        )
+                    else:
+                        delta_html = (
+                            f'<div style="font-size:13px;margin-top:8px;'
+                            f'color:{A["label_tertiary"]}">{d}</div>'
+                        )
 
-            html = (
-                f'<div style="background:#FFFFFF;'
-                f'border:1px solid rgba(0,0,0,0.08);'
-                f'border-left:3px solid {color};'
-                f'border-radius:{A["radius_xl"]};padding:20px;'
-                f'box-shadow:0 1px 3px rgba(0,0,0,0.06);'
-                f'position:relative;overflow:hidden">'
-                f'<div style="position:absolute;top:-30px;right:-20px;'
-                f'width:120px;height:120px;border-radius:50%;pointer-events:none;'
-                f'background:radial-gradient(circle,{color}12 0%,transparent 70%)"></div>'
-                f'<div style="position:relative;z-index:1">'
-                f'<div style="font-size:22px;line-height:1;margin-bottom:8px">{icon}</div>'
-                f'<div style="font-family:{A["font_display"]};font-size:28px;'
-                f'font-weight:700;color:{A["label_primary"]};'
-                f'font-variant-numeric:tabular-nums;line-height:1;'
-                f'letter-spacing:-0.016em">{value}</div>'
-                f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
-                f'letter-spacing:0.06em;color:{A["label_tertiary"]};'
-                f'margin-top:8px">{label}</div>'
-                f'{delta_html}'
-                f'</div>'
-                f'</div>'
-            )
-            st.markdown(html, unsafe_allow_html=True)
+                html = (
+                    f'<div style="background:#FFFFFF;'
+                    f'border:1px solid rgba(0,0,0,0.08);'
+                    f'border-left:3px solid {color};'
+                    f'border-radius:{A["radius_xl"]};padding:20px;'
+                    f'box-shadow:0 1px 3px rgba(0,0,0,0.06);'
+                    f'position:relative;overflow:hidden;margin-bottom:12px">'
+                    f'<div style="position:absolute;top:-30px;right:-20px;'
+                    f'width:120px;height:120px;border-radius:50%;pointer-events:none;'
+                    f'background:radial-gradient(circle,{color}12 0%,transparent 70%)"></div>'
+                    f'<div style="position:relative;z-index:1">'
+                    f'<div style="font-size:22px;line-height:1;margin-bottom:8px">{icon}</div>'
+                    f'<div style="font-family:{A["font_display"]};font-size:28px;'
+                    f'font-weight:700;color:{A["label_primary"]};'
+                    f'font-variant-numeric:tabular-nums;line-height:1;'
+                    f'letter-spacing:-0.016em">{value}</div>'
+                    f'<div style="font-size:11px;font-weight:600;text-transform:uppercase;'
+                    f'letter-spacing:0.06em;color:{A["label_tertiary"]};'
+                    f'margin-top:8px">{label}</div>'
+                    f'{delta_html}'
+                    f'</div>'
+                    f'</div>'
+                )
+                st.markdown(html, unsafe_allow_html=True)
 
 
 def render_glass_card(title: str, content: str, color: str = "#6750A4", icon: str = "") -> None:

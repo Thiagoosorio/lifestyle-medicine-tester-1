@@ -73,6 +73,8 @@ def build_critical_communication_plan(critical_rows: list[dict]) -> dict:
                 "notify_within_minutes": notify_minutes,
                 "escalate_after_minutes": escalate_minutes,
                 "recommended_action": protocol["recommended_action"],
+                "patient_action": protocol.get("patient_action"),
+                "red_flag_symptoms": list(protocol.get("red_flag_symptoms", [])),
                 "lab_date": row.get("lab_date"),
                 "detected_at_iso": detected_at.isoformat(timespec="minutes"),
                 "notify_by_iso": notify_by.isoformat(timespec="minutes"),

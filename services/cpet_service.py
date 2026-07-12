@@ -1264,6 +1264,25 @@ def _ensure_cpet_reports_schema(conn) -> None:
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_cpet_reports_user ON cpet_reports(user_id, test_date)"
     )
+    existing_columns = {
+        row["name"] if hasattr(row, "keys") else row[1]
+        for row in conn.execute("PRAGMA table_info(cpet_reports)").fetchall()
+    }
+    column_migrations = {
+        "source_filename": "ALTER TABLE cpet_reports ADD COLUMN source_filename TEXT",
+        "test_modality": "ALTER TABLE cpet_reports ADD COLUMN test_modality TEXT",
+        "protocol": "ALTER TABLE cpet_reports ADD COLUMN protocol TEXT",
+        "client_context": (
+            "ALTER TABLE cpet_reports ADD COLUMN client_context TEXT NOT NULL DEFAULT 'general'"
+        ),
+        "raw_text": "ALTER TABLE cpet_reports ADD COLUMN raw_text TEXT",
+        "notes": "ALTER TABLE cpet_reports ADD COLUMN notes TEXT",
+        "created_at": "ALTER TABLE cpet_reports ADD COLUMN created_at TEXT",
+        "updated_at": "ALTER TABLE cpet_reports ADD COLUMN updated_at TEXT",
+    }
+    for column, sql in column_migrations.items():
+        if column not in existing_columns:
+            conn.execute(sql)
 
 
 def _build_validity_gate(metrics: dict[str, Any]) -> list[dict[str, str]]:
