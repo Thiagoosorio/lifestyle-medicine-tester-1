@@ -1,6 +1,8 @@
 import models.clinical_profile as clinical_profile
 import seed_demo
 import services.biomarker_service as biomarker_service
+from datetime import date
+import random
 
 
 def _patch_db_connections(monkeypatch, db_conn):
@@ -19,6 +21,21 @@ def _create_demo_user(db_conn) -> int:
     user_id = cursor.lastrowid
     conn.close()
     return user_id
+
+
+def test_demo_rng_wrapper_restores_process_random_state():
+    random.seed(9876)
+    prior_state = random.getstate()
+
+    @seed_demo._with_reproducible_random_state
+    def _draw_demo_values():
+        return [random.random() for _ in range(3)]
+
+    first = _draw_demo_values()
+    second = _draw_demo_values()
+
+    assert first == second
+    assert random.getstate() == prior_state
 
 
 def test_ensure_demo_organ_score_prereqs_backfills_missing_profile_and_labs(db_conn, monkeypatch):
@@ -91,3 +108,135 @@ def test_ensure_demo_organ_score_prereqs_is_idempotent(db_conn, monkeypatch):
     assert second["inserted_body_metrics"] == 0
     assert second["inserted_wearable_measurements"] == 0
     assert second["profile_backfilled"] is False
+
+
+def test_ensure_demo_showcase_data_populates_flagship_views_idempotently(
+    db_conn,
+    monkeypatch,
+):
+    _patch_db_connections(monkeypatch, db_conn)
+    user_id = _create_demo_user(db_conn)
+    conn = db_conn()
+    conn.executemany(
+        "INSERT INTO habits (user_id, pillar_id, name) VALUES (?, ?, ?)",
+        [
+            (user_id, 2, "Morning walk/run"),
+            (user_id, 4, "Morning meditation"),
+            (user_id, 1, "Drink 8 glasses of water"),
+        ],
+    )
+    conn.commit()
+    conn.close()
+
+    first = seed_demo.ensure_demo_showcase_data(user_id)
+    second = seed_demo.ensure_demo_showcase_data(user_id)
+
+    expected = {
+        "cpet_reports": 2,
+        "inbody_reports": 2,
+        "programs": 1,
+        "lessons_completed": 12,
+        "habit_stacks": 1,
+    }
+    assert first == expected
+    assert second == expected
+
+    conn = db_conn()
+    assert conn.execute(
+        "SELECT COUNT(*) FROM micro_lessons"
+    ).fetchone()[0] == 15
+    assert conn.execute(
+        "SELECT COUNT(*) FROM habits WHERE user_id = ? AND stack_id IS NOT NULL",
+        (user_id,),
+    ).fetchone()[0] == 3
+    assert conn.execute(
+        "SELECT goal_weight_kg FROM user_settings WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0] == 75.0
+    assert conn.execute(
+        "SELECT COUNT(*) FROM cpet_reports WHERE user_id = ? AND raw_text IS NULL",
+        (user_id,),
+    ).fetchone()[0] == 2
+    assert conn.execute(
+        "SELECT COUNT(*) FROM inbody_reports WHERE user_id = ? AND raw_text IS NULL",
+        (user_id,),
+    ).fetchone()[0] == 2
+    conn.close()
+
+
+def test_ensure_demo_current_window_is_fresh_and_idempotent(db_conn, monkeypatch):
+    _patch_db_connections(monkeypatch, db_conn)
+    user_id = _create_demo_user(db_conn)
+    conn = db_conn()
+    conn.execute(
+        "INSERT INTO habits (user_id, pillar_id, name) VALUES (?, 2, 'Morning walk/run')",
+        (user_id,),
+    )
+    conn.commit()
+    conn.close()
+    anchor = date(2026, 7, 13)
+
+    first = seed_demo.ensure_demo_current_window(user_id, anchor)
+    second = seed_demo.ensure_demo_current_window(user_id, anchor)
+
+    expected = {
+        "anchor_date": "2026-07-13",
+        "checkins": 14,
+        "sleep_logs": 14,
+        "exercise_logs": 7,
+        "meal_logs": 42,
+    }
+    assert first == expected
+    assert second == expected
+
+    conn = db_conn()
+    assert conn.execute(
+        "SELECT MAX(checkin_date) FROM daily_checkins WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0] == anchor.isoformat()
+    assert conn.execute(
+        "SELECT MAX(sleep_date) FROM sleep_logs WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()[0] == anchor.isoformat()
+    assert conn.execute(
+        """SELECT COUNT(*) FROM goals
+           WHERE user_id = ? AND title = 'Maintain half-marathon fitness safely'
+             AND status = 'active'""",
+        (user_id,),
+    ).fetchone()[0] == 1
+    assert conn.execute(
+        "SELECT COUNT(*) FROM wheel_assessments WHERE user_id = ? AND assessed_at = ?",
+        (user_id, anchor.isoformat()),
+    ).fetchone()[0] == 6
+    conn.close()
+
+
+def test_showcase_backfill_preserves_another_users_lesson_progress(
+    db_conn,
+    monkeypatch,
+):
+    _patch_db_connections(monkeypatch, db_conn)
+    demo_id = _create_demo_user(db_conn)
+    seed_demo.ensure_demo_showcase_data(demo_id)
+    conn = db_conn()
+    other_id = conn.execute(
+        """INSERT INTO users (username, password_hash, display_name)
+           VALUES ('other', 'hash', 'Other')"""
+    ).lastrowid
+    lesson_id = conn.execute("SELECT MIN(id) FROM micro_lessons").fetchone()[0]
+    conn.execute(
+        """INSERT INTO user_lesson_progress (user_id, lesson_id, quiz_score)
+           VALUES (?, ?, 100)""",
+        (other_id, lesson_id),
+    )
+    conn.commit()
+    conn.close()
+
+    seed_demo.ensure_demo_showcase_data(demo_id)
+
+    conn = db_conn()
+    assert conn.execute(
+        "SELECT COUNT(*) FROM user_lesson_progress WHERE user_id = ?",
+        (other_id,),
+    ).fetchone()[0] == 1
+    conn.close()

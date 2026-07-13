@@ -62,50 +62,9 @@ PROFILE_FIELDS = [
     "hrt_estrogen_only",
 ]
 
-PROFILE_DEFAULTS = {
-    "diabetes_status": 0,
-    "on_bp_medication": 0,
-    "on_statin": 0,
-    "ethnicity": "white",
-    "diabetes_type": "none",
-    "family_history_chd": 0,
-    "atrial_fibrillation": 0,
-    "rheumatoid_arthritis": 0,
-    "chronic_kidney_disease": 0,
-    "migraine": 0,
-    "sle": 0,
-    "severe_mental_illness": 0,
-    "erectile_dysfunction": 0,
-    "atypical_antipsychotic": 0,
-    "corticosteroid_use": 0,
-    "cigarettes_per_day": 0,
-    "congestive_heart_failure": 0,
-    "prior_stroke_tia": 0,
-    "vascular_disease": 0,
-    "physical_activity_level": "active",
-    "family_history_diabetes": "none",
-    "history_high_glucose": 0,
-    "daily_fruit_veg": 0,
-    "daily_activity_30min": 0,
-    "loud_snoring": 0,
-    "prior_fragility_fracture": 0,
-    "parent_hip_fracture": 0,
-    "family_history_osteoporosis": 0,
-    "falls_last_year": 0,
-    "alcohol_intake_level": "none",
-    "care_home": 0,
-    "dementia": 0,
-    "cancer": 0,
-    "asthma_copd": 0,
-    "chronic_liver_disease": 0,
-    "advanced_ckd_stage45": 0,
-    "epilepsy": 0,
-    "parkinsons": 0,
-    "malabsorption": 0,
-    "endocrine_bone_disorder": 0,
-    "antidepressant_use": 0,
-    "hrt_estrogen_only": 0,
-}
+# Omitted clinical facts are unknown. Keep this mapping for callers that use
+# it to construct a profile without reintroducing risk-lowering assumptions.
+PROFILE_DEFAULTS = dict.fromkeys(PROFILE_FIELDS)
 
 
 def get_profile(user_id: int) -> dict | None:
@@ -121,21 +80,26 @@ def get_profile(user_id: int) -> dict | None:
 
 
 def save_profile(user_id: int, data: dict):
-    """Create or update the user's clinical profile."""
+    """Create or update a profile without inventing omitted clinical values.
+
+    New rows store omitted fields as NULL. For an existing row, omitted fields
+    are left unchanged; callers can explicitly clear a value by supplying None.
+    """
     conn = get_connection()
     try:
-        values = [data.get(field, PROFILE_DEFAULTS.get(field)) for field in PROFILE_FIELDS]
+        provided_fields = [field for field in PROFILE_FIELDS if field in data]
+        values = [data.get(field, PROFILE_DEFAULTS[field]) for field in PROFILE_FIELDS]
         columns = ", ".join(["user_id"] + PROFILE_FIELDS + ["updated_at"])
         placeholders = ", ".join(["?"] * (len(PROFILE_FIELDS) + 1) + ["datetime('now')"])
-        updates = ", ".join(f"{field} = excluded.{field}" for field in PROFILE_FIELDS)
+        updates = [f"{field} = excluded.{field}" for field in provided_fields]
+        updates.append("updated_at = datetime('now')")
         conn.execute(
             f"""INSERT INTO user_clinical_profile
                ({columns})
                VALUES ({placeholders})
                ON CONFLICT(user_id)
                DO UPDATE SET
-                   {updates},
-                   updated_at = datetime('now')""",
+                   {', '.join(updates)}""",
             (user_id, *values),
         )
         conn.commit()

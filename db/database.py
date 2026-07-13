@@ -146,6 +146,7 @@ def _migrate_user_identity_integrity(conn: sqlite3.Connection) -> None:
 def _migrate(conn):
     """Add columns/tables that may be missing in older databases."""
     migrations = [
+        "ALTER TABLE users ADD COLUMN account_role TEXT NOT NULL DEFAULT 'user' CHECK (account_role IN ('user', 'admin'))",
         "ALTER TABLE habits ADD COLUMN cue_behavior TEXT",
         "ALTER TABLE habits ADD COLUMN location TEXT",
         "ALTER TABLE habits ADD COLUMN implementation_intention TEXT",

@@ -32,6 +32,25 @@ def _parse_detection_time(raw: str | None, fallback: datetime) -> datetime:
     return parsed.astimezone(timezone.utc)
 
 
+def _resolve_detection_time(row: dict, fallback: datetime) -> datetime:
+    """Resolve the first durable result-detection or receipt timestamp."""
+    for field in (
+        "detected_at",
+        "detected_at_iso",
+        "received_at",
+        "received_at_iso",
+        "created_at",
+        "lab_date",
+    ):
+        raw = row.get(field)
+        if not raw:
+            continue
+        parsed = _parse_detection_time(raw, fallback=fallback)
+        if parsed is not fallback:
+            return parsed
+    return fallback
+
+
 def _critical_threshold_text(row: dict) -> str:
     unit = row.get("unit") or ""
     cls = row.get("classification")
@@ -67,12 +86,7 @@ def build_critical_communication_plan(critical_rows: list[dict]) -> dict:
         protocol = _alert_protocol_for_code(row.get("code"))
         if protocol is None:
             continue
-        detection_timestamp = (
-            row.get("detected_at")
-            or row.get("detected_at_iso")
-            or row.get("lab_date")
-        )
-        detected_at = _parse_detection_time(detection_timestamp, fallback=now)
+        detected_at = _resolve_detection_time(row, fallback=now)
         notify_minutes = int(protocol["notify_within_minutes"])
         escalate_minutes = int(protocol["escalate_after_minutes"])
         notify_by = detected_at + timedelta(minutes=notify_minutes)
@@ -92,6 +106,7 @@ def build_critical_communication_plan(critical_rows: list[dict]) -> dict:
                 "patient_action": protocol.get("patient_action"),
                 "red_flag_symptoms": list(protocol.get("red_flag_symptoms", [])),
                 "lab_date": row.get("lab_date"),
+                "created_at": row.get("created_at"),
                 "detected_at_iso": detected_at.isoformat(timespec="minutes"),
                 "notify_by_iso": notify_by.isoformat(timespec="minutes"),
                 "escalate_by_iso": escalate_by.isoformat(timespec="minutes"),
@@ -136,6 +151,9 @@ def build_critical_communication_plan_from_results(results: list[dict]) -> dict:
                 "lab_date": row.get("lab_date"),
                 "detected_at": row.get("detected_at"),
                 "detected_at_iso": row.get("detected_at_iso"),
+                "received_at": row.get("received_at"),
+                "received_at_iso": row.get("received_at_iso"),
+                "created_at": row.get("created_at"),
             }
         )
     return build_critical_communication_plan(critical_rows)

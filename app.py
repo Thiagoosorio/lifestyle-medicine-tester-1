@@ -34,7 +34,9 @@ def _bootstrap_app_data() -> bool:
 
     from seed_demo import (
         EMAIL as DEMO_EMAIL,
+        ensure_demo_current_window,
         ensure_demo_organ_score_prereqs,
+        ensure_demo_showcase_data,
         main as seed_demo_main,
     )
 
@@ -66,6 +68,8 @@ def _bootstrap_app_data() -> bool:
                 force_profile=True,
                 force_registry=True,
             )
+            showcase_summary = ensure_demo_showcase_data(demo_exists["id"])
+            current_summary = ensure_demo_current_window(demo_exists["id"])
             if backfill_summary["profile_backfilled"] or backfill_summary["inserted_biomarkers"] or backfill_summary.get("inserted_wearable_measurements"):
                 LOGGER.info(
                     "Backfilled demo: profile=%s biomarkers=%s wearable=%s missing=%s",
@@ -74,6 +78,8 @@ def _bootstrap_app_data() -> bool:
                     backfill_summary.get("inserted_wearable_measurements", 0),
                     ",".join(backfill_summary["missing_definitions"]) if backfill_summary["missing_definitions"] else "none",
                 )
+            LOGGER.info("Demo showcase synchronized: %s", showcase_summary)
+            LOGGER.info("Demo current window synchronized: %s", current_summary)
         except Exception:
             LOGGER.exception("Failed to backfill demo prerequisites for existing Maria account")
     return True
@@ -92,8 +98,7 @@ if "user_id" not in st.session_state:
         position="hidden",
     )
 else:
-    pg = st.navigation(
-        {
+    navigation_sections = {
             "Overview": [
                 st.Page("pages/clinical_command_center.py", title="Clinical Summary", icon=":material/clinical_notes:", default=True),
                 st.Page("pages/precision_plans.py", title="Precision Plans", icon=":material/auto_awesome:"),
@@ -151,9 +156,19 @@ else:
                 st.Page("pages/garmin_import.py", title="Garmin Connect", icon=":material/watch:"),
             ],
         }
-    )
+    if st.session_state.get("account_role") == "admin":
+        navigation_sections["Administration"] = [
+            st.Page(
+                "pages/admin_console.py",
+                title="Admin Console",
+                icon=":material/admin_panel_settings:",
+            )
+        ]
+    pg = st.navigation(navigation_sections)
     with st.sidebar:
         display = escape_html(st.session_state.get("display_name", "User"))
+        account_role = st.session_state.get("account_role", "user")
+        journey_label = "Administrator" if account_role == "admin" else "Lifestyle Medicine Journey"
         sidebar_html = (
             '<div style="background:#FFFFFF;border:1px solid rgba(0,0,0,0.10);'
             'border-radius:16px;padding:16px;margin-bottom:12px;text-align:center">'
@@ -162,7 +177,7 @@ else:
             f'\'Segoe UI\',Roboto,system-ui,sans-serif;font-size:17px;line-height:22px;'
             f'font-weight:600;color:#1D1B20">{display}</div>'
             '<div style="font-size:11px;line-height:13px;color:#79747E;'
-            'margin-top:4px">Lifestyle Medicine Journey</div>'
+            f'margin-top:4px">{journey_label}</div>'
             '</div>'
         )
         st.markdown(sidebar_html, unsafe_allow_html=True)

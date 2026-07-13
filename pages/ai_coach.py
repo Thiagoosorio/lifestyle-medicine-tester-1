@@ -1,6 +1,8 @@
 import streamlit as st
+from components.privacy_notice import ai_coach_cloud_consent, cloud_ai_provider_name
 from config.settings import PILLARS, STAGES_OF_CHANGE
 from services.coaching_service import (
+    _get_llm_provider,
     clear_conversation,
     get_coaching_response,
     get_gptcoach_response,
@@ -24,6 +26,20 @@ st.info(
     "shortness of breath, new neurologic symptoms, suicidal thoughts, abuse, or you "
     "cannot stay safe, contact local emergency or crisis services now."
 )
+
+configured_provider = _get_llm_provider()
+cloud_provider = cloud_ai_provider_name(configured_provider)
+if cloud_provider:
+    cloud_consent = ai_coach_cloud_consent(
+        key=f"ai_coach_cloud_consent_{configured_provider}",
+        provider=configured_provider,
+    )
+else:
+    cloud_consent = True
+    st.info(
+        f"Configured AI provider: {configured_provider or 'none'}. "
+        "This provider is not enabled for cloud AI Coach requests, so responses use the local fallback."
+    )
 
 context_options = {
     "general": "General Coaching",
@@ -78,7 +94,12 @@ else:
 selected_quick = None
 for idx, (label, prompt) in enumerate(quick_prompts.items()):
     with quick_cols[idx]:
-        if st.button(label, use_container_width=True, key=f"quick_{idx}"):
+        if st.button(
+            label,
+            use_container_width=True,
+            key=f"quick_{idx}",
+            disabled=not cloud_consent,
+        ):
             selected_quick = prompt
 
 with st.sidebar:
@@ -151,11 +172,17 @@ for msg in history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-user_input = st.chat_input("Type your message...", max_chars=4000)
+user_input = st.chat_input(
+    "Type your message...",
+    max_chars=4000,
+    disabled=not cloud_consent,
+)
 if selected_quick:
     user_input = selected_quick
 
-if user_input:
+if user_input and not cloud_consent:
+    st.error("Confirm cloud processing consent before sending an AI Coach request.")
+elif user_input:
     with st.chat_message("user"):
         st.markdown(user_input)
 

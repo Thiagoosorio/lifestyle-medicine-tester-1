@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash   TEXT NOT NULL,
     display_name    TEXT,
     email           TEXT,
+    account_role    TEXT NOT NULL DEFAULT 'user'
+                    CHECK (account_role IN ('user', 'admin')),
     created_at      TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );

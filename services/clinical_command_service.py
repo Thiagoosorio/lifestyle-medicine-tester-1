@@ -739,6 +739,14 @@ def get_labs_requiring_attention(user_id: int,
                 "unit": row.get("unit"),
                 "classification": cls,
                 "lab_date": row.get("lab_date"),
+                "created_at": row.get("created_at"),
+                "detected_at": (
+                    row.get("detected_at")
+                    or row.get("detected_at_iso")
+                    or row.get("received_at")
+                    or row.get("received_at_iso")
+                    or row.get("created_at")
+                ),
                 "standard_range": _fmt_range(effective["standard_low"], effective["standard_high"], row.get("unit")),
                 "critical_low": effective["critical_low"],
                 "critical_high": effective["critical_high"],

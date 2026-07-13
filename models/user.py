@@ -16,6 +16,7 @@ def _normalize_email(email: str | None) -> str | None:
 
 
 _EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_ACCOUNT_ROLES = {"user", "admin"}
 
 
 def _validate_email(email: str | None) -> None:
@@ -58,12 +59,22 @@ def _ensure_identifier_available(
         raise sqlite3.IntegrityError("Username or email already exists")
 
 
-def create_user(username: str, password: str, display_name: str = None, email: str = None) -> int:
+def create_user(
+    username: str,
+    password: str,
+    display_name: str = None,
+    email: str = None,
+    *,
+    account_role: str = "user",
+) -> int:
     username_norm = _normalize_username(username)
     if not username_norm:
         raise ValueError("Username is required")
     email_norm = _normalize_email(email)
     _validate_email(email_norm)
+    role = account_role.strip().lower()
+    if role not in _ACCOUNT_ROLES:
+        raise ValueError("Invalid account role")
     if email_norm is not None and email_norm == username_norm:
         raise sqlite3.IntegrityError("Username and email must be different")
     password_value = _validate_password(password)
@@ -76,8 +87,16 @@ def create_user(username: str, password: str, display_name: str = None, email: s
             _ensure_identifier_available(conn, email_norm)
 
         cursor = conn.execute(
-            "INSERT INTO users (username, password_hash, display_name, email) VALUES (?, ?, ?, ?)",
-            (username_norm, password_hash, (display_name or username).strip(), email_norm),
+            """INSERT INTO users
+               (username, password_hash, display_name, email, account_role)
+               VALUES (?, ?, ?, ?, ?)""",
+            (
+                username_norm,
+                password_hash,
+                (display_name or username).strip(),
+                email_norm,
+                role,
+            ),
         )
         conn.commit()
         return cursor.lastrowid

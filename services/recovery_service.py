@@ -24,6 +24,17 @@ RECOVERY_WEIGHTS = {
 }
 
 
+def _is_recent(record_date, max_age_days=2):
+    """Return True only when a date-valued signal is recent enough for readiness."""
+    if not record_date:
+        return False
+    try:
+        measured = date.fromisoformat(str(record_date)[:10])
+    except (TypeError, ValueError):
+        return False
+    return date.today() - timedelta(days=max_age_days) <= measured <= date.today()
+
+
 def calculate_recovery_score(user_id):
     """Calculate the composite recovery score (0-100).
     Returns dict with score, zone, and component breakdown.
@@ -95,12 +106,13 @@ def _get_sleep_component(user_id):
     """Sleep component: last night's sleep score (0-100)."""
     conn = get_connection()
     row = conn.execute(
-        "SELECT sleep_score FROM sleep_logs WHERE user_id = ? ORDER BY sleep_date DESC LIMIT 1",
+        """SELECT sleep_score, sleep_date FROM sleep_logs
+           WHERE user_id = ? ORDER BY sleep_date DESC LIMIT 1""",
         (user_id,),
     ).fetchone()
     conn.close()
 
-    if row and row["sleep_score"] is not None:
+    if row and row["sleep_score"] is not None and _is_recent(row["sleep_date"]):
         return {"score": row["sleep_score"], "raw": row["sleep_score"],
                 "label": "Sleep", "icon": "&#128164;"}
     return {"score": 50, "raw": None, "label": "Sleep", "icon": "&#128164;"}
@@ -110,14 +122,14 @@ def _get_stress_component(user_id):
     """Stress-management component: higher pillar ratings are better (1-10)."""
     conn = get_connection()
     row = conn.execute(
-        """SELECT stress_rating FROM daily_checkins
+        """SELECT stress_rating, checkin_date FROM daily_checkins
            WHERE user_id = ? AND stress_rating IS NOT NULL
            ORDER BY checkin_date DESC LIMIT 1""",
         (user_id,),
     ).fetchone()
     conn.close()
 
-    if row and row["stress_rating"] is not None:
+    if row and row["stress_rating"] is not None and _is_recent(row["checkin_date"]):
         raw = row["stress_rating"]
         score = round(raw / 10 * 100)
         return {"score": score, "raw": raw, "label": "Stress Management", "icon": "&#129495;"}
@@ -232,14 +244,14 @@ def _get_mood_component(user_id):
     """Mood component: most recent mood rating (1-10)."""
     conn = get_connection()
     row = conn.execute(
-        """SELECT mood FROM daily_checkins
+        """SELECT mood, checkin_date FROM daily_checkins
            WHERE user_id = ? AND mood IS NOT NULL
            ORDER BY checkin_date DESC LIMIT 1""",
         (user_id,),
     ).fetchone()
     conn.close()
 
-    if row and row["mood"] is not None:
+    if row and row["mood"] is not None and _is_recent(row["checkin_date"]):
         raw = row["mood"]
         score = round(raw / 10 * 100)
         return {"score": score, "raw": raw, "label": "Mood", "icon": "&#128522;"}

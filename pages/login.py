@@ -63,6 +63,7 @@ if is_demo_mode():
         if user:
             st.session_state.user_id = user["id"]
             st.session_state.display_name = user["display_name"]
+            st.session_state.account_role = user.get("account_role", "user")
             st.rerun()
         else:
             st.error("Demo account not found. Run `python seed_demo.py` first.")
@@ -86,6 +87,7 @@ with tab_login:
                 if user:
                     st.session_state.user_id = user["id"]
                     st.session_state.display_name = user["display_name"]
+                    st.session_state.account_role = user.get("account_role", "user")
                     st.rerun()
                 else:
                     st.error("Invalid username/email or password.")
@@ -113,6 +115,7 @@ with tab_register:
                     user_id = create_user(new_username, new_password, new_display_name, new_email)
                     st.session_state.user_id = user_id
                     st.session_state.display_name = (new_display_name or new_username).strip()
+                    st.session_state.account_role = "user"
                     st.success("Account created! Redirecting...")
                     st.rerun()
                 except sqlite3.IntegrityError:

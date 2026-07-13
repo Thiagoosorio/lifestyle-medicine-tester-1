@@ -3184,6 +3184,68 @@ def interpret_score(value: float, definition: dict) -> dict:
 # ORCHESTRATION
 # ══════════════════════════════════════════════════════════════════════════════
 
+_APPLICABILITY_FAILURES = {
+    "cld_not_documented": (
+        "aMAP is applicable only when chronic liver disease is documented."
+    ),
+    "egfr_above_ckd_threshold": (
+        "KFRE is applicable only to CKD G3a-G5 "
+        "(eGFR <= 60 mL/min/1.73 m^2)."
+    ),
+    "af_not_documented": (
+        "CHA2DS2-VASc is applicable only when atrial fibrillation is documented."
+    ),
+}
+
+
+def _applicability_failure(definition: dict, biomarkers: dict,
+                           clinical: dict) -> dict | None:
+    """Return the legacy score's clinical applicability failure, if any.
+
+    These mappings mirror the canonical configs/scores gate reason codes while
+    accounting for the legacy score identifiers used by this service.
+    """
+    formula_key = definition.get("formula_key")
+
+    if formula_key == "calc_amap" and not bool(
+        clinical.get("chronic_liver_disease")
+    ):
+        reason_code = "cld_not_documented"
+    elif formula_key in {"calc_kfre_2yr", "calc_kfre_5yr"}:
+        try:
+            egfr = _build_kfre_args(biomarkers, clinical).get("egfr")
+        except (TypeError, ValueError, ZeroDivisionError):
+            egfr = None
+        if egfr is None or egfr <= 60:
+            return None
+        reason_code = "egfr_above_ckd_threshold"
+    elif formula_key == "calc_cha2ds2_vasc" and not bool(
+        clinical.get("atrial_fibrillation")
+    ):
+        reason_code = "af_not_documented"
+    else:
+        return None
+
+    return {
+        "reason_code": reason_code,
+        "message": _APPLICABILITY_FAILURES[reason_code],
+    }
+
+
+def _inapplicable_score_entry(definition: dict, failure: dict,
+                              date_metadata: dict) -> dict:
+    """Build the public readiness record for a clinically gated score."""
+    return {
+        "definition": definition,
+        "missing_biomarkers": [],
+        "missing_clinical": [],
+        "reason": "inapplicable",
+        "applicability_reason_code": failure["reason_code"],
+        "applicability_reason": failure["message"],
+        "date_metadata": date_metadata,
+    }
+
+
 def _get_clinical_data(user_id: int) -> dict:
     """Assemble clinical profile data including computed fields."""
     profile = get_profile(user_id) or {}
@@ -3228,7 +3290,8 @@ def _delete_persisted_score_results(user_id: int,
 def get_computable_scores(user_id: int) -> dict:
     """Check which scores can/can't be computed and what's missing.
 
-    Returns {"computable": [...], "missing": [{"definition": ..., "missing_inputs": [...]}]}
+    Clinically gated scores are returned in both ``missing`` (for backwards
+    compatibility) and ``inapplicable`` with a stable reason code and message.
     """
     _ensure_score_definitions_seeded()
     definitions = get_all_score_definitions()
@@ -3242,6 +3305,7 @@ def get_computable_scores(user_id: int) -> dict:
 
     computable = []
     missing = []
+    inapplicable = []
 
     for defn in definitions:
         missing_bio = [b for b in defn["required_biomarkers"] if b not in biomarkers or biomarkers[b] is None]
@@ -3252,8 +3316,17 @@ def get_computable_scores(user_id: int) -> dict:
         date_metadata = _get_panel_date_metadata(
             defn["required_biomarkers"], bio_with_dates
         )
+        applicability_failure = _applicability_failure(
+            defn, biomarkers, clinical
+        )
 
-        if not missing_bio and not missing_clin and date_metadata["date_coherent"]:
+        if applicability_failure:
+            entry = _inapplicable_score_entry(
+                defn, applicability_failure, date_metadata
+            )
+            missing.append(entry)
+            inapplicable.append(entry)
+        elif not missing_bio and not missing_clin and date_metadata["date_coherent"]:
             computable.append(defn)
         else:
             if missing_bio or missing_clin:
@@ -3271,6 +3344,7 @@ def get_computable_scores(user_id: int) -> dict:
     return {
         "computable": computable,
         "missing": missing,
+        "inapplicable": inapplicable,
         "max_panel_date_gap_days": MAX_PANEL_DATE_GAP_DAYS,
     }
 
@@ -3296,6 +3370,10 @@ def compute_all_scores(user_id: int) -> list:
     for defn in definitions:
         formula_key = defn["formula_key"]
         if formula_key not in FORMULA_DISPATCH:
+            invalid_score_def_ids.add(defn["id"])
+            continue
+
+        if _applicability_failure(defn, biomarkers, clinical):
             invalid_score_def_ids.add(defn["id"])
             continue
 

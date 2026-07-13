@@ -20,6 +20,24 @@ TIER_BADGES = {
 }
 
 
+def _option_index(options, current) -> int:
+    """Return a stable select index, treating unrecognised values as unknown."""
+    return options.index(current) if current in options else 0
+
+
+def _optional_boolean_input(label: str, value, **kwargs) -> int | None:
+    """Render a tri-state clinical input so NULL is distinct from a negative."""
+    options = [None, 0, 1]
+    labels = {None: "Unknown", 0: "No", 1: "Yes"}
+    return st.selectbox(
+        label,
+        options=options,
+        format_func=labels.get,
+        index=_option_index(options, value),
+        **kwargs,
+    )
+
+
 def _first_sentence(text: str, max_len: int = 210) -> str:
     """Return a compact first sentence for inline card explanations."""
     cleaned = " ".join((text or "").strip().split())
@@ -329,28 +347,31 @@ def render_clinical_profile_form(user_id: int):
             )
 
         with col2:
-            sex_options = ["", "male", "female"]
-            sex_labels = ["Select...", "Male", "Female"]
-            current_sex = profile.get("sex", "")
-            sex_idx = sex_options.index(current_sex) if current_sex in sex_options else 0
+            sex_options = [None, "male", "female"]
+            sex_labels = {None: "Unknown", "male": "Male", "female": "Female"}
+            current_sex = profile.get("sex")
             sex = st.selectbox(
                 "Biological Sex",
                 options=sex_options,
-                format_func=lambda x: sex_labels[sex_options.index(x)],
-                index=sex_idx,
+                format_func=sex_labels.get,
+                index=_option_index(sex_options, current_sex),
                 help="Required for: eGFR, ASCVD, PREVENT, QRISK3",
             )
 
         with col3:
-            ethnicity_options = ["white", "indian", "pakistani", "bangladeshi", "other_asian", "black_caribbean", "black_african", "chinese", "other"]
-            ethnicity_labels = ["White / Not stated", "Indian", "Pakistani", "Bangladeshi", "Other Asian", "Black Caribbean", "Black African", "Chinese", "Other"]
-            current_eth = profile.get("ethnicity", "white") or "white"
-            eth_idx = ethnicity_options.index(current_eth) if current_eth in ethnicity_options else 0
+            ethnicity_options = [None, "white", "indian", "pakistani", "bangladeshi", "other_asian", "black_caribbean", "black_african", "chinese", "other"]
+            ethnicity_labels = {
+                None: "Unknown", "white": "White", "indian": "Indian",
+                "pakistani": "Pakistani", "bangladeshi": "Bangladeshi",
+                "other_asian": "Other Asian", "black_caribbean": "Black Caribbean",
+                "black_african": "Black African", "chinese": "Chinese", "other": "Other",
+            }
+            current_eth = profile.get("ethnicity")
             ethnicity = st.selectbox(
                 "Ethnicity",
                 options=ethnicity_options,
-                format_func=lambda x: ethnicity_labels[ethnicity_options.index(x)],
-                index=eth_idx,
+                format_func=ethnicity_labels.get,
+                index=_option_index(ethnicity_options, current_eth),
                 help="Used by QRISK3 for ethnicity-calibrated risk",
             )
 
@@ -360,16 +381,18 @@ def render_clinical_profile_form(user_id: int):
             height_cm = st.number_input(
                 "Height (cm)",
                 min_value=50.0, max_value=250.0,
-                value=profile.get("height_cm") or 170.0,
+                value=profile.get("height_cm"),
                 step=0.5,
+                placeholder="Unknown",
                 help="Required for BMI calculation (NAFLD-FS, PREVENT, QRISK3)",
             )
         with col4a:
             weight_kg = st.number_input(
                 "Weight (kg)",
                 min_value=20.0, max_value=300.0,
-                value=profile.get("weight_kg") or 70.0,
+                value=profile.get("weight_kg"),
                 step=0.5,
+                placeholder="Unknown",
                 help="Required for BMI calculation (NAFLD-FS, PREVENT, QRISK3)",
             )
 
@@ -383,123 +406,126 @@ def render_clinical_profile_form(user_id: int):
             systolic = st.number_input(
                 "Systolic BP (mmHg)",
                 min_value=60.0, max_value=250.0,
-                value=profile.get("systolic_bp") or 120.0,
+                value=profile.get("systolic_bp"),
                 step=1.0,
+                placeholder="Unknown",
                 help="Required for: ASCVD, PREVENT, Framingham, QRISK3",
             )
         with col6:
             diastolic = st.number_input(
                 "Diastolic BP (mmHg)",
                 min_value=30.0, max_value=150.0,
-                value=profile.get("diastolic_bp") or 80.0,
+                value=profile.get("diastolic_bp"),
                 step=1.0,
+                placeholder="Unknown",
             )
         with col7:
-            on_bp_med = st.checkbox(
+            on_bp_med = _optional_boolean_input(
                 "On BP medication",
-                value=bool(profile.get("on_bp_medication", 0)),
+                profile.get("on_bp_medication"),
                 help="Taking antihypertensive medication",
             )
         with col7b:
             sbp_var = st.number_input(
                 "SBP variability (SD)",
                 min_value=0.0, max_value=40.0,
-                value=profile.get("sbp_variability") or 0.0,
+                value=profile.get("sbp_variability"),
                 step=0.5,
-                help="Standard deviation of repeated SBP readings. Used by QRISK3. Leave 0 if unknown.",
+                placeholder="Unknown",
+                help="Standard deviation of repeated SBP readings. Used by QRISK3.",
             )
 
         st.markdown("#### Smoking")
         col8a, col8b = st.columns(2)
         with col8a:
-            smoke_options = ["", "never", "former", "current"]
-            smoke_labels = ["Select...", "Never smoker", "Former smoker", "Current smoker"]
-            current_smoke = profile.get("smoking_status", "")
-            smoke_idx = smoke_options.index(current_smoke) if current_smoke in smoke_options else 0
+            smoke_options = [None, "never", "former", "current"]
+            smoke_labels = {None: "Unknown", "never": "Never smoker", "former": "Former smoker", "current": "Current smoker"}
+            current_smoke = profile.get("smoking_status")
             smoking = st.selectbox(
                 "Smoking Status",
                 options=smoke_options,
-                format_func=lambda x: smoke_labels[smoke_options.index(x)],
-                index=smoke_idx,
+                format_func=smoke_labels.get,
+                index=_option_index(smoke_options, current_smoke),
                 help="Required for: ASCVD, PREVENT, Framingham, QRISK3",
             )
         with col8b:
             cigs = st.number_input(
                 "Cigarettes per day (if current smoker)",
                 min_value=0, max_value=60,
-                value=int(profile.get("cigarettes_per_day", 0) or 0),
+                value=profile.get("cigarettes_per_day"),
                 step=1,
+                placeholder="Unknown",
+                disabled=smoking != "current",
                 help="QRISK3 uses: light (1-9), moderate (10-19), heavy (20+)",
             )
 
         st.markdown("#### Diabetes")
         col_dt1, col_dt2 = st.columns(2)
         with col_dt1:
-            dm_type_options = ["none", "type2", "type1"]
-            dm_type_labels = ["No diabetes", "Type 2 diabetes", "Type 1 diabetes"]
-            current_dm_type = profile.get("diabetes_type", "none") or "none"
-            dm_idx = dm_type_options.index(current_dm_type) if current_dm_type in dm_type_options else 0
+            dm_type_options = [None, "none", "type2", "type1"]
+            dm_type_labels = {None: "Unknown", "none": "No diabetes", "type2": "Type 2 diabetes", "type1": "Type 1 diabetes"}
+            current_dm_type = profile.get("diabetes_type")
             diabetes_type = st.selectbox(
                 "Diabetes Type",
                 options=dm_type_options,
-                format_func=lambda x: dm_type_labels[dm_type_options.index(x)],
-                index=dm_idx,
+                format_func=dm_type_labels.get,
+                index=_option_index(dm_type_options, current_dm_type),
                 help="QRISK3 distinguishes Type 1 vs Type 2. Other scores use any diabetes.",
             )
         with col_dt2:
-            on_statin = st.checkbox(
+            on_statin = _optional_boolean_input(
                 "On statin therapy",
-                value=bool(profile.get("on_statin", 0)),
+                profile.get("on_statin"),
             )
 
         st.markdown("#### Medical History (for QRISK3)")
         st.caption("Check all conditions that apply. These enable more accurate QRISK3 cardiovascular risk prediction.")
         col_mh1, col_mh2, col_mh3 = st.columns(3)
         with col_mh1:
-            fh_chd = st.checkbox(
+            fh_chd = _optional_boolean_input(
                 "Family history of CHD (<60)",
-                value=bool(profile.get("family_history_chd", 0)),
+                profile.get("family_history_chd"),
                 help="First-degree relative with coronary heart disease under age 60",
             )
-            af = st.checkbox(
+            af = _optional_boolean_input(
                 "Atrial fibrillation",
-                value=bool(profile.get("atrial_fibrillation", 0)),
+                profile.get("atrial_fibrillation"),
             )
-            ra = st.checkbox(
+            ra = _optional_boolean_input(
                 "Rheumatoid arthritis",
-                value=bool(profile.get("rheumatoid_arthritis", 0)),
+                profile.get("rheumatoid_arthritis"),
             )
-            ckd = st.checkbox(
+            ckd = _optional_boolean_input(
                 "Chronic kidney disease (stage 3-5)",
-                value=bool(profile.get("chronic_kidney_disease", 0)),
+                profile.get("chronic_kidney_disease"),
             )
         with col_mh2:
-            migraine = st.checkbox(
+            migraine = _optional_boolean_input(
                 "Migraine",
-                value=bool(profile.get("migraine", 0)),
+                profile.get("migraine"),
             )
-            sle_val = st.checkbox(
+            sle_val = _optional_boolean_input(
                 "Systemic lupus (SLE)",
-                value=bool(profile.get("sle", 0)),
+                profile.get("sle"),
             )
-            smi = st.checkbox(
+            smi = _optional_boolean_input(
                 "Severe mental illness",
-                value=bool(profile.get("severe_mental_illness", 0)),
+                profile.get("severe_mental_illness"),
                 help="Schizophrenia, bipolar disorder, or severe depression",
             )
-            ed = st.checkbox(
+            ed = _optional_boolean_input(
                 "Erectile dysfunction",
-                value=bool(profile.get("erectile_dysfunction", 0)),
+                profile.get("erectile_dysfunction"),
                 help="Males only — used in QRISK3 male model",
             )
         with col_mh3:
-            antipsych = st.checkbox(
+            antipsych = _optional_boolean_input(
                 "Atypical antipsychotic use",
-                value=bool(profile.get("atypical_antipsychotic", 0)),
+                profile.get("atypical_antipsychotic"),
             )
-            cortico = st.checkbox(
+            cortico = _optional_boolean_input(
                 "Oral corticosteroid use",
-                value=bool(profile.get("corticosteroid_use", 0)),
+                profile.get("corticosteroid_use"),
                 help="Regular use of oral steroid tablets",
             )
 
@@ -507,21 +533,21 @@ def render_clinical_profile_form(user_id: int):
         st.caption("Check all conditions that apply. These enable stroke risk scoring in atrial fibrillation.")
         col_cv1, col_cv2, col_cv3 = st.columns(3)
         with col_cv1:
-            chf = st.checkbox(
+            chf = _optional_boolean_input(
                 "Congestive heart failure",
-                value=bool(profile.get("congestive_heart_failure", 0)),
+                profile.get("congestive_heart_failure"),
                 help="History of heart failure / reduced ejection fraction",
             )
         with col_cv2:
-            stroke_tia = st.checkbox(
+            stroke_tia = _optional_boolean_input(
                 "Prior stroke / TIA",
-                value=bool(profile.get("prior_stroke_tia", 0)),
+                profile.get("prior_stroke_tia"),
                 help="History of stroke, TIA, or thromboembolism — adds 2 points",
             )
         with col_cv3:
-            vasc = st.checkbox(
+            vasc = _optional_boolean_input(
                 "Vascular disease",
-                value=bool(profile.get("vascular_disease", 0)),
+                profile.get("vascular_disease"),
                 help="Prior MI, peripheral artery disease, or aortic plaque",
             )
 
@@ -532,20 +558,20 @@ def render_clinical_profile_form(user_id: int):
             edu_years = st.number_input(
                 "Education (total years)",
                 min_value=0, max_value=30,
-                value=int(profile.get("education_years") or 12),
+                value=profile.get("education_years"),
                 step=1,
+                placeholder="Unknown",
                 help="CAIDE: >=10 yrs (0 pts), 7-9 yrs (2 pts), 0-6 yrs (3 pts)",
             )
         with col_dem2:
-            activity_options = ["active", "inactive"]
-            activity_labels = ["Active (regular exercise)", "Inactive (sedentary)"]
-            current_activity = profile.get("physical_activity_level", "active") or "active"
-            act_idx = activity_options.index(current_activity) if current_activity in activity_options else 0
+            activity_options = [None, "active", "inactive"]
+            activity_labels = {None: "Unknown", "active": "Active (regular exercise)", "inactive": "Inactive (sedentary)"}
+            current_activity = profile.get("physical_activity_level")
             phys_activity = st.selectbox(
                 "Physical activity level",
                 options=activity_options,
-                format_func=lambda x: activity_labels[activity_options.index(x)],
-                index=act_idx,
+                format_func=activity_labels.get,
+                index=_option_index(activity_options, current_activity),
                 help="CAIDE: active (0 pts), inactive (1 pt)",
             )
 
@@ -556,58 +582,61 @@ def render_clinical_profile_form(user_id: int):
             grip_strength = st.number_input(
                 "Grip strength (kg)",
                 min_value=0.0, max_value=120.0,
-                value=float(profile.get("grip_strength_kg") or 0.0),
+                value=profile.get("grip_strength_kg"),
                 step=0.5,
-                help="EWGSOP2 low strength cutpoints: <27 kg men, <16 kg women. Leave 0 if not yet measured.",
+                placeholder="Unknown",
+                help="EWGSOP2 low strength cutpoints: <27 kg men, <16 kg women.",
             )
         with col_ms2:
             chair_stand_time = st.number_input(
                 "Chair stand time (s)",
                 min_value=0.0, max_value=60.0,
-                value=float(profile.get("chair_stand_time_s") or 0.0),
+                value=profile.get("chair_stand_time_s"),
                 step=0.1,
+                placeholder="Unknown",
                 help="Time for 5 chair rises. EWGSOP2 low-strength threshold: >15 seconds.",
             )
         with col_ms3:
             gait_speed = st.number_input(
                 "Gait speed (m/s)",
                 min_value=0.0, max_value=3.0,
-                value=float(profile.get("gait_speed_m_per_s") or 0.0),
+                value=profile.get("gait_speed_m_per_s"),
                 step=0.05,
+                placeholder="Unknown",
                 help="Usual gait speed. EWGSOP2 severe-stage threshold: <=0.8 m/s.",
             )
 
         st.markdown("#### Diabetes Risk Inputs (for FINDRISC)")
         col_dr1, col_dr2 = st.columns(2)
         with col_dr1:
-            family_diabetes_options = ["none", "second_degree", "first_degree"]
-            family_diabetes_labels = [
-                "No known family history",
-                "Second-degree relative (grandparent, aunt/uncle, cousin)",
-                "First-degree relative (parent, sibling, child)",
-            ]
-            current_family_dm = profile.get("family_history_diabetes", "none") or "none"
-            family_dm_idx = family_diabetes_options.index(current_family_dm) if current_family_dm in family_diabetes_options else 0
+            family_diabetes_options = [None, "none", "second_degree", "first_degree"]
+            family_diabetes_labels = {
+                None: "Unknown",
+                "none": "No family history",
+                "second_degree": "Second-degree relative (grandparent, aunt/uncle, cousin)",
+                "first_degree": "First-degree relative (parent, sibling, child)",
+            }
+            current_family_dm = profile.get("family_history_diabetes")
             family_history_diabetes = st.selectbox(
                 "Family history of diabetes",
                 options=family_diabetes_options,
-                format_func=lambda x: family_diabetes_labels[family_diabetes_options.index(x)],
-                index=family_dm_idx,
+                format_func=family_diabetes_labels.get,
+                index=_option_index(family_diabetes_options, current_family_dm),
             )
-            history_high_glucose = st.checkbox(
+            history_high_glucose = _optional_boolean_input(
                 "History of high blood glucose",
-                value=bool(profile.get("history_high_glucose", 0)),
+                profile.get("history_high_glucose"),
                 help="Includes prior impaired fasting glucose, gestational diabetes, or any previous elevated glucose test.",
             )
         with col_dr2:
-            daily_activity_30min = st.checkbox(
+            daily_activity_30min = _optional_boolean_input(
                 "At least 30 min physical activity daily",
-                value=bool(profile.get("daily_activity_30min", 0)),
+                profile.get("daily_activity_30min"),
                 help="Specific FINDRISC activity item.",
             )
-            daily_fruit_veg = st.checkbox(
+            daily_fruit_veg = _optional_boolean_input(
                 "Eat fruit / vegetables every day",
-                value=bool(profile.get("daily_fruit_veg", 0)),
+                profile.get("daily_fruit_veg"),
                 help="Specific FINDRISC diet item.",
             )
 
@@ -618,170 +647,169 @@ def render_clinical_profile_form(user_id: int):
                 neck_circumference = st.number_input(
                     "Neck circumference (cm)",
                     min_value=0.0, max_value=80.0,
-                    value=float(profile.get("neck_circumference_cm") or 0.0),
+                    value=profile.get("neck_circumference_cm"),
                     step=0.5,
+                    placeholder="Unknown",
                     help="NoSAS awards 4 points if neck circumference is >40 cm.",
                 )
             with col_sl2:
-                loud_snoring = st.checkbox(
+                loud_snoring = _optional_boolean_input(
                     "Loud / habitual snoring",
-                    value=bool(profile.get("loud_snoring", 0)),
+                    profile.get("loud_snoring"),
                 )
 
             st.markdown("##### Fracture & Bone-Risk History")
-            alcohol_options = ["none", "trivial", "light", "moderate", "heavy", "very_heavy"]
-            alcohol_labels = [
-                "None",
-                "Trivial / occasional",
-                "Light",
-                "Moderate",
-                "Heavy",
-                "Very heavy",
-            ]
-            current_alcohol = profile.get("alcohol_intake_level", "none") or "none"
-            alcohol_idx = alcohol_options.index(current_alcohol) if current_alcohol in alcohol_options else 0
+            alcohol_options = [None, "none", "trivial", "light", "moderate", "heavy", "very_heavy"]
+            alcohol_labels = {
+                None: "Unknown", "none": "None", "trivial": "Trivial / occasional",
+                "light": "Light", "moderate": "Moderate", "heavy": "Heavy",
+                "very_heavy": "Very heavy",
+            }
+            current_alcohol = profile.get("alcohol_intake_level")
             alcohol_intake_level = st.selectbox(
                 "Alcohol intake level",
                 options=alcohol_options,
-                format_func=lambda x: alcohol_labels[alcohol_options.index(x)],
-                index=alcohol_idx,
+                format_func=alcohol_labels.get,
+                index=_option_index(alcohol_options, current_alcohol),
                 help="Six-level category used by QFracture.",
             )
 
             col_fx1, col_fx2, col_fx3, col_fx4 = st.columns(4)
             with col_fx1:
-                prior_fragility_fracture = st.checkbox(
+                prior_fragility_fracture = _optional_boolean_input(
                     "Prior fragility fracture",
-                    value=bool(profile.get("prior_fragility_fracture", 0)),
+                    profile.get("prior_fragility_fracture"),
                 )
-                parent_hip_fracture = st.checkbox(
+                parent_hip_fracture = _optional_boolean_input(
                     "Parent fractured hip",
-                    value=bool(profile.get("parent_hip_fracture", 0)),
+                    profile.get("parent_hip_fracture"),
                     help="FRAX uses parent hip-fracture history specifically, not general family osteoporosis history.",
                 )
-                family_history_osteoporosis = st.checkbox(
+                family_history_osteoporosis = _optional_boolean_input(
                     "Family history of osteoporosis / hip fracture",
-                    value=bool(profile.get("family_history_osteoporosis", 0)),
+                    profile.get("family_history_osteoporosis"),
                 )
-                falls_last_year = st.checkbox(
+                falls_last_year = _optional_boolean_input(
                     "Falls in last year",
-                    value=bool(profile.get("falls_last_year", 0)),
+                    profile.get("falls_last_year"),
                 )
-                care_home = st.checkbox(
+                care_home = _optional_boolean_input(
                     "Care home / institutional living",
-                    value=bool(profile.get("care_home", 0)),
+                    profile.get("care_home"),
                 )
             with col_fx2:
-                dementia = st.checkbox(
+                dementia = _optional_boolean_input(
                     "Dementia",
-                    value=bool(profile.get("dementia", 0)),
+                    profile.get("dementia"),
                 )
-                cancer = st.checkbox(
+                cancer = _optional_boolean_input(
                     "Cancer history",
-                    value=bool(profile.get("cancer", 0)),
+                    profile.get("cancer"),
                 )
-                asthma_copd = st.checkbox(
+                asthma_copd = _optional_boolean_input(
                     "Asthma / COPD",
-                    value=bool(profile.get("asthma_copd", 0)),
+                    profile.get("asthma_copd"),
                 )
-                chronic_liver_disease = st.checkbox(
+                chronic_liver_disease = _optional_boolean_input(
                     "Chronic liver disease",
-                    value=bool(profile.get("chronic_liver_disease", 0)),
+                    profile.get("chronic_liver_disease"),
                 )
             with col_fx3:
-                advanced_ckd_stage45 = st.checkbox(
+                advanced_ckd_stage45 = _optional_boolean_input(
                     "Advanced CKD (stage 4-5)",
-                    value=bool(profile.get("advanced_ckd_stage45", 0)),
+                    profile.get("advanced_ckd_stage45"),
                 )
-                epilepsy = st.checkbox(
+                epilepsy = _optional_boolean_input(
                     "Epilepsy",
-                    value=bool(profile.get("epilepsy", 0)),
+                    profile.get("epilepsy"),
                 )
-                parkinsons = st.checkbox(
+                parkinsons = _optional_boolean_input(
                     "Parkinson's disease",
-                    value=bool(profile.get("parkinsons", 0)),
+                    profile.get("parkinsons"),
                 )
-                malabsorption = st.checkbox(
+                malabsorption = _optional_boolean_input(
                     "Malabsorption syndrome",
-                    value=bool(profile.get("malabsorption", 0)),
+                    profile.get("malabsorption"),
                 )
             with col_fx4:
-                endocrine_bone_disorder = st.checkbox(
+                endocrine_bone_disorder = _optional_boolean_input(
                     "Endocrine bone disorder",
-                    value=bool(profile.get("endocrine_bone_disorder", 0)),
+                    profile.get("endocrine_bone_disorder"),
                     help="For example untreated hyperthyroidism, hyperparathyroidism, or related endocrine bone disease.",
                 )
-                antidepressant_use = st.checkbox(
+                antidepressant_use = _optional_boolean_input(
                     "Antidepressant use",
-                    value=bool(profile.get("antidepressant_use", 0)),
+                    profile.get("antidepressant_use"),
                 )
-                hrt_estrogen_only = st.checkbox(
+                hrt_estrogen_only = _optional_boolean_input(
                     "Estrogen-only HRT",
-                    value=bool(profile.get("hrt_estrogen_only", 0)),
+                    profile.get("hrt_estrogen_only"),
                     help="Relevant to the female QFracture model.",
                 )
 
         submitted = st.form_submit_button("Save Clinical Profile", use_container_width=True)
-        if submitted:
+        if submitted and smoking == "current" and cigs is None:
+            st.error("Enter cigarettes per day for a current smoker.")
+        elif submitted:
             from models.clinical_profile import save_profile
             # Derive diabetes_status from diabetes_type for backward compat
-            dm_status = 1 if diabetes_type in ("type1", "type2") else 0
+            dm_status = None if diabetes_type is None else int(diabetes_type != "none")
             data = {
                 "date_of_birth": str(dob) if dob else None,
-                "sex": sex if sex else None,
+                "sex": sex,
                 "height_cm": height_cm,
                 "weight_kg": weight_kg,
-                "smoking_status": smoking if smoking else None,
+                "smoking_status": smoking,
                 "diabetes_status": dm_status,
                 "systolic_bp": systolic,
                 "diastolic_bp": diastolic,
-                "on_bp_medication": 1 if on_bp_med else 0,
-                "on_statin": 1 if on_statin else 0,
+                "on_bp_medication": on_bp_med,
+                "on_statin": on_statin,
                 "ethnicity": ethnicity,
                 "diabetes_type": diabetes_type,
-                "family_history_chd": 1 if fh_chd else 0,
-                "atrial_fibrillation": 1 if af else 0,
-                "rheumatoid_arthritis": 1 if ra else 0,
-                "chronic_kidney_disease": 1 if ckd else 0,
-                "migraine": 1 if migraine else 0,
-                "sle": 1 if sle_val else 0,
-                "severe_mental_illness": 1 if smi else 0,
-                "erectile_dysfunction": 1 if ed else 0,
-                "atypical_antipsychotic": 1 if antipsych else 0,
-                "corticosteroid_use": 1 if cortico else 0,
-                "sbp_variability": sbp_var if sbp_var > 0 else None,
-                "cigarettes_per_day": cigs,
-                "congestive_heart_failure": 1 if chf else 0,
-                "prior_stroke_tia": 1 if stroke_tia else 0,
-                "vascular_disease": 1 if vasc else 0,
+                "family_history_chd": fh_chd,
+                "atrial_fibrillation": af,
+                "rheumatoid_arthritis": ra,
+                "chronic_kidney_disease": ckd,
+                "migraine": migraine,
+                "sle": sle_val,
+                "severe_mental_illness": smi,
+                "erectile_dysfunction": ed,
+                "atypical_antipsychotic": antipsych,
+                "corticosteroid_use": cortico,
+                "sbp_variability": sbp_var,
+                "cigarettes_per_day": cigs if smoking == "current" else None,
+                "congestive_heart_failure": chf,
+                "prior_stroke_tia": stroke_tia,
+                "vascular_disease": vasc,
                 "education_years": edu_years,
                 "physical_activity_level": phys_activity,
                 "family_history_diabetes": family_history_diabetes,
-                "history_high_glucose": 1 if history_high_glucose else 0,
-                "daily_fruit_veg": 1 if daily_fruit_veg else 0,
-                "daily_activity_30min": 1 if daily_activity_30min else 0,
-                "neck_circumference_cm": neck_circumference if neck_circumference > 0 else None,
-                "loud_snoring": 1 if loud_snoring else 0,
-                "grip_strength_kg": grip_strength if grip_strength > 0 else None,
-                "chair_stand_time_s": chair_stand_time if chair_stand_time > 0 else None,
-                "gait_speed_m_per_s": gait_speed if gait_speed > 0 else None,
-                "prior_fragility_fracture": 1 if prior_fragility_fracture else 0,
-                "parent_hip_fracture": 1 if parent_hip_fracture else 0,
-                "family_history_osteoporosis": 1 if family_history_osteoporosis else 0,
-                "falls_last_year": 1 if falls_last_year else 0,
+                "history_high_glucose": history_high_glucose,
+                "daily_fruit_veg": daily_fruit_veg,
+                "daily_activity_30min": daily_activity_30min,
+                "neck_circumference_cm": neck_circumference,
+                "loud_snoring": loud_snoring,
+                "grip_strength_kg": grip_strength,
+                "chair_stand_time_s": chair_stand_time,
+                "gait_speed_m_per_s": gait_speed,
+                "prior_fragility_fracture": prior_fragility_fracture,
+                "parent_hip_fracture": parent_hip_fracture,
+                "family_history_osteoporosis": family_history_osteoporosis,
+                "falls_last_year": falls_last_year,
                 "alcohol_intake_level": alcohol_intake_level,
-                "care_home": 1 if care_home else 0,
-                "dementia": 1 if dementia else 0,
-                "cancer": 1 if cancer else 0,
-                "asthma_copd": 1 if asthma_copd else 0,
-                "chronic_liver_disease": 1 if chronic_liver_disease else 0,
-                "advanced_ckd_stage45": 1 if advanced_ckd_stage45 else 0,
-                "epilepsy": 1 if epilepsy else 0,
-                "parkinsons": 1 if parkinsons else 0,
-                "malabsorption": 1 if malabsorption else 0,
-                "endocrine_bone_disorder": 1 if endocrine_bone_disorder else 0,
-                "antidepressant_use": 1 if antidepressant_use else 0,
-                "hrt_estrogen_only": 1 if hrt_estrogen_only else 0,
+                "care_home": care_home,
+                "dementia": dementia,
+                "cancer": cancer,
+                "asthma_copd": asthma_copd,
+                "chronic_liver_disease": chronic_liver_disease,
+                "advanced_ckd_stage45": advanced_ckd_stage45,
+                "epilepsy": epilepsy,
+                "parkinsons": parkinsons,
+                "malabsorption": malabsorption,
+                "endocrine_bone_disorder": endocrine_bone_disorder,
+                "antidepressant_use": antidepressant_use,
+                "hrt_estrogen_only": hrt_estrogen_only,
             }
             save_profile(user_id, data)
             st.success("Clinical profile saved.")

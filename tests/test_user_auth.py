@@ -49,6 +49,32 @@ def test_create_user_normalizes_username_and_supports_case_insensitive_login(use
     assert by_lower is not None
     assert by_upper is not None
     assert by_lower["id"] == by_upper["id"]
+    assert by_lower["account_role"] == "user"
+
+
+def test_create_user_can_create_explicit_admin_role(user_db):
+    user_id = user_model.create_user(
+        "TG",
+        "AdminPass123",
+        "TG",
+        account_role="admin",
+    )
+
+    user = user_model.get_user(user_id)
+    assert user is not None
+    assert user["username"] == "tg"
+    assert user["account_role"] == "admin"
+    assert user_model.verify_user("TG", "AdminPass123")["account_role"] == "admin"
+
+
+def test_create_user_rejects_unknown_account_role(user_db):
+    with pytest.raises(ValueError, match="Invalid account role"):
+        user_model.create_user(
+            "operator",
+            "StrongPass1",
+            "Operator",
+            account_role="superuser",
+        )
 
 
 def test_verify_user_accepts_email_case_insensitive(user_db):

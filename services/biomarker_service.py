@@ -37,31 +37,40 @@ def _attach_target_evidence(defn: dict) -> dict:
 
 
 def seed_biomarker_definitions():
-    """Populate biomarker_definitions from config (idempotent).
-
-    Uses INSERT OR IGNORE so new biomarkers added to config are picked up
-    on existing databases without duplicating existing rows.
-    """
+    """Synchronize biomarker definitions from config without replacing rows."""
     from config.biomarkers_data import BIOMARKER_DEFINITIONS
+
     conn = get_connection()
-    for bm in BIOMARKER_DEFINITIONS:
-        conn.execute(
-            """INSERT OR IGNORE INTO biomarker_definitions
-               (code, name, category, unit, standard_low, standard_high,
-                optimal_low, optimal_high, critical_low, critical_high,
-                description, clinical_note, pillar_id, sort_order)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (
-                bm["code"], bm["name"], bm["category"], bm["unit"],
-                bm.get("standard_low"), bm.get("standard_high"),
-                bm.get("optimal_low"), bm.get("optimal_high"),
-                bm.get("critical_low"), bm.get("critical_high"),
-                bm.get("description"), bm.get("clinical_note"),
-                bm.get("pillar_id"), bm.get("sort_order", 99),
-            ),
-        )
-    conn.commit()
-    conn.close()
+    update_sql = """UPDATE biomarker_definitions
+                    SET name = ?, category = ?, unit = ?,
+                        standard_low = ?, standard_high = ?,
+                        optimal_low = ?, optimal_high = ?,
+                        critical_low = ?, critical_high = ?,
+                        description = ?, clinical_note = ?,
+                        pillar_id = ?, sort_order = ?
+                    WHERE code = ?"""
+    insert_sql = """INSERT OR IGNORE INTO biomarker_definitions
+                    (code, name, category, unit, standard_low, standard_high,
+                     optimal_low, optimal_high, critical_low, critical_high,
+                     description, clinical_note, pillar_id, sort_order)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
+
+    try:
+        with conn:
+            for bm in BIOMARKER_DEFINITIONS:
+                metadata = (
+                    bm["name"], bm["category"], bm["unit"],
+                    bm.get("standard_low"), bm.get("standard_high"),
+                    bm.get("optimal_low"), bm.get("optimal_high"),
+                    bm.get("critical_low"), bm.get("critical_high"),
+                    bm.get("description"), bm.get("clinical_note"),
+                    bm.get("pillar_id"), bm.get("sort_order", 99),
+                )
+                updated = conn.execute(update_sql, (*metadata, bm["code"]))
+                if updated.rowcount == 0:
+                    conn.execute(insert_sql, (bm["code"], *metadata))
+    finally:
+        conn.close()
 
 
 def get_all_definitions():

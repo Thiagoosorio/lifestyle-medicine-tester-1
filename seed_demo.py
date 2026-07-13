@@ -15,6 +15,7 @@ Maria, 43, mother of two. Over 12 months she:
 import random
 import uuid
 import json
+from functools import wraps
 from datetime import date, datetime, timedelta
 from db.database import init_db, get_connection
 from models.user import create_user
@@ -28,7 +29,151 @@ EMAIL = "maria.silva@demo.com"
 START_DATE = date(2025, 2, 1)   # Journey starts Feb 2025
 END_DATE = date(2026, 2, 1)     # One full year
 
-random.seed(42)  # Reproducible data
+
+def _with_reproducible_random_state(func):
+    """Make a full seed deterministic without changing app-wide randomness."""
+    @wraps(func)
+    def wrapped(*args, **kwargs):
+        prior_state = random.getstate()
+        random.seed(42)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            random.setstate(prior_state)
+
+    return wrapped
+
+MARIA_CPET_REPORTS = [
+    {
+        "test_date": "2025-03-15",
+        "metrics": {
+            "age_years": 42,
+            "height_cm": 167,
+            "weight_kg": 101.8,
+            "test_duration_min": 9.4,
+            "averaging_window_sec": 15,
+            "rest_vo2_ml_kg_min": 3.4,
+            "rest_rer": 0.82,
+            "rest_ve_l_min": 8.1,
+            "peak_vo2_ml_kg_min": 22.4,
+            "peak_vo2_l_min": 2.28,
+            "peak_vo2_pct_pred": 68,
+            "peak_rer": 1.13,
+            "rest_hr_bpm": 82,
+            "peak_hr_bpm": 174,
+            "predicted_hr_bpm": 179,
+            "hr_pct_pred": 97.2,
+            "hr_recovery_1min_bpm": 17,
+            "vt1_vo2_ml_kg_min": 12.8,
+            "vt1_hr_bpm": 119,
+            "vt1_speed_kmh": 5.6,
+            "vt2_vo2_ml_kg_min": 18.2,
+            "vt2_hr_bpm": 148,
+            "vt2_speed_kmh": 7.6,
+            "ve_vco2_slope": 30,
+            "ve_vco2_nadir": 28,
+            "breathing_reserve_pct": 32,
+            "o2_pulse_ml_beat": 13.1,
+            "o2_pulse_pct_pred": 90,
+            "spo2_nadir_pct": 96,
+            "fatmax_g_min": 0.28,
+            "fatmax_vo2_pct": 47,
+            "fatmax_hr_bpm": 108,
+            "mets_peak": 6.4,
+        },
+        "notes": "Synthetic baseline demo test before structured endurance training.",
+    },
+    {
+        "test_date": "2026-02-01",
+        "metrics": {
+            "age_years": 43,
+            "height_cm": 167,
+            "weight_kg": 78.0,
+            "test_duration_min": 10.7,
+            "averaging_window_sec": 15,
+            "rest_vo2_ml_kg_min": 3.2,
+            "rest_rer": 0.79,
+            "rest_ve_l_min": 7.2,
+            "peak_vo2_ml_kg_min": 41.2,
+            "peak_vo2_l_min": 3.21,
+            "peak_vo2_pct_pred": 124,
+            "peak_rer": 1.16,
+            "rest_hr_bpm": 58,
+            "peak_hr_bpm": 176,
+            "predicted_hr_bpm": 178,
+            "hr_pct_pred": 98.9,
+            "hr_recovery_1min_bpm": 31,
+            "vt1_vo2_ml_kg_min": 27.5,
+            "vt1_hr_bpm": 142,
+            "vt1_speed_kmh": 8.6,
+            "vt2_vo2_ml_kg_min": 36.4,
+            "vt2_hr_bpm": 163,
+            "vt2_speed_kmh": 11.7,
+            "ve_vco2_slope": 26,
+            "ve_vco2_nadir": 24,
+            "breathing_reserve_pct": 40,
+            "o2_pulse_ml_beat": 18.2,
+            "o2_pulse_pct_pred": 124,
+            "spo2_nadir_pct": 97,
+            "fatmax_g_min": 0.51,
+            "fatmax_vo2_pct": 61,
+            "fatmax_hr_bpm": 135,
+            "mets_peak": 11.8,
+        },
+        "notes": "Synthetic follow-up demo test after the 12-month training journey.",
+    },
+]
+
+MARIA_INBODY_REPORTS = [
+    {
+        "scan_date": "2025-03-15",
+        "metrics": {
+            "height_cm": 167,
+            "weight_kg": 101.8,
+            "total_body_water_l": 39.8,
+            "intracellular_water_l": 24.4,
+            "extracellular_water_l": 15.4,
+            "ecw_tbw_ratio": 0.387,
+            "phase_angle_deg": 4.7,
+            "skeletal_muscle_mass_kg": 27.4,
+            "soft_lean_mass_kg": 52.0,
+            "fat_free_mass_kg": 55.0,
+            "body_fat_mass_kg": 46.8,
+            "body_fat_pct": 46.0,
+            "bmi": 36.5,
+            "bmr_kcal": 1505,
+            "visceral_fat_area_cm2": 175,
+            "visceral_fat_level": 17,
+            "waist_hip_ratio": 0.98,
+            "inbody_score": 59,
+        },
+        "notes": "Synthetic baseline demo scan under standardized morning conditions.",
+    },
+    {
+        "scan_date": "2026-02-01",
+        "metrics": {
+            "height_cm": 167,
+            "weight_kg": 78.0,
+            "total_body_water_l": 36.8,
+            "intracellular_water_l": 22.8,
+            "extracellular_water_l": 14.0,
+            "ecw_tbw_ratio": 0.380,
+            "phase_angle_deg": 5.8,
+            "skeletal_muscle_mass_kg": 27.1,
+            "soft_lean_mass_kg": 48.5,
+            "fat_free_mass_kg": 51.0,
+            "body_fat_mass_kg": 27.0,
+            "body_fat_pct": 34.6,
+            "bmi": 28.0,
+            "bmr_kcal": 1430,
+            "visceral_fat_area_cm2": 95,
+            "visceral_fat_level": 9,
+            "waist_hip_ratio": 0.86,
+            "inbody_score": 78,
+        },
+        "notes": "Synthetic follow-up demo scan; interpret as a same-device trend.",
+    },
+]
 
 MARIA_CLINICAL_PROFILE = {
     "date_of_birth": "1982-10-12",  # 43y during demo timeline
@@ -319,12 +464,12 @@ MARIA_TEST_RESULTS = [
     },
     {
         "test_type": "CPET",
-        "test_date": "2026-01-20",
+        "test_date": "2026-02-01",
         "status": "confirmed",
-        "summary": "Reduced cardiorespiratory fitness with early anaerobic threshold.",
-        "key_metrics": {"vo2_peak_ml_kg_min": 24.1, "ve_vco2_slope": 33.4, "anaerobic_threshold_ml_kg_min": 14.7},
+        "summary": "Above-predicted cardiorespiratory fitness after the structured training year.",
+        "key_metrics": {"vo2_peak_ml_kg_min": 41.2, "ve_vco2_slope": 26.0, "anaerobic_threshold_ml_kg_min": 27.5},
         "source_ref": "Exercise physiology lab",
-        "risk_flag": "moderate",
+        "risk_flag": "low",
     },
     {
         "test_type": "CGM 14-day profile",
@@ -718,6 +863,550 @@ def ensure_demo_organ_score_prereqs(
     }
 
 
+def ensure_demo_showcase_data(user_id: int) -> dict[str, int]:
+    """Fill flagship demo views with idempotent, clearly synthetic records."""
+    from config.lessons import LESSON_LIBRARY
+    from services.cpet_service import normalize_cpet_metrics
+    from services.exercise_prescription_service import generate_program
+    from services.inbody_service import normalize_inbody_metrics
+
+    summary = {
+        "cpet_reports": 0,
+        "inbody_reports": 0,
+        "programs": 0,
+        "lessons_completed": 0,
+        "habit_stacks": 0,
+    }
+    conn = get_connection()
+    try:
+        if conn.execute("SELECT COUNT(*) FROM micro_lessons").fetchone()[0] == 0:
+            conn.executemany(
+                """INSERT INTO micro_lessons
+                   (pillar_id, title, content, quiz_question, quiz_options,
+                    quiz_answer, lesson_type, difficulty)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                LESSON_LIBRARY,
+            )
+
+        lesson_rows = conn.execute(
+            """SELECT id, pillar_id
+               FROM micro_lessons
+               ORDER BY pillar_id, sort_order, id"""
+        ).fetchall()
+        per_pillar: dict[int, int] = {}
+        for lesson in lesson_rows:
+            pillar_id = int(lesson["pillar_id"])
+            if per_pillar.get(pillar_id, 0) >= 2:
+                continue
+            offset = sum(per_pillar.values()) * 14
+            completed_at = START_DATE + timedelta(days=45 + offset)
+            conn.execute(
+                """INSERT OR IGNORE INTO user_lesson_progress
+                   (user_id, lesson_id, completed_at, quiz_score)
+                   VALUES (?, ?, ?, ?)""",
+                (user_id, lesson["id"], completed_at.isoformat(), 100),
+            )
+            per_pillar[pillar_id] = per_pillar.get(pillar_id, 0) + 1
+
+        conn.execute(
+            """INSERT INTO user_settings (user_id, goal_weight_kg)
+               VALUES (?, 75.0)
+               ON CONFLICT(user_id) DO UPDATE SET
+                   goal_weight_kg = excluded.goal_weight_kg,
+                   updated_at = datetime('now')""",
+            (user_id,),
+        )
+
+        conn.execute(
+            """INSERT OR IGNORE INTO habit_stacks
+               (user_id, name, anchor_time, anchor_cue)
+               VALUES (?, 'Morning Foundation', '06:30',
+                       'After I finish my morning coffee')""",
+            (user_id,),
+        )
+        stack = conn.execute(
+            """SELECT id FROM habit_stacks
+               WHERE user_id = ? AND name = 'Morning Foundation'""",
+            (user_id,),
+        ).fetchone()
+        if stack:
+            for position, habit_name in enumerate(
+                ("Drink 8 glasses of water", "Morning walk/run", "Morning meditation"),
+                start=1,
+            ):
+                conn.execute(
+                    """UPDATE habits SET stack_id = ?, stack_order = ?
+                       WHERE user_id = ? AND name = ?""",
+                    (stack["id"], position, user_id, habit_name),
+                )
+
+        for report in MARIA_CPET_REPORTS:
+            metrics = normalize_cpet_metrics(report["metrics"])
+            conn.execute(
+                """INSERT INTO cpet_reports
+                   (user_id, test_date, source_filename, test_modality, protocol,
+                    client_context, metrics_json, raw_text, notes, updated_at)
+                   VALUES (?, ?, NULL, 'treadmill', 'Modified Bruce ramp',
+                           'endurance', ?, NULL, ?, datetime('now'))
+                   ON CONFLICT(user_id, test_date) DO UPDATE SET
+                       test_modality = excluded.test_modality,
+                       protocol = excluded.protocol,
+                       client_context = excluded.client_context,
+                       metrics_json = excluded.metrics_json,
+                       raw_text = NULL,
+                       notes = excluded.notes,
+                       updated_at = datetime('now')""",
+                (
+                    user_id,
+                    report["test_date"],
+                    json.dumps(metrics, sort_keys=True),
+                    report["notes"],
+                ),
+            )
+
+        for report in MARIA_INBODY_REPORTS:
+            metrics = normalize_inbody_metrics(report["metrics"])
+            conn.execute(
+                """INSERT INTO inbody_reports
+                   (user_id, scan_date, source_filename, device_model,
+                    metrics_json, raw_text, notes, updated_at)
+                   VALUES (?, ?, NULL, 'InBody 770 (synthetic demo)',
+                           ?, NULL, ?, datetime('now'))
+                   ON CONFLICT(user_id, scan_date) DO UPDATE SET
+                       device_model = excluded.device_model,
+                       metrics_json = excluded.metrics_json,
+                       raw_text = NULL,
+                       notes = excluded.notes,
+                       updated_at = datetime('now')""",
+                (
+                    user_id,
+                    report["scan_date"],
+                    json.dumps(metrics, sort_keys=True),
+                    report["notes"],
+                ),
+            )
+
+        if not conn.execute(
+            "SELECT 1 FROM exercise_programs WHERE user_id = ? LIMIT 1",
+            (user_id,),
+        ).fetchone():
+            program = generate_program(
+                level="beginner",
+                schedule="ppl_3",
+                goal="general_fitness",
+            )
+            conn.execute(
+                """INSERT INTO exercise_programs
+                   (user_id, level, schedule, goal, program_json, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    user_id,
+                    program["level"],
+                    program["schedule"],
+                    program["goal"],
+                    json.dumps(program),
+                    END_DATE.isoformat(),
+                ),
+            )
+
+        conn.commit()
+        summary["cpet_reports"] = conn.execute(
+            "SELECT COUNT(*) FROM cpet_reports WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        summary["inbody_reports"] = conn.execute(
+            "SELECT COUNT(*) FROM inbody_reports WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        summary["programs"] = conn.execute(
+            "SELECT COUNT(*) FROM exercise_programs WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        summary["lessons_completed"] = conn.execute(
+            "SELECT COUNT(*) FROM user_lesson_progress WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        summary["habit_stacks"] = conn.execute(
+            "SELECT COUNT(*) FROM habit_stacks WHERE user_id = ?", (user_id,)
+        ).fetchone()[0]
+        return summary
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def ensure_demo_current_window(
+    user_id: int,
+    anchor_date: date | None = None,
+) -> dict[str, int | str]:
+    """Maintain a rolling 14-day synthetic tail for date-relative demo views."""
+    anchor = anchor_date or date.today()
+    first_day = anchor - timedelta(days=13)
+    synthetic_note = "Synthetic demo maintenance window"
+    conn = get_connection()
+    try:
+        habits = conn.execute(
+            "SELECT id FROM habits WHERE user_id = ? AND is_active = 1 ORDER BY id",
+            (user_id,),
+        ).fetchall()
+        protocols = conn.execute(
+            """SELECT protocol_id FROM user_protocols
+               WHERE user_id = ? AND status = 'active' ORDER BY protocol_id""",
+            (user_id,),
+        ).fetchall()
+
+        conn.execute(
+            "DELETE FROM meal_logs WHERE user_id = ? AND notes = ?",
+            (user_id, synthetic_note),
+        )
+        conn.execute(
+            "DELETE FROM fasting_sessions WHERE user_id = ? AND notes = ?",
+            (user_id, synthetic_note),
+        )
+        conn.execute(
+            "DELETE FROM exercise_logs WHERE user_id = ? AND external_id LIKE 'demo-current-%'",
+            (user_id,),
+        )
+        conn.execute(
+            "DELETE FROM wheel_assessments WHERE user_id = ? AND session_id LIKE 'demo-current-%'",
+            (user_id,),
+        )
+
+        meal_templates = (
+            (
+                "breakfast",
+                "Oats with berries, walnuts, chia, and unsweetened soy milk",
+                5,
+                12.0,
+            ),
+            (
+                "lunch",
+                "Lentil grain bowl with mixed vegetables and tahini",
+                6,
+                15.0,
+            ),
+            (
+                "dinner",
+                "Tofu stir-fry with brown rice and broccoli",
+                5,
+                11.0,
+            ),
+        )
+        exercise_templates = (
+            ("run", "cardio", 45, "moderate", 7.2, 138, 158, 6),
+            ("strength", "strength", 40, "moderate", None, 118, 145, 7),
+            ("yoga", "flexibility", 30, "light", None, 92, 108, 3),
+        )
+
+        for offset in range(14):
+            current_day = first_day + timedelta(days=offset)
+            day_text = current_day.isoformat()
+            mood = 8 + (offset % 3 == 0)
+            energy = 8 if offset % 4 else 7
+            conn.execute(
+                """INSERT INTO daily_checkins
+                   (user_id, checkin_date, mood, energy, nutrition_rating,
+                    activity_rating, sleep_rating, stress_rating,
+                    connection_rating, substance_rating, journal_entry,
+                    gratitude, win_of_day, challenge, updated_at)
+                   VALUES (?, ?, ?, ?, 9, 8, 8, 8, 9, 10, ?, ?, ?, ?, datetime('now'))
+                   ON CONFLICT(user_id, checkin_date) DO UPDATE SET
+                       mood = excluded.mood,
+                       energy = excluded.energy,
+                       nutrition_rating = excluded.nutrition_rating,
+                       activity_rating = excluded.activity_rating,
+                       sleep_rating = excluded.sleep_rating,
+                       stress_rating = excluded.stress_rating,
+                       connection_rating = excluded.connection_rating,
+                       substance_rating = excluded.substance_rating,
+                       journal_entry = excluded.journal_entry,
+                       gratitude = excluded.gratitude,
+                       win_of_day = excluded.win_of_day,
+                       challenge = excluded.challenge,
+                       updated_at = datetime('now')""",
+                (
+                    user_id,
+                    day_text,
+                    mood,
+                    energy,
+                    "Maintenance feels steady; I am balancing training with recovery.",
+                    "My family and running community",
+                    "Protected my morning routine",
+                    "Keeping the plan flexible on busy days",
+                ),
+            )
+            conn.execute(
+                """INSERT INTO sleep_logs
+                   (user_id, sleep_date, bedtime, wake_time, sleep_latency_min,
+                    awakenings, wake_duration_min, sleep_quality, caffeine_cutoff,
+                    screen_cutoff, alcohol, exercise_today, notes,
+                    total_sleep_min, sleep_efficiency, sleep_score)
+                   VALUES (?, ?, '22:20', '06:15', 14, 1, 8, 4, '14:00',
+                           '21:30', 0, ?, ?, ?, ?, ?)
+                   ON CONFLICT(user_id, sleep_date) DO UPDATE SET
+                       bedtime = excluded.bedtime,
+                       wake_time = excluded.wake_time,
+                       sleep_latency_min = excluded.sleep_latency_min,
+                       awakenings = excluded.awakenings,
+                       wake_duration_min = excluded.wake_duration_min,
+                       sleep_quality = excluded.sleep_quality,
+                       caffeine_cutoff = excluded.caffeine_cutoff,
+                       screen_cutoff = excluded.screen_cutoff,
+                       alcohol = excluded.alcohol,
+                       exercise_today = excluded.exercise_today,
+                       notes = excluded.notes,
+                       total_sleep_min = excluded.total_sleep_min,
+                       sleep_efficiency = excluded.sleep_efficiency,
+                       sleep_score = excluded.sleep_score""",
+                (
+                    user_id,
+                    day_text,
+                    int(offset % 2 == 0),
+                    synthetic_note,
+                    450 + offset % 4 * 5,
+                    92 + offset % 3,
+                    84 + offset % 5,
+                ),
+            )
+            for habit_index, habit in enumerate(habits):
+                completed = int((offset + habit_index) % 11 != 0)
+                conn.execute(
+                    """INSERT INTO habit_log
+                       (habit_id, user_id, log_date, completed_count, notes)
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(habit_id, log_date) DO UPDATE SET
+                           completed_count = excluded.completed_count,
+                           notes = excluded.notes""",
+                    (habit["id"], user_id, day_text, completed, synthetic_note),
+                )
+
+            for meal_type, description, plants, fiber in meal_templates:
+                conn.execute(
+                    """INSERT INTO meal_logs
+                       (user_id, log_date, meal_type, description, color_category,
+                        plant_servings, fruit_servings, vegetable_servings,
+                        whole_grain_servings, legume_servings, nut_seed_servings,
+                        fiber_grams, water_glasses, notes)
+                       VALUES (?, ?, ?, ?, 'green', ?, ?, ?, 1, ?, 1, ?, ?, ?)""",
+                    (
+                        user_id,
+                        day_text,
+                        meal_type,
+                        description,
+                        plants,
+                        int(meal_type == "breakfast"),
+                        2,
+                        int(meal_type == "lunch"),
+                        fiber,
+                        3 if meal_type != "dinner" else 2,
+                        synthetic_note,
+                    ),
+                )
+            conn.execute(
+                """INSERT INTO nutrition_daily_summary
+                   (user_id, summary_date, total_meals, green_count, yellow_count,
+                    red_count, total_plant_servings, total_fiber_grams,
+                    total_water_glasses, plant_score, nutrition_score)
+                   VALUES (?, ?, 3, 3, 0, 0, 16, 38, 8, 94, 92)
+                   ON CONFLICT(user_id, summary_date) DO UPDATE SET
+                       total_meals = excluded.total_meals,
+                       green_count = excluded.green_count,
+                       yellow_count = excluded.yellow_count,
+                       red_count = excluded.red_count,
+                       total_plant_servings = excluded.total_plant_servings,
+                       total_fiber_grams = excluded.total_fiber_grams,
+                       total_water_glasses = excluded.total_water_glasses,
+                       plant_score = excluded.plant_score,
+                       nutrition_score = excluded.nutrition_score""",
+                (user_id, day_text),
+            )
+
+            if offset % 2 == 0:
+                exercise = exercise_templates[(offset // 2) % len(exercise_templates)]
+                ex_type, category, duration, intensity, distance, avg_hr, max_hr, rpe = exercise
+                conn.execute(
+                    """INSERT INTO exercise_logs
+                       (user_id, exercise_date, exercise_type, category,
+                        duration_min, intensity, distance_km, avg_hr, max_hr,
+                        rpe, notes, source, external_id)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?)""",
+                    (
+                        user_id,
+                        day_text,
+                        ex_type,
+                        category,
+                        duration,
+                        intensity,
+                        distance,
+                        avg_hr,
+                        max_hr,
+                        rpe,
+                        synthetic_note,
+                        f"demo-current-{day_text}",
+                    ),
+                )
+            else:
+                start_time = datetime.combine(current_day, datetime.min.time()).replace(
+                    hour=19
+                )
+                end_time = start_time + timedelta(hours=16)
+                conn.execute(
+                    """INSERT INTO fasting_sessions
+                       (user_id, start_time, end_time, target_hours, actual_hours,
+                        fasting_type, notes, completed)
+                       VALUES (?, ?, ?, 16, 16, '16:8', ?, 1)""",
+                    (
+                        user_id,
+                        start_time.isoformat(timespec="minutes"),
+                        end_time.isoformat(timespec="minutes"),
+                        synthetic_note,
+                    ),
+                )
+
+            for protocol in protocols:
+                conn.execute(
+                    """INSERT INTO protocol_log
+                       (user_id, protocol_id, log_date, completed, notes)
+                       VALUES (?, ?, ?, ?, ?)
+                       ON CONFLICT(user_id, protocol_id, log_date) DO UPDATE SET
+                           completed = excluded.completed,
+                           notes = excluded.notes""",
+                    (
+                        user_id,
+                        protocol["protocol_id"],
+                        day_text,
+                        int((offset + protocol["protocol_id"]) % 9 != 0),
+                        synthetic_note,
+                    ),
+                )
+
+        conn.execute(
+            """INSERT INTO body_metrics
+               (user_id, log_date, weight_kg, height_cm, waist_cm, hip_cm,
+                body_fat_pct, notes)
+               VALUES (?, ?, 78.0, 167.0, 86.0, 100.0, 34.6, ?)
+               ON CONFLICT(user_id, log_date) DO UPDATE SET
+                   weight_kg = excluded.weight_kg,
+                   height_cm = excluded.height_cm,
+                   waist_cm = excluded.waist_cm,
+                   hip_cm = excluded.hip_cm,
+                   body_fat_pct = excluded.body_fat_pct,
+                   notes = excluded.notes""",
+            (user_id, anchor.isoformat(), synthetic_note),
+        )
+
+        session_id = f"demo-current-{anchor.isoformat()}"
+        current_scores = {1: 9, 2: 9, 3: 8, 4: 8, 5: 9, 6: 9}
+        for pillar_id, score in current_scores.items():
+            conn.execute(
+                """INSERT INTO wheel_assessments
+                   (user_id, pillar_id, score, notes, assessed_at, session_id)
+                   VALUES (?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(session_id, pillar_id) DO UPDATE SET
+                       score = excluded.score,
+                       notes = excluded.notes,
+                       assessed_at = excluded.assessed_at""",
+                (
+                    user_id,
+                    pillar_id,
+                    score,
+                    "Synthetic maintenance-phase demo assessment",
+                    anchor.isoformat(),
+                    session_id,
+                ),
+            )
+
+        week_start = anchor - timedelta(days=anchor.weekday())
+        conn.execute(
+            """INSERT INTO weekly_reviews
+               (user_id, week_start, avg_mood, avg_energy,
+                habit_completion_pct, reflection, highlights, challenges,
+                next_week_focus)
+               VALUES (?, ?, 8.4, 8.0, 91.0, ?, ?, ?, ?)
+               ON CONFLICT(user_id, week_start) DO UPDATE SET
+                   avg_mood = excluded.avg_mood,
+                   avg_energy = excluded.avg_energy,
+                   habit_completion_pct = excluded.habit_completion_pct,
+                   reflection = excluded.reflection,
+                   highlights = excluded.highlights,
+                   challenges = excluded.challenges,
+                   next_week_focus = excluded.next_week_focus""",
+            (
+                user_id,
+                week_start.isoformat(),
+                "Maintenance is about consistency, recovery, and clinical follow-up.",
+                "Completed planned sessions and protected sleep.",
+                "Balancing ambition with recovery.",
+                "Keep easy days easy and prepare meals ahead.",
+            ),
+        )
+
+        future_target = (anchor + timedelta(days=90)).isoformat()
+        conn.execute(
+            """UPDATE goals SET target_date = ?, progress_pct = 85,
+                      updated_at = datetime('now')
+               WHERE user_id = ? AND title = 'Maintain 7.5+ hours sleep average'""",
+            (future_target, user_id),
+        )
+        conn.execute(
+            """UPDATE goals SET status = 'paused', updated_at = datetime('now')
+               WHERE user_id = ? AND title = 'Train for full marathon'
+                 AND status = 'active' AND target_date < ?""",
+            (user_id, anchor.isoformat()),
+        )
+        if not conn.execute(
+            """SELECT 1 FROM goals
+               WHERE user_id = ? AND title = 'Maintain half-marathon fitness safely'""",
+            (user_id,),
+        ).fetchone():
+            conn.execute(
+                """INSERT INTO goals
+                   (user_id, pillar_id, title, specific, measurable, achievable,
+                    relevant, time_bound, evidence_base, strategic, tailored,
+                    status, progress_pct, target_value, current_value, unit,
+                    start_date, target_date)
+                   VALUES (?, 2, 'Maintain half-marathon fitness safely',
+                           'Balance aerobic base, strength, and recovery each week',
+                           'Complete 3 aerobic and 2 strength sessions weekly',
+                           'Builds on the completed half-marathon year',
+                           'Maintains fitness while managing cardiometabolic risk',
+                           'Review after 12 weeks',
+                           'Progressive training with recovery monitoring',
+                           'Protect long-term consistency rather than chase rapid volume',
+                           'Coordinate intensity with clinician and running coach',
+                           'active', 72, 5, 4, 'sessions/week', ?, ?)""",
+                (user_id, first_day.isoformat(), future_target),
+            )
+
+        conn.commit()
+        return {
+            "anchor_date": anchor.isoformat(),
+            "checkins": conn.execute(
+                """SELECT COUNT(*) FROM daily_checkins
+                   WHERE user_id = ? AND checkin_date >= ?""",
+                (user_id, first_day.isoformat()),
+            ).fetchone()[0],
+            "sleep_logs": conn.execute(
+                """SELECT COUNT(*) FROM sleep_logs
+                   WHERE user_id = ? AND sleep_date >= ?""",
+                (user_id, first_day.isoformat()),
+            ).fetchone()[0],
+            "exercise_logs": conn.execute(
+                """SELECT COUNT(*) FROM exercise_logs
+                   WHERE user_id = ? AND external_id LIKE 'demo-current-%'""",
+                (user_id,),
+            ).fetchone()[0],
+            "meal_logs": conn.execute(
+                "SELECT COUNT(*) FROM meal_logs WHERE user_id = ? AND notes = ?",
+                (user_id, synthetic_note),
+            ).fetchone()[0],
+        }
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+@_with_reproducible_random_state
 def main():
     print("Initializing database...")
     init_db()
@@ -726,7 +1415,7 @@ def main():
     conn = get_connection()
     existing = conn.execute("SELECT id FROM users WHERE username = ?", (USERNAME,)).fetchone()
 
-    # Remove every row the demo user owns plus the shared tables we reseed, as
+    # Remove every row owned by the demo user as
     # ONE atomic unit. The user-scoped tables are discovered dynamically (any
     # table with a user_id column) rather than hardcoded, so a newly added
     # table — e.g. cpet_reports, inbody_reports, habit_stacks,
@@ -755,8 +1444,6 @@ def main():
             for tname in user_tables:
                 conn.execute(f'DELETE FROM "{tname}" WHERE user_id = ?', (uid,))
             conn.execute("DELETE FROM users WHERE id = ?", (uid,))
-        # Shared, non-user-scoped table reset — part of the same atomic unit.
-        conn.execute("DELETE FROM micro_lessons")
         conn.commit()
     except Exception:
         conn.rollback()
@@ -811,7 +1498,7 @@ def main():
     # PHASE 4 (Month 8-10): Thriving
     #   - Running 5K regularly, training for 10K
     #   - Whole-food diet is now default
-    #   - Lost 30 kg total, blood work normalized
+    #   - Weight and blood work improved, with residual risk still monitored
     #   - Meditating 15-20 min daily
     #   - Family relationships transformed
     #   - Alcohol: only occasional wine at social events
@@ -819,7 +1506,7 @@ def main():
     # PHASE 5 (Month 11-12): Half-Marathon & Maintenance
     #   - Completed first 10K, training for 21K
     #   - Ran 21K half-marathon in month 12!
-    #   - Total weight loss: 40 kg (105→65 kg)
+    #   - Total weight loss: 27 kg (105 to 78 kg)
     #   - Sleeping 7-8h consistently
     #   - Meditation is non-negotiable daily habit
     #   - Role model for her kids and friends
@@ -1300,8 +1987,8 @@ def main():
         ("2025-07-10", "assistant", "MARIA!! This is absolutely incredible — I'm so proud of you! From not being able to run for one minute to running for thirty. That is not just physical transformation — that is proof of what you're capable of when you commit to yourself.\n\nLet's take a moment to really feel this: You set a SMART goal. You showed up on hard days. You pushed through doubt. And you did it. Your Wheel of Life has shifted dramatically — Physical Activity went from a 1 to a 7!\n\nWhat would you like your next challenge to be? Many runners at your stage start thinking about a 5K race. No pressure — just curiosity. What feels exciting to you?", "general"),
         ("2025-11-15", "user", "10K done! 1:05:00. I'm training for the half-marathon now. I can't believe this is my life.", "general"),
         ("2025-11-15", "assistant", "Maria, look at how far you've come. From 105 kg and pre-diabetic to a 10K runner with normalized blood work. You've lost 30 kg. You meditate daily. You have a running community. Your kids see a mother who transforms challenges into achievements.\n\nYour Wheel of Life is remarkable — most pillars are at 8-9. Your Stage of Change shows Maintenance across nearly every pillar. You've moved from surviving to thriving.\n\nFor the half-marathon: let's make sure your nutrition supports the increased training load. Long runs over 15K require fueling strategies. And let's protect your sleep — recovery is where the magic happens. What does your current training plan look like?", "general"),
-        ("2026-02-01", "user", "I DID IT. 21.1 KM. 2 hours 15 minutes. I crossed that finish line and I cried. My kids were there cheering. One year ago I was 105 kg, pre-diabetic, smoking, and couldn't walk 15 minutes. Today I'm 65 kg and I just ran a half-marathon.", "general"),
-        ("2026-02-01", "assistant", "Maria. I am so deeply moved. Read that back to yourself:\n\n*One year ago: 105 kg, pre-diabetic, smoking, couldn't walk 15 minutes.*\n*Today: 65 kg, completely healthy, half-marathon finisher.*\n\nThis is what lifestyle medicine looks like when someone commits fully. You didn't just lose 40 kg — you gained a life. You gained:\n- A body that carries you 21.1 km\n- Lungs free of smoke for almost a year\n- A mind calmed by daily meditation\n- Sleep that truly restores you\n- A community of runners who are now friends\n- Children who watched their mother become unstoppable\n\nYour Wheel of Life is nearly complete — every pillar is strong. The only thing to watch is your occasional wine, and honestly, a glass shared with friends once or twice a month is part of a joyful life.\n\nWhat's next for you, Maria? Because I have a feeling you're already thinking about that full marathon... 🏃‍♀️", "general"),
+        ("2026-02-01", "user", "I DID IT. 21.1 KM. 2 hours 15 minutes. I crossed that finish line and I cried. My kids were there cheering. One year ago I was 105 kg, pre-diabetic, smoking, and couldn't walk 15 minutes. Today I'm 78 kg and I just ran a half-marathon.", "general"),
+        ("2026-02-01", "assistant", "Maria, that is a major milestone. One year ago you were 105 kg, smoking, and unable to walk for 15 minutes; today you are 78 kg and a half-marathon finisher. You lost 27 kg while building fitness, sleep, nutrition, stress-management, and social habits. Your cardiometabolic risk still deserves follow-up, including blood pressure, HbA1c, LDL cholesterol, sleep apnea treatment, and prescribed medications. Celebrate the finish, recover fully, and choose the next goal with your clinician and coach rather than assuming the remaining risk has disappeared.", "general"),
     ]
 
     for msg_date, role, content, ctx in coaching_conversations:
@@ -1421,7 +2108,7 @@ def main():
         UNIQUE(user_id, log_date)
     )""")
 
-    # Maria's weight: 105 kg → 65 kg over 12 months (sigmoid curve)
+    # Maria's weight: 105 kg to 78 kg over 12 months (sigmoid curve)
     import math
     for week in range(53):
         log_date = START_DATE + timedelta(weeks=week)
@@ -1669,7 +2356,7 @@ def main():
             _dist = round(random.uniform(1.0, 3.0), 1)
 
         # Calculate approximate calories (MET-based)
-        _weight_at_time = 105 - 40 * _t  # linear weight loss
+        _weight_at_time = 105 - 27 * _t  # linear weight loss
         _met = {"walk": 3.5, "run": 8.0, "strength": 5.0, "yoga": 3.0}.get(_type, 5.0)
         if _intensity == "vigorous":
             _met *= 1.3
@@ -2561,6 +3248,24 @@ def main():
     except Exception as exc:
         print(f"  - DEXA scan seed skipped: {exc}")
 
+    showcase = ensure_demo_showcase_data(user_id)
+    print(
+        "  - Flagship showcase data:"
+        f" CPET={showcase['cpet_reports']},"
+        f" InBody={showcase['inbody_reports']},"
+        f" programs={showcase['programs']},"
+        f" lessons={showcase['lessons_completed']},"
+        f" habit stacks={showcase['habit_stacks']}"
+    )
+    current_window = ensure_demo_current_window(user_id)
+    print(
+        "  - Current demo window:"
+        f" check-ins={current_window['checkins']},"
+        f" sleep={current_window['sleep_logs']},"
+        f" exercise={current_window['exercise_logs']},"
+        f" meals={current_window['meal_logs']}"
+    )
+
     print("")
     print("=" * 60)
     print("  DEMO DATA SEEDED SUCCESSFULLY")
@@ -2575,10 +3280,10 @@ def main():
     print("  Milestone: 21K Half-Marathon completed!")
     print("")
     print("  Data created:")
-    print("  - 13 wheel assessments (monthly)")
+    print("  - 14 wheel assessments (monthly journey plus current maintenance)")
     print("  - 18 habits with daily logs + implementation intentions")
     print("  - ~330 daily check-ins with journals")
-    print("  - 11 SMART-EST goals (9 completed, 2 active)")
+    print("  - 12 SMART-EST goals (9 completed, 2 active, 1 paused)")
     print("  - 14 weekly reviews")
     print("  - 8 coaching conversation messages")
     print("  - Stage of Change progression per pillar")
@@ -2597,6 +3302,10 @@ def main():
     print("  - 1 chronotype assessment (Bear)")
     print("  - ~80 fasting sessions (12:12 -> 16:8)")
     print("  - ~500 meal logs with nutrition summaries")
+    print("  - 2 synthetic CPET reports showing an internally consistent fitness trend")
+    print("  - 2 InBody reports showing a standardized composition trend")
+    print("  - 1 saved 3-day strength program")
+    print("  - 12 completed micro-lessons and 1 populated habit stack")
     print("")
     print("  PHASE 3 FEATURES:")
     print("  - ~200 calorie tracking food log entries (60 days)")
@@ -2652,7 +3361,7 @@ def _get_pillar_note(pillar_id: int, month: int) -> str:
             6: "Running 20-25 min continuously! Completed C25K. -20 kg.",
             8: "First 5K race: 32 minutes! Now training for 10K. -28 kg.",
             10: "Completed 10K in 1:05:00. Training for half-marathon. -35 kg.",
-            12: "HALF-MARATHON COMPLETED! 21.1 km in 2:15:00. -40 kg. I am a runner.",
+            12: "HALF-MARATHON COMPLETED! 21.1 km in 2:15:00. -27 kg. I am a runner.",
         },
         3: {
             0: "3-4 hours of broken sleep. Scrolling phone until 2 AM. Night anxiety. Wake up exhausted. Coffee all day just to function.",

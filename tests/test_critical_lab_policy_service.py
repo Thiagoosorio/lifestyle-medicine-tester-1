@@ -187,6 +187,40 @@ def test_historical_date_only_uses_workflow_receipt_time():
     assert alert["minutes_until_notify"] >= 0
 
 
+def test_durable_receipt_keeps_deadline_stable_across_later_renders(monkeypatch):
+    class RenderClock(datetime):
+        current = datetime(2026, 4, 1, 12, 5, tzinfo=timezone.utc)
+
+        @classmethod
+        def now(cls, tz=None):
+            return cls.current
+
+    monkeypatch.setattr(clps, "datetime", RenderClock)
+    rows = [
+        {
+            "code": "potassium",
+            "name": "Potassium",
+            "value": 6.8,
+            "unit": "mmol/L",
+            "classification": "critical_high",
+            "critical_low": 3.0,
+            "critical_high": 6.0,
+            "lab_date": "2026-03-31",
+            "created_at": "2026-04-01 12:00:00",
+        }
+    ]
+
+    first_alert = clps.build_critical_communication_plan(rows)["alerts"][0]
+    RenderClock.current = datetime(2026, 4, 1, 12, 20, tzinfo=timezone.utc)
+    later_alert = clps.build_critical_communication_plan(rows)["alerts"][0]
+
+    assert first_alert["detected_at_iso"] == "2026-04-01T12:00+00:00"
+    assert first_alert["notify_by_iso"] == "2026-04-01T12:15+00:00"
+    assert later_alert["notify_by_iso"] == first_alert["notify_by_iso"]
+    assert first_alert["notify_overdue"] is False
+    assert later_alert["notify_overdue"] is True
+
+
 def test_explicit_detection_timestamp_overrides_collection_date():
     rows = [
         {

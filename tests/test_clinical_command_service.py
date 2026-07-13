@@ -89,6 +89,28 @@ def test_get_labs_requiring_attention_groups_by_severity(monkeypatch):
     assert [r["code"] for r in out["all"]] == ["a", "b", "c"]
 
 
+def test_get_labs_requiring_attention_propagates_result_receipt_time(monkeypatch):
+    sample = [
+        {
+            "code": "potassium",
+            "name": "Potassium",
+            "value": 6.8,
+            "unit": "mmol/L",
+            "lab_date": "2026-03-31",
+            "created_at": "2026-04-01 12:00:00",
+        }
+    ]
+    monkeypatch.setattr(ccs, "get_latest_results", lambda _uid: sample)
+    monkeypatch.setattr(ccs, "classify_result", lambda _v, _row, **_kw: "critical_high")
+    monkeypatch.setattr(ccs, "get_profile", lambda _uid: {"sex": "female"})
+    monkeypatch.setattr(ccs, "get_age", lambda _uid: 45)
+
+    critical = ccs.get_labs_requiring_attention(1)["critical"][0]
+
+    assert critical["created_at"] == "2026-04-01 12:00:00"
+    assert critical["detected_at"] == "2026-04-01 12:00:00"
+
+
 def test_build_clinical_snapshot_aggregates_sections(monkeypatch):
     monkeypatch.setattr(ccs, "get_user", lambda _uid: {"display_name": "Maria Silva", "email": "maria@example.com"})
     monkeypatch.setattr(ccs, "get_profile", lambda _uid: {"sex": "female", "systolic_bp": 122, "diastolic_bp": 76, "smoking_status": "never", "diabetes_status": 0})
