@@ -27,6 +27,13 @@ else:
     score = recovery["score"]
     zone = recovery["zone"]
     components = recovery["components"]
+    coverage_pct = recovery.get("coverage_pct", 0)
+    if coverage_pct < 50:
+        st.warning(
+            f"Recovery coverage is {coverage_pct}%. This partial score is not a training-readiness clearance."
+        )
+    else:
+        st.caption(f"Recovery coverage: {coverage_pct}% of weighted inputs available.")
 
     # ── Score Gauge + Zone ────────────────────────────────────────────────
     col_gauge, col_info = st.columns([1, 2])

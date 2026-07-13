@@ -32,7 +32,9 @@ def _hex_to_rgba(hex_color: str, alpha: float) -> str:
     return f"rgba({r},{g},{b},{alpha})"
 
 
-def _score_status(score_10: float) -> tuple[str, str]:
+def _score_status(score_10: float | None) -> tuple[str, str]:
+    if score_10 is None:
+        return "Needs Data", "#8E8E93"
     if score_10 >= 8:
         return "Strong", "#30D158"
     if score_10 >= 6:
@@ -57,13 +59,18 @@ def _build_patient_actions(wheel_payload: dict) -> list[dict]:
     actions: list[dict] = []
     sorted_codes = sorted(
         DOMAIN_ORDER,
-        key=lambda code: wheel_payload["domains"][code]["score_10"],
+        key=lambda code: (
+            wheel_payload["domains"][code].get("has_data", False),
+            wheel_payload["domains"][code]["score_10"],
+        ),
     )
 
     for code in sorted_codes:
         domain = wheel_payload["domains"][code]
         domain_name = WEARABLE_WHEEL_DOMAINS[code]["name"]
         missing = domain.get("missing_required_codes", [])
+        if not domain.get("has_data") and not missing:
+            missing = list(_wheel_cfg.PROXY_DOMAIN_WEIGHTS.get(code, {}))
         if missing:
             missing_labels = [
                 WEARABLE_METRIC_SPECS.get(m, {}).get("label", m).lower()
@@ -76,7 +83,7 @@ def _build_patient_actions(wheel_payload: dict) -> list[dict]:
                     "kind": "data",
                 }
             )
-        if domain["score_10"] < 7:
+        if domain.get("has_data") and domain["score_10"] < 7:
             actions.append(
                 {
                     "title": f"Lift {domain_name} today",
@@ -207,16 +214,19 @@ with tab_wheel:
         for i, code in enumerate(DOMAIN_ORDER):
             domain = wheel["domains"][code]
             color = WEARABLE_WHEEL_DOMAINS[code]["color"]
-            score_frac = domain["score_10"] / 10.0
+            score_frac = domain["score_10"] / 10.0 if domain.get("has_data") else 0.0
             # Wedge: center → point on spoke i → arc → point on spoke i+1 → center
             x1, y1 = _polar_xy(i, score_frac)
-            x2, y2 = _polar_xy((i + 1) % _n, wheel["domains"][DOMAIN_ORDER[(i + 1) % _n]]["score_10"] / 10.0)
+            next_domain = wheel["domains"][DOMAIN_ORDER[(i + 1) % _n]]
+            next_score_frac = next_domain["score_10"] / 10.0 if next_domain.get("has_data") else 0.0
+            x2, y2 = _polar_xy((i + 1) % _n, next_score_frac)
             svg += f'<polygon points="{_cx},{_cy} {x1},{y1} {x2},{y2}" fill="{color}" fill-opacity="0.08"/>'
 
         # Main data polygon (gradient fill + glow)
         points = []
         for i in range(_n):
-            score_frac = wheel["domains"][DOMAIN_ORDER[i]]["score_10"] / 10.0
+            point_domain = wheel["domains"][DOMAIN_ORDER[i]]
+            score_frac = point_domain["score_10"] / 10.0 if point_domain.get("has_data") else 0.0
             x, y = _polar_xy(i, score_frac)
             points.append(f"{x},{y}")
         points_str = " ".join(points)
@@ -226,7 +236,7 @@ with tab_wheel:
         for i, code in enumerate(DOMAIN_ORDER):
             domain = wheel["domains"][code]
             color = WEARABLE_WHEEL_DOMAINS[code]["color"]
-            score_frac = domain["score_10"] / 10.0
+            score_frac = domain["score_10"] / 10.0 if domain.get("has_data") else 0.0
             x, y = _polar_xy(i, score_frac)
             svg += f'<circle cx="{x}" cy="{y}" r="8" fill="{color}" stroke="white" stroke-width="3"/>'
 
@@ -235,7 +245,7 @@ with tab_wheel:
             domain = wheel["domains"][code]
             d_spec = WEARABLE_WHEEL_DOMAINS[code]
             color = d_spec["color"]
-            score_val = domain["score_10"]
+            score_val = domain["score_10"] if domain.get("has_data") else "—"
             trend = _domain_trends[code]
 
             # Trend arrow
@@ -368,14 +378,17 @@ with tab_wheel:
             domain = wheel["domains"][code]
             d_spec = WEARABLE_WHEEL_DOMAINS[code]
             color = d_spec["color"]
-            score_10 = domain["score_10"]
+            has_data = domain.get("has_data", False)
+            score_10 = domain["score_10"] if has_data else None
             status_label, status_color = _score_status(score_10)
             conf = int(domain["confidence"] * 100)
             avail = domain["available_metrics"]
             total = domain["total_metrics"]
 
             # Score color
-            if score_10 >= 8:
+            if score_10 is None:
+                sc = A["label_tertiary"]
+            elif score_10 >= 8:
                 sc = "#30D158"
             elif score_10 >= 6:
                 sc = A["blue"]
@@ -404,8 +417,9 @@ with tab_wheel:
                 f'margin-bottom:10px">{d_spec["name"]}</div>'
                 # Score
                 f'<div style="font-family:{A["font_display"]};font-size:28px;font-weight:700;'
-                f'color:{sc}">{score_10}</div>'
-                f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-bottom:10px">/10</div>'
+                f'color:{sc}">{score_10 if score_10 is not None else "—"}</div>'
+                f'<div style="font-size:10px;color:{A["label_tertiary"]};margin-bottom:10px">'
+                f'{"/10" if score_10 is not None else "not scored"}</div>'
                 f'<div style="font-size:10px;font-weight:600;color:{status_color};margin-bottom:8px">'
                 f'{status_label}</div>'
                 # Readiness / Resilience
@@ -413,12 +427,12 @@ with tab_wheel:
                 f'<div style="text-align:center">'
                 f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Today</div>'
                 f'<div style="font-family:{A["font_display"]};font-size:14px;font-weight:600;'
-                f'color:{A["label_primary"]}">{domain["readiness_10"]}</div></div>'
+                f'color:{A["label_primary"]}">{domain["readiness_10"] if has_data else "—"}</div></div>'
                 f'<div style="width:1px;background:{A["separator"]}"></div>'
                 f'<div style="text-align:center">'
                 f'<div style="font-size:9px;color:{A["label_tertiary"]};text-transform:uppercase">Baseline</div>'
                 f'<div style="font-family:{A["font_display"]};font-size:14px;font-weight:600;'
-                f'color:{A["label_primary"]}">{domain["resilience_10"]}</div></div></div>'
+                f'color:{A["label_primary"]}">{domain["resilience_10"] if has_data else "—"}</div></div></div>'
                 # Confidence bar
                 f'<div style="background:{A["bg_tertiary"]};border-radius:4px;height:4px;'
                 f'margin:8px 0 4px 0;overflow:hidden">'

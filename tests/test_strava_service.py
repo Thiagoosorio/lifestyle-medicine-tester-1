@@ -1,4 +1,8 @@
+import sqlite3
 from datetime import date, datetime, timezone
+
+import pytest
+from cryptography.fernet import Fernet
 
 import services.strava_service as strava_service
 
@@ -7,6 +11,141 @@ class _FixedDate(date):
     @classmethod
     def today(cls):
         return cls(2026, 3, 25)
+
+
+def _strava_connection_factory(database_path):
+    def connect():
+        conn = sqlite3.connect(database_path)
+        conn.row_factory = sqlite3.Row
+        return conn
+
+    conn = connect()
+    conn.execute(
+        """CREATE TABLE strava_connections (
+            user_id INTEGER PRIMARY KEY,
+            strava_athlete_id INTEGER,
+            access_token TEXT,
+            refresh_token TEXT,
+            token_expires_at INTEGER,
+            last_sync TEXT
+        )"""
+    )
+    conn.commit()
+    conn.close()
+    return connect
+
+
+def test_strava_configuration_requires_valid_token_key(monkeypatch):
+    monkeypatch.setattr(strava_service, "_get_client_id", lambda: "client-id")
+    monkeypatch.setattr(strava_service, "_get_client_secret", lambda: "client-secret")
+
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: None)
+    assert strava_service.is_strava_configured() is False
+
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: "not-a-fernet-key")
+    assert strava_service.is_strava_configured() is False
+
+    valid_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: valid_key)
+    assert strava_service.is_strava_configured() is True
+
+
+@pytest.mark.parametrize(
+    ("token_key", "error_pattern"),
+    [
+        (None, "STRAVA_TOKEN_KEY is required"),
+        ("not-a-fernet-key", "STRAVA_TOKEN_KEY must be a valid Fernet key"),
+    ],
+)
+def test_save_connection_fails_closed_without_valid_key(
+    monkeypatch, token_key, error_pattern
+):
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: token_key)
+    monkeypatch.setattr(
+        strava_service,
+        "get_connection",
+        lambda: pytest.fail("database must not be opened without a valid token key"),
+    )
+
+    with pytest.raises(strava_service.StravaTokenConfigurationError, match=error_pattern):
+        strava_service._save_connection(1, 2, "access-secret", "refresh-secret", 123)
+
+
+def test_save_connection_encrypts_tokens_and_reads_them_back(monkeypatch, tmp_path):
+    database_path = tmp_path / "strava.db"
+    connect = _strava_connection_factory(database_path)
+    key = Fernet.generate_key().decode()
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: key)
+    monkeypatch.setattr(strava_service, "get_connection", connect)
+
+    strava_service._save_connection(
+        7, 42, "access-secret", "refresh-secret", 2_000_000_000
+    )
+
+    conn = connect()
+    stored = conn.execute(
+        "SELECT access_token, refresh_token FROM strava_connections WHERE user_id = 7"
+    ).fetchone()
+    conn.close()
+    assert stored["access_token"].startswith(strava_service._ENC_PREFIX)
+    assert stored["refresh_token"].startswith(strava_service._ENC_PREFIX)
+    assert "access-secret" not in stored["access_token"]
+    assert "refresh-secret" not in stored["refresh_token"]
+
+    connection = strava_service.get_strava_connection(7)
+    assert connection["access_token"] == "access-secret"
+    assert connection["refresh_token"] == "refresh-secret"
+
+
+def test_encrypted_tokens_with_wrong_key_require_reconnect(monkeypatch, tmp_path):
+    database_path = tmp_path / "strava.db"
+    connect = _strava_connection_factory(database_path)
+    original_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: original_key)
+    monkeypatch.setattr(strava_service, "get_connection", connect)
+    strava_service._save_connection(
+        7, 42, "access-secret", "refresh-secret", 2_000_000_000
+    )
+
+    wrong_key = Fernet.generate_key().decode()
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: wrong_key)
+    connection = strava_service.get_strava_connection(7)
+
+    assert connection["access_token"] is None
+    assert connection["refresh_token"] is None
+    assert strava_service._get_valid_token(7) is None
+    with pytest.raises(ValueError, match=r"No valid Strava token\. Please reconnect\."):
+        strava_service.import_strava_activities(7)
+
+
+def test_legacy_plaintext_tokens_are_migrated_on_read(monkeypatch, tmp_path):
+    database_path = tmp_path / "strava.db"
+    connect = _strava_connection_factory(database_path)
+    key = Fernet.generate_key().decode()
+    monkeypatch.setattr(strava_service, "_get_token_key", lambda: key)
+    monkeypatch.setattr(strava_service, "get_connection", connect)
+
+    conn = connect()
+    conn.execute(
+        """INSERT INTO strava_connections
+           (user_id, strava_athlete_id, access_token, refresh_token, token_expires_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (7, 42, "legacy-access", "legacy-refresh", 2_000_000_000),
+    )
+    conn.commit()
+    conn.close()
+
+    connection = strava_service.get_strava_connection(7)
+    assert connection["access_token"] == "legacy-access"
+    assert connection["refresh_token"] == "legacy-refresh"
+
+    conn = connect()
+    stored = conn.execute(
+        "SELECT access_token, refresh_token FROM strava_connections WHERE user_id = 7"
+    ).fetchone()
+    conn.close()
+    assert stored["access_token"].startswith(strava_service._ENC_PREFIX)
+    assert stored["refresh_token"].startswith(strava_service._ENC_PREFIX)
 
 
 def test_days_ago_unix_timestamp_is_deterministic(monkeypatch):

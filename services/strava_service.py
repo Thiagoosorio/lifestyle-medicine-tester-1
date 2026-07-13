@@ -6,12 +6,16 @@ OAuth 2.0 flow using authorization code grant.
 Requires environment variables or st.secrets:
   STRAVA_CLIENT_ID
   STRAVA_CLIENT_SECRET
+  STRAVA_TOKEN_KEY (a Fernet key used to encrypt OAuth tokens at rest)
 """
 
 import os
 import time
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlencode
+
+from cryptography.fernet import Fernet
+
 from db.database import get_connection
 from config.exercise_data import (
     STRAVA_TYPE_MAP,
@@ -53,20 +57,21 @@ def _get_client_secret():
 
 
 # ---------------------------------------------------------------------------
-#  Token encryption at rest (opt-in)
+#  Token encryption at rest
 #
 #  OAuth access/refresh tokens are secrets and should not sit in the database
-#  in plaintext. Encryption activates automatically when BOTH (a) the optional
-#  `cryptography` package is installed and (b) a Fernet key is configured via
-#  STRAVA_TOKEN_KEY (env or st.secrets). It is intentionally optional so the
-#  app keeps running — and deploying — without adding a hard native dependency;
+#  in plaintext. A valid Fernet key must be configured via STRAVA_TOKEN_KEY
+#  (env or st.secrets) before Strava can be enabled or tokens can be persisted.
 #  reads transparently handle legacy plaintext rows, so enabling it later needs
 #  no migration. Generate a key with:
 #     python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 # ---------------------------------------------------------------------------
 
 _ENC_PREFIX = "enc:v1:"
-_TOKEN_CIPHER_CACHE = []  # single-slot memo: [] unresolved, [None] none, [obj] cipher
+
+
+class StravaTokenConfigurationError(ValueError):
+    """Raised when secure Strava token persistence is not configured."""
 
 
 def _get_token_key():
@@ -81,28 +86,38 @@ def _get_token_key():
 
 
 def _token_cipher():
-    """Return a Fernet cipher if available+configured, else None (cached)."""
-    if _TOKEN_CIPHER_CACHE:
-        return _TOKEN_CIPHER_CACHE[0]
-    cipher = None
+    """Return a Fernet cipher when STRAVA_TOKEN_KEY is valid, otherwise None."""
     key = _get_token_key()
-    if key:
-        try:
-            from cryptography.fernet import Fernet
-            cipher = Fernet(key.encode() if isinstance(key, str) else key)
-        except Exception:
-            cipher = None
-    _TOKEN_CIPHER_CACHE.append(cipher)
-    return cipher
+    if not key:
+        return None
+    try:
+        return Fernet(key.encode() if isinstance(key, str) else key)
+    except (TypeError, ValueError):
+        return None
 
 
-def _encrypt_token(token):
-    """Encrypt a token for storage when a cipher is configured; else pass through."""
+def _require_token_cipher():
+    """Return the configured cipher or fail before a token can be persisted."""
+    key = _get_token_key()
+    if not key:
+        raise StravaTokenConfigurationError(
+            "STRAVA_TOKEN_KEY is required for Strava token encryption. "
+            "Configure a valid Fernet key and reconnect Strava."
+        )
+    try:
+        return Fernet(key.encode() if isinstance(key, str) else key)
+    except (TypeError, ValueError) as exc:
+        raise StravaTokenConfigurationError(
+            "STRAVA_TOKEN_KEY must be a valid Fernet key. "
+            "Configure a valid key and reconnect Strava."
+        ) from exc
+
+
+def _encrypt_token(token, cipher=None):
+    """Encrypt a token for storage, failing closed without a valid cipher."""
     if not token:
         return token
-    cipher = _token_cipher()
-    if cipher is None:
-        return token
+    cipher = cipher or _require_token_cipher()
     return _ENC_PREFIX + cipher.encrypt(token.encode()).decode()
 
 
@@ -121,8 +136,8 @@ def _decrypt_token(value):
 
 
 def is_strava_configured():
-    """Check if Strava client credentials are available."""
-    return bool(_get_client_id() and _get_client_secret())
+    """Check if Strava credentials and secure token storage are configured."""
+    return bool(_get_client_id() and _get_client_secret() and _token_cipher())
 
 
 def _days_ago_unix_timestamp(days: int) -> int:
@@ -162,6 +177,7 @@ def exchange_strava_code(user_id, code):
     client_secret = _get_client_secret()
     if not client_id or not client_secret:
         raise ValueError("Strava client credentials not configured")
+    _require_token_cipher()
 
     resp = requests.post(STRAVA_TOKEN_URL, data={
         "client_id": client_id,
@@ -230,7 +246,11 @@ def _get_valid_token(user_id):
 # ---------------------------------------------------------------------------
 
 def _save_connection(user_id, athlete_id, access_token, refresh_token, expires_at):
-    """Save Strava connection to database."""
+    """Save a Strava connection with both OAuth tokens encrypted."""
+    cipher = _require_token_cipher()
+    encrypted_access_token = _encrypt_token(access_token, cipher)
+    encrypted_refresh_token = _encrypt_token(refresh_token, cipher)
+
     conn = get_connection()
     try:
         conn.execute(
@@ -242,8 +262,8 @@ def _save_connection(user_id, athlete_id, access_token, refresh_token, expires_a
                  access_token = excluded.access_token,
                  refresh_token = excluded.refresh_token,
                  token_expires_at = excluded.token_expires_at""",
-            (user_id, athlete_id, _encrypt_token(access_token),
-             _encrypt_token(refresh_token), expires_at),
+            (user_id, athlete_id, encrypted_access_token,
+             encrypted_refresh_token, expires_at),
         )
         conn.commit()
     finally:
@@ -260,6 +280,23 @@ def get_strava_connection(user_id):
         if not row:
             return None
         info = dict(row)
+        stored_access = info.get("access_token")
+        stored_refresh = info.get("refresh_token")
+        legacy_plaintext = any(
+            token and isinstance(token, str) and not token.startswith(_ENC_PREFIX)
+            for token in (stored_access, stored_refresh)
+        )
+        if legacy_plaintext:
+            cipher = _require_token_cipher()
+            stored_access = _encrypt_token(stored_access, cipher)
+            stored_refresh = _encrypt_token(stored_refresh, cipher)
+            conn.execute(
+                "UPDATE strava_connections SET access_token = ?, refresh_token = ? WHERE user_id = ?",
+                (stored_access, stored_refresh, user_id),
+            )
+            conn.commit()
+            info["access_token"] = stored_access
+            info["refresh_token"] = stored_refresh
         if "access_token" in info:
             info["access_token"] = _decrypt_token(info["access_token"])
         if "refresh_token" in info:

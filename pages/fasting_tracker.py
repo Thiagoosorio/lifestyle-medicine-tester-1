@@ -1,4 +1,4 @@
-"""Fasting Tracker — Start/end fasts, track metabolic zones, view history."""
+"""Fasting Tracker - start/end fasts, show estimated phases, and view history."""
 
 import streamlit as st
 import plotly.graph_objects as go
@@ -12,6 +12,7 @@ from components.fasting_display import (
 )
 from config.fasting_data import FASTING_TYPES, FASTING_ZONES, FASTING_SAFETY, CHRONOTYPE_FASTING_WINDOWS
 from services.fasting_service import (
+    FastingSafetyError,
     start_fast,
     end_fast,
     get_active_fast,
@@ -24,11 +25,11 @@ user_id = st.session_state.user_id
 
 render_hero_banner(
     "Fasting Tracker",
-    "Time-restricted eating backed by science. Track your fasting windows and metabolic zones."
+    "Track fasting windows with approximate, time-based physiology context."
 )
 
 tab_timer, tab_history, tab_zones, tab_info = st.tabs([
-    "Active Fast", "History", "Metabolic Zones", "Science & Safety"
+    "Active Fast", "History", "Estimated Phases", "Science & Safety"
 ])
 
 # ══════════════════════════════════════════════════════════════════════════
@@ -109,12 +110,51 @@ with tab_timer:
 
         notes = st.text_input("Notes (optional)", placeholder="e.g., Trying 16:8 for the first time")
 
+        target = custom_hours if custom_hours else FASTING_TYPES[selected_type].get("target_hours")
+        target = target or 16
+
+        st.warning(
+            "Complete this screen before starting. Do not fast if any contraindication "
+            "applies. Glucose-lowering medications and targets over 24 hours require "
+            "review of this specific plan with a qualified clinician."
+        )
+        selected_contraindications = st.multiselect(
+            "Do any contraindications apply?",
+            FASTING_SAFETY["contraindications"],
+            help="Selecting any item blocks starting a fast in this tracker.",
+        )
+        uses_glucose_medication = st.checkbox(
+            FASTING_SAFETY["glucose_medication_question"]
+        )
+        needs_clinician_review = uses_glucose_medication or target > 24
+        clinician_reviewed = False
+        if needs_clinician_review:
+            clinician_reviewed = st.checkbox(
+                FASTING_SAFETY["clinician_review_acknowledgement"]
+            )
+        safety_acknowledged = st.checkbox(FASTING_SAFETY["screen_acknowledgement"])
+
         if st.button("Start Fast", use_container_width=True, type="primary"):
-            target = custom_hours if custom_hours else None
-            start_fast(user_id, selected_type, target_hours=target, notes=notes if notes else None)
-            ft = FASTING_TYPES.get(selected_type, {})
-            st.toast(f"Fast started! ({ft.get('label', selected_type)})")
-            st.rerun()
+            safety_screen = {
+                "acknowledged": safety_acknowledged,
+                "contraindications": selected_contraindications,
+                "glucose_lowering_medication": uses_glucose_medication,
+                "clinician_reviewed": clinician_reviewed,
+            }
+            try:
+                start_fast(
+                    user_id,
+                    selected_type,
+                    target_hours=target,
+                    notes=notes if notes else None,
+                    safety_screen=safety_screen,
+                )
+            except FastingSafetyError as exc:
+                st.error(str(exc))
+            else:
+                ft = FASTING_TYPES.get(selected_type, {})
+                st.toast(f"Fast started! ({ft.get('label', selected_type)})")
+                st.rerun()
 
         # Chronotype-based recommendation
         try:
@@ -218,10 +258,13 @@ with tab_history:
             st.plotly_chart(fig, use_container_width=True)
 
 # ══════════════════════════════════════════════════════════════════════════
-# Tab 3: Metabolic Zones
+# Tab 3: Estimated Fasting Phases
 # ══════════════════════════════════════════════════════════════════════════
 with tab_zones:
-    render_section_header("Metabolic Zones", "What happens in your body as you fast")
+    render_section_header(
+        "Estimated Fasting Phases", "Approximate population patterns, not measured states"
+    )
+    st.info(FASTING_SAFETY["phase_notice"])
 
     for zone in FASTING_ZONES:
         zone_html = (

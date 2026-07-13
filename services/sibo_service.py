@@ -7,6 +7,37 @@ from db.database import get_connection
 from config.sibo_data import FODMAP_FOODS, GI_SYMPTOMS, FODMAP_GROUPS
 
 
+class RestrictiveDietSafetyError(ValueError):
+    """Raised when a restrictive phase fails its pre-start safety check."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def validate_restrictive_phase_safety(phase, safety_screen):
+    """Enforce safety acknowledgement for the restrictive elimination phase."""
+    if phase != "elimination":
+        return
+    if not isinstance(safety_screen, dict) or not safety_screen.get("acknowledged"):
+        raise RestrictiveDietSafetyError(
+            "acknowledgement_required",
+            "Review and acknowledge the red-flag and nutrition-risk notice before starting elimination.",
+        )
+    if safety_screen.get("red_flags"):
+        raise RestrictiveDietSafetyError(
+            "red_flag",
+            "Do not start dietary restriction in the tracker while a red flag is present. "
+            "Arrange medical evaluation first.",
+        )
+    if safety_screen.get("nutrition_risks") and not safety_screen.get("clinician_reviewed"):
+        raise RestrictiveDietSafetyError(
+            "nutrition_review_required",
+            "A qualified clinician or dietitian must review the elimination plan when a "
+            "nutrition risk is present.",
+        )
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # SYMPTOM TRACKING
 # ══════════════════════════════════════════════════════════════════════════════
@@ -209,8 +240,11 @@ def get_daily_fodmap_exposure(user_id, log_date):
 # PHASE MANAGEMENT
 # ══════════════════════════════════════════════════════════════════════════════
 
-def start_fodmap_phase(user_id, phase, reintro_group=None, notes=None):
-    """Begin a new Low-FODMAP phase. Closes any previous active phase."""
+def start_fodmap_phase(
+    user_id, phase, reintro_group=None, notes=None, safety_screen=None
+):
+    """Begin a Low-FODMAP phase after any required restrictive-diet screen."""
+    validate_restrictive_phase_safety(phase, safety_screen)
     today_str = date.today().isoformat()
     conn = get_connection()
     try:
@@ -432,10 +466,10 @@ def get_tolerance_summary(user_id):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def compute_correlations(user_id, days=90):
-    """Compute Spearman rho between FODMAP group daily exposure and symptom scores.
+    """Explore Spearman associations between daily exposure and symptom scores.
 
-    Returns a list of dicts: [{group, symptom, rho, p, n, strength}, ...]
-    Only returns results where n >= 10.
+    The returned ``p`` is Benjamini-Hochberg adjusted across all non-constant
+    comparisons. Results are exploratory, non-causal, and non-diagnostic.
     """
     cutoff = (date.today() - timedelta(days=days)).isoformat()
     conn = get_connection()
@@ -510,14 +544,41 @@ def compute_correlations(user_id, days=90):
                 "group": group,
                 "symptom": symptom,
                 "rho": round(rho, 3),
-                "p": round(p, 4) if p is not None else None,
+                "p_raw": p,
                 "n": len(x),
                 "strength": strength,
+                "exploratory": True,
+                "interpretation": "exploratory association; not causal or diagnostic",
             })
+
+    adjusted = _benjamini_hochberg([result["p_raw"] for result in results])
+    for result, adjusted_p in zip(results, adjusted):
+        result["p_raw"] = round(result["p_raw"], 4)
+        result["p_adjusted"] = round(adjusted_p, 4)
+        result["p"] = result["p_adjusted"]
+        result["multiplicity_method"] = "Benjamini-Hochberg FDR"
 
     # Sort by absolute rho descending
     results.sort(key=lambda r: abs(r["rho"]), reverse=True)
     return results
+
+
+def _benjamini_hochberg(p_values):
+    """Return Benjamini-Hochberg false-discovery-rate adjusted p-values."""
+    if not p_values:
+        return []
+
+    count = len(p_values)
+    indexed = sorted(enumerate(p_values), key=lambda item: item[1])
+    adjusted = [1.0] * count
+    running_min = 1.0
+    for rank_index in range(count - 1, -1, -1):
+        original_index, p_value = indexed[rank_index]
+        rank = rank_index + 1
+        candidate = min(1.0, float(p_value) * count / rank)
+        running_min = min(running_min, candidate)
+        adjusted[original_index] = running_min
+    return adjusted
 
 
 def _spearman_rho(x, y):

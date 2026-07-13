@@ -32,6 +32,68 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Keep username and email in one case-insensitive identity namespace. These
+-- guards can be installed safely even when a legacy database has duplicates.
+CREATE TRIGGER IF NOT EXISTS users_identity_insert_guard
+BEFORE INSERT ON users
+BEGIN
+    SELECT CASE
+        WHEN NEW.email IS NOT NULL
+         AND NEW.email <> LOWER(TRIM(NEW.email))
+        THEN RAISE(ABORT, 'Email must be normalized')
+    END;
+    SELECT CASE
+        WHEN EXISTS (
+            SELECT 1 FROM users
+            WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.username))
+               OR (email IS NOT NULL AND TRIM(email) <> ''
+                   AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.username)))
+        )
+        THEN RAISE(ABORT, 'Username already exists or conflicts with email')
+    END;
+    SELECT CASE
+        WHEN NEW.email IS NOT NULL AND TRIM(NEW.email) <> ''
+         AND (LOWER(TRIM(NEW.username)) = LOWER(TRIM(NEW.email)) OR EXISTS (
+                SELECT 1 FROM users
+                WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.email))
+                   OR (email IS NOT NULL AND TRIM(email) <> ''
+                       AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.email)))
+             ))
+        THEN RAISE(ABORT, 'Email already exists or conflicts with username')
+    END;
+END;
+
+CREATE TRIGGER IF NOT EXISTS users_identity_update_guard
+BEFORE UPDATE OF username, email ON users
+BEGIN
+    SELECT CASE
+        WHEN NEW.email IS NOT NULL
+         AND NEW.email <> LOWER(TRIM(NEW.email))
+        THEN RAISE(ABORT, 'Email must be normalized')
+    END;
+    SELECT CASE
+        WHEN (NEW.email IS NOT NULL AND TRIM(NEW.email) <> ''
+              AND LOWER(TRIM(NEW.username)) = LOWER(TRIM(NEW.email)))
+          OR EXISTS (
+                SELECT 1 FROM users
+                WHERE id <> OLD.id
+                  AND (LOWER(TRIM(username)) = LOWER(TRIM(NEW.username))
+                       OR (email IS NOT NULL AND TRIM(email) <> ''
+                           AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.username))))
+             )
+        THEN RAISE(ABORT, 'Username already exists or conflicts with email')
+    END;
+    SELECT CASE
+        WHEN NEW.email IS NOT NULL AND TRIM(NEW.email) <> '' AND EXISTS (
+            SELECT 1 FROM users
+            WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.email))
+               OR (id <> OLD.id AND email IS NOT NULL AND TRIM(email) <> ''
+                   AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.email)))
+        )
+        THEN RAISE(ABORT, 'Email already exists or conflicts with username')
+    END;
+END;
+
 -- Wheel assessments: 6 rows per session (one per pillar)
 CREATE TABLE IF NOT EXISTS wheel_assessments (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,

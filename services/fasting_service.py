@@ -2,15 +2,69 @@
 
 from db.database import get_connection
 from datetime import datetime, timedelta, date
+import math
 
 
-def start_fast(user_id, fasting_type, target_hours=None, notes=None):
-    """Start a new fasting session. Returns the session ID."""
+class FastingSafetyError(ValueError):
+    """Raised when a fasting session fails the required pre-fast safety screen."""
+
+    def __init__(self, code, message):
+        super().__init__(message)
+        self.code = code
+
+
+def validate_fasting_safety(target_hours, safety_screen):
+    """Validate the mandatory pre-fast screen without changing session state."""
+    try:
+        target = float(target_hours)
+    except (TypeError, ValueError) as exc:
+        raise FastingSafetyError(
+            "invalid_target", "Choose a valid fasting duration before starting."
+        ) from exc
+
+    if not math.isfinite(target) or target <= 0 or target > 72:
+        raise FastingSafetyError(
+            "invalid_target", "Fasting duration must be between 1 and 72 hours."
+        )
+
+    if not isinstance(safety_screen, dict) or not safety_screen.get("acknowledged"):
+        raise FastingSafetyError(
+            "acknowledgement_required",
+            "Complete and acknowledge the pre-fast safety screen before starting.",
+        )
+
+    contraindications = safety_screen.get("contraindications") or []
+    if contraindications:
+        raise FastingSafetyError(
+            "contraindication",
+            "Do not start a fast in this tracker because a contraindication was selected. "
+            "Seek individualized medical advice.",
+        )
+
+    needs_review = bool(safety_screen.get("glucose_lowering_medication")) or target > 24
+    if needs_review and not safety_screen.get("clinician_reviewed"):
+        raise FastingSafetyError(
+            "clinician_review_required",
+            "Clinician review is required for glucose-lowering medication use or a "
+            "fasting target longer than 24 hours.",
+        )
+
+    return {
+        "target_hours": target,
+        "clinician_review_required": needs_review,
+    }
+
+
+def start_fast(user_id, fasting_type, target_hours=None, notes=None, safety_screen=None):
+    """Start a fasting session after enforcing the pre-fast safety screen."""
     from config.fasting_data import FASTING_TYPES
 
     ft = FASTING_TYPES.get(fasting_type, {})
     if target_hours is None:
-        target_hours = ft.get("target_hours", 16)
+        target_hours = ft.get("target_hours") or 16
+
+    safety = validate_fasting_safety(target_hours, safety_screen)
+    target_hours = safety["target_hours"]
 
     # End any active fast first
     active = get_active_fast(user_id)
@@ -88,7 +142,7 @@ def get_active_fast(user_id):
 
 
 def get_current_zone(elapsed_hours):
-    """Get the metabolic zone for the current elapsed time."""
+    """Get an approximate educational phase based only on elapsed time."""
     from config.fasting_data import FASTING_ZONES
     for zone in reversed(FASTING_ZONES):
         if elapsed_hours >= zone["start_hours"]:

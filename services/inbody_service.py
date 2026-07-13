@@ -218,17 +218,9 @@ STANDARDIZATION_CHECKS = [
 
 def read_pdf_text(pdf_bytes: bytes) -> str:
     """Extract readable text from a digital PDF."""
-    try:
-        import pypdf
+    from services.document_safety_service import extract_pdf_text_safely
 
-        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-    except Exception as exc:
-        raise ValueError(f"Could not read PDF: {exc}") from exc
-
-    if len(text) < 20:
-        raise ValueError("PDF has no readable text. It may be a scanned image.")
-    return text
+    return extract_pdf_text_safely(pdf_bytes, label="InBody report PDF")
 
 
 def extract_inbody_from_pdf(pdf_bytes: bytes) -> dict[str, Any]:

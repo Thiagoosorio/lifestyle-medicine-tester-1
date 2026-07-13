@@ -14,6 +14,8 @@ from datetime import date, timedelta
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 LOGGER = logging.getLogger(__name__)
+MAX_USER_MESSAGE_CHARS = 4_000
+MAX_HISTORY_CHARS = 24_000
 
 
 def _get_llm_provider():
@@ -231,6 +233,30 @@ def _trim_to_user_start(history: list) -> list:
     return history
 
 
+def _validate_user_message(message: str) -> str:
+    if not isinstance(message, str) or not message.strip():
+        raise ValueError("Enter a coaching question before sending.")
+    clean = message.strip()
+    if len(clean) > MAX_USER_MESSAGE_CHARS:
+        raise ValueError(
+            f"Coaching messages are limited to {MAX_USER_MESSAGE_CHARS:,} characters."
+        )
+    return clean
+
+
+def _bound_history(history: list[dict], max_chars: int = MAX_HISTORY_CHARS) -> list[dict]:
+    """Keep the newest complete messages within the outbound character budget."""
+    kept: list[dict] = []
+    total = 0
+    for item in reversed(history):
+        content = str(item.get("content") or "")
+        if total + len(content) > max_chars:
+            break
+        kept.append({"role": item.get("role"), "content": content})
+        total += len(content)
+    return list(reversed(kept))
+
+
 def _save_message(user_id: int, role: str, content: str, context_type: str = None):
     conn = get_connection()
     try:
@@ -245,6 +271,7 @@ def _save_message(user_id: int, role: str, content: str, context_type: str = Non
 
 def get_coaching_response(user_id: int, message: str, context_type: str = "general") -> str:
     """Get an AI coaching response."""
+    message = _validate_user_message(message)
     # Save the user's message
     _save_message(user_id, "user", message, context_type)
 
@@ -256,7 +283,7 @@ def get_coaching_response(user_id: int, message: str, context_type: str = "gener
     # Get conversation history, trimmed so it always starts with a user turn
     # (the Anthropic API rejects otherwise — which silently degraded the coach
     # to its canned fallback after ~10 exchanges).
-    history = _trim_to_user_start(_get_conversation_history(user_id, limit=20))
+    history = _trim_to_user_start(_bound_history(_get_conversation_history(user_id, limit=20)))
 
     # Call LLM
     provider = _get_llm_provider()
@@ -343,6 +370,7 @@ def _assemble_gptcoach_context(user_id: int) -> str:
 
 def get_gptcoach_response(user_id: int, message: str) -> str:
     """Get a GPTCoach-style physical activity coaching response."""
+    message = _validate_user_message(message)
     context_type = "gptcoach_pa"
     _save_message(user_id, "user", message, context_type)
 
@@ -356,7 +384,7 @@ def get_gptcoach_response(user_id: int, message: str) -> str:
         + CONTEXT_TEMPLATE.format(user_context=user_context)
     )
     history = _trim_to_user_start(
-        _get_conversation_history(user_id, limit=20, context_type=context_type)
+        _bound_history(_get_conversation_history(user_id, limit=20, context_type=context_type))
     )
 
     provider = _get_llm_provider()
@@ -380,9 +408,10 @@ def get_gptcoach_response(user_id: int, message: str) -> str:
 
 def _call_anthropic(system_prompt: str, messages: list) -> str:
     import anthropic
+    from config.ai_models import anthropic_model
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=anthropic_model(),
         max_tokens=1024,
         system=system_prompt,
         messages=messages,
@@ -516,9 +545,10 @@ def get_blood_ai_analysis(user_id: int, lab_date: str) -> str:
 
     try:
         import anthropic
+        from config.ai_models import anthropic_model
         client = anthropic.Anthropic()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=anthropic_model(),
             max_tokens=2000,
             system=full_prompt,
             messages=[{"role": "user", "content": "Please analyse my blood panel."}],
@@ -565,6 +595,8 @@ def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
     """
     from services.cycling_service import get_cycling_coach_context
 
+    user_message = _validate_user_message(user_message)
+
     cycling_context = get_cycling_coach_context(user_id)
     system_prompt = _CYCLING_SYSTEM_PROMPT.format(cycling_context=cycling_context)
 
@@ -577,7 +609,9 @@ def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
                ORDER BY created_at DESC LIMIT ?""",
             (user_id, _CYCLING_COACH_HISTORY_LIMIT),
         ).fetchall()
-        history = [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+        history = _bound_history(
+            [{"role": r["role"], "content": r["content"]} for r in reversed(rows)]
+        )
     finally:
         conn.close()
 
@@ -586,9 +620,10 @@ def get_cycling_coaching_response(user_id: int, user_message: str) -> str:
     # Call Anthropic with higher token limit for detailed interval plans
     try:
         import anthropic
+        from config.ai_models import anthropic_model
         client = anthropic.Anthropic()
         response = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model=anthropic_model(),
             max_tokens=1500,
             system=system_prompt,
             messages=messages,

@@ -99,9 +99,10 @@ Recent 7 days: {recent_summary}
 Focus on patterns, correlations (e.g., sleep vs energy, activity vs mood), or notable changes. Don't be generic — reference specific numbers."""
 
     import anthropic
+    from config.ai_models import anthropic_model
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=anthropic_model(),
         max_tokens=200,
         messages=[{"role": "user", "content": prompt}],
     )

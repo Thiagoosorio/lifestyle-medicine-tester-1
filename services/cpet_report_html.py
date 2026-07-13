@@ -174,8 +174,8 @@ def _percentile_bullet_svg(fitness: dict) -> str:
 
 # ── copy / interpretation ────────────────────────────────────────────────────
 
-_CHIP_COLORS = {"pass": "#2E9E5B", "caution": "#E0A100", "alert": "#D7263D",
-                "accent": "#0E7C7B", "good": "#2A8785", "muted": "#6B7280"}
+_CHIP_COLORS = {"pass": "#18733A", "caution": "#765100", "alert": "#A51D2D",
+                "accent": "#0A6665", "good": "#176D6B", "muted": "#555D68"}
 
 
 def _chip(text: str, kind: str = "muted") -> str:
@@ -309,8 +309,9 @@ def _threshold_ladder(metrics: dict, has_power: bool) -> str:
         rows.append(cells(fm, None, None, None, "FatMax", "peak fat-burning; floor of Zone 2", "#E8A13A"))
     rows.append(cells(_num(metrics.get("vt2_hr_bpm")), _num(metrics.get("vt2_power_w")), _num(metrics.get("vt2_vo2_ml_kg_min")), _num(metrics.get("vt2_pct_peak_vo2")), "VT2 / LT2 (red-line)", "the wall; ~4 mmol lactate line", "#EF7D2B"))
     rows.append(cells(_num(metrics.get("peak_hr_bpm")), _num(metrics.get("peak_power_w")), _num(metrics.get("peak_vo2_ml_kg_min")), 100, "VO2peak", "your ceiling", "#D7263D"))
-    return ('<table><thead><tr><th>Milestone</th><th class="num">HR</th><th class="num">Power</th>'
-            '<th class="num">VO2</th><th class="num">%peak</th><th>What it is</th></tr></thead>'
+    return ('<table><thead><tr><th scope="col">Milestone</th><th scope="col" class="num">HR</th>'
+            '<th scope="col" class="num">Power</th><th scope="col" class="num">VO2</th>'
+            '<th scope="col" class="num">%peak</th><th scope="col">What it is</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
@@ -327,19 +328,46 @@ def _zone_table(summary: dict, has_power: bool) -> str:
             f'<td class="small">{_esc(ZONE_RPE[i] if i < 5 else "")}</td>'
             f'<td class="small">{_esc(ZONE_FEEL[i] if i < 5 else "")}</td>'
             f'<td class="small">{_esc(ZONE_ADAPT[i] if i < 5 else r.get("Purpose",""))}</td></tr>')
-    return ('<table><thead><tr><th>Zone</th><th class="num">HR</th><th class="num">Power</th>'
-            '<th>RPE</th><th>How it feels</th><th>What it trains</th></tr></thead>'
+    return ('<table><thead><tr><th scope="col">Zone</th><th scope="col" class="num">HR</th>'
+            '<th scope="col" class="num">Power</th><th scope="col">RPE</th>'
+            '<th scope="col">How it feels</th><th scope="col">What it trains</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
 
 
 def _service_rows_table(rows: list[dict[str, Any]], columns: list[str]) -> str:
     if not rows:
         return ""
-    head = "".join(f"<th>{_esc(col)}</th>" for col in columns)
+    head = "".join(f'<th scope="col">{_esc(col)}</th>' for col in columns)
     body = []
     for row in rows:
         body.append("<tr>" + "".join(f'<td class="small">{_esc(row.get(col, ""))}</td>' for col in columns) + "</tr>")
     return f'<div class="table-wrap"><table><thead><tr>{head}</tr></thead><tbody>{"".join(body)}</tbody></table></div>'
+
+
+def _clinical_review_section(summary: dict) -> str:
+    flags = summary.get("clinical_review_flags") or []
+    if not flags:
+        return ""
+    high_risk = bool(summary.get("prescriptions_suppressed"))
+    intro = (
+        "Training zones and exercise prescriptions are withheld until the supervising clinician confirms clearance "
+        "and limits."
+        if high_risk
+        else "Review these CPET signals with the supervising clinician alongside symptoms and test quality."
+    )
+    handoff = ""
+    action_plan = summary.get("action_plan") or []
+    if high_risk and action_plan:
+        handoff = _service_rows_table(action_plan, ["Focus", "Do this", "Dose / target", "Guardrail"])
+    tone = " clinical-review--high" if high_risk else ""
+    return (
+        f'<section class="clinical-review{tone}" aria-labelledby="clinical-review-title">'
+        '<h2 class="section-title" id="clinical-review-title">Clinical review and clearance</h2>'
+        f'<p class="lead">{_esc(intro)}</p>'
+        + _service_rows_table(flags, ["Priority", "Area", "Signal", "Coach action"])
+        + handoff
+        + "</section>"
+    )
 
 
 def _action_plan(metrics: dict, summary: dict, has_power: bool) -> str:
@@ -361,19 +389,19 @@ def _action_plan(metrics: dict, summary: dict, has_power: bool) -> str:
 
 _CSS = """
 :root{--ink:#14181F;--ink-2:#3A4049;--muted:#6B7280;--paper:#FBFBF9;--card:#FFFFFF;
---hairline:#E6E6E1;--accent:#0E7C7B;--accent-ink:#0A5C5B;--r:10px;--pad:20px;--gap:16px;}
+--hairline:#DADBD6;--accent:#0A6665;--accent-ink:#075453;--alert:#A51D2D;--r:8px;--pad:20px;--gap:16px;}
 *{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);
 font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.5;
 -webkit-font-smoothing:antialiased;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 .wrap{max-width:860px;margin:0 auto;padding:16px;}
 .num,.kpi__val,td.num,th.num{font-variant-numeric:tabular-nums;}
-.kpi__val{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:40px;line-height:1;letter-spacing:-.01em;}
+.kpi__val{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:40px;line-height:1;letter-spacing:0;overflow-wrap:anywhere;}
 .kpi__unit{font-size:11px;color:var(--muted);margin-left:5px;font-family:system-ui;}
-.kpi__label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:700;margin-bottom:6px;}
-h1{font-size:20px;letter-spacing:.01em;margin:0;}
+.kpi__label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0;font-weight:700;margin-bottom:6px;}
+h1{font-size:20px;letter-spacing:0;margin:0;}
 .verdict{font-size:16px;font-weight:700;margin:0 0 6px;}
-.section-title{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink);
+.section-title{font-size:14px;text-transform:uppercase;letter-spacing:0;color:var(--ink);
 margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hairline);font-weight:700;}
 .card-title{font-size:13px;font-weight:700;margin-bottom:8px;}
 .small{font-size:11px;color:var(--muted);} .body{font-size:12px;}
@@ -381,25 +409,35 @@ margin:26px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--hairline);fo
 box-shadow:0 1px 3px rgba(20,24,31,.06);margin-bottom:var(--gap);break-inside:avoid;}
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:var(--gap);}
 .kpi{padding:14px 16px;}
-.chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:.02em;color:#fff;}
+.chip{display:inline-block;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700;letter-spacing:0;color:#fff;}
 table{width:100%;border-collapse:collapse;} th,td{padding:7px 9px;border-bottom:1px solid var(--hairline);text-align:left;vertical-align:top;}
-th{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
-td.num,th.num{text-align:right;} .table-wrap{overflow-x:auto;}
+th{font-size:10px;text-transform:uppercase;letter-spacing:0;color:var(--ink-2);}
+td.num,th.num{text-align:right;} .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .dot{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:middle;}
 svg{display:block;width:100%;height:auto;}
 .checks{list-style:none;margin:4px 0 0;padding:0;} .checks li{padding:3px 0;font-size:12px;}
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;
 background:linear-gradient(120deg,#14181F,#0A5C5B);color:#fff;border-radius:var(--r);padding:22px 24px;margin-bottom:18px;}
-.hdr .brand{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:#9fd6d3;font-weight:700;}
+.hdr .brand{font-size:13px;letter-spacing:0;text-transform:uppercase;color:#C7ECE9;font-weight:700;}
 .hdr h1{margin-top:4px;} .hdr .meta{text-align:right;font-size:11px;line-height:1.7;}
 .hdr .meta b{color:#fff;} .hdr .meta span{color:#9aa9ac;}
-.plan__h{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--accent-ink);margin-top:10px;}
+.plan__h{font-size:11px;font-weight:700;letter-spacing:0;color:var(--accent-ink);margin-top:10px;}
 .plan p{margin:2px 0 8px;}
 .callout{background:var(--accent);color:#fff;border-radius:var(--r);padding:14px 18px;margin-bottom:var(--gap);}
 .callout b{color:#fff;}
+.callout--high{background:var(--alert);}
+.callout--caution{background:#765100;}
+.clinical-review--high{border-left:4px solid var(--alert);padding-left:14px;}
 .disclaimer{font-size:10px;color:var(--muted);border-top:1px solid var(--hairline);padding-top:12px;margin-top:20px;}
 .footnote{font-size:10px;color:var(--muted);margin-top:6px;}
 p.lead{margin:0 0 12px;}
+@media (max-width:640px){
+body{font-size:14px;}.wrap{padding:10px;}.hdr{display:block;padding:18px 16px;}.hdr .meta{text-align:left;margin-top:14px;}
+.kpi-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}.kpi{padding:12px;}.kpi__val{font-size:30px;}
+.card{padding:14px;}.section-title{margin-top:22px;}th,td{padding:7px 8px;min-width:92px;}.small{font-size:12px;}
+.zone-chart{overflow-x:auto;-webkit-overflow-scrolling:touch;}.zone-chart svg{min-width:620px;}
+}
+@media (max-width:380px){.kpi-row{grid-template-columns:1fr;}}
 @page{size:A4;margin:13mm;}
 @media print{html,body{background:#fff;}.wrap{max-width:none;padding:0;}
 .card{box-shadow:none;} *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -427,6 +465,8 @@ def generate_cpet_client_report(
     zones = summary.get("training_zones") or {}
     chart = zones.get("chart") or {}
     z2 = zones.get("zone2") or {}
+    prescriptions_suppressed = bool(summary.get("prescriptions_suppressed"))
+    anchor_order_invalid = zones.get("suppression_reason") == "anchor_order"
 
     age = _num(metrics.get("age_years"))
     sex = metrics.get("sex")
@@ -437,7 +477,7 @@ def generate_cpet_client_report(
 
     # ── S1 header
     header = (
-        '<div class="hdr"><div><div class="brand">' + _esc(org_name) + '</div>'
+        '<header class="hdr"><div><div class="brand">' + _esc(org_name) + '</div>'
         '<h1>Metabolic Performance Profile</h1>'
         '<div class="small" style="color:#cfe3e2;margin-top:4px;">Cardiopulmonary Exercise Test (CPET)</div></div>'
         '<div class="meta">'
@@ -448,24 +488,35 @@ def generate_cpet_client_report(
         + (f'<span>Protocol</span> <b>{_esc(protocol)}</b><br>' if protocol else '')
         + (f'<span>Analyzer</span> <b>{_esc(device)}</b><br>' if device else '')
         + (f'<span>Tester</span> <b>{_esc(tester)}</b>' if tester else '')
-        + '</div></div>'
+        + '</div></header>'
     )
 
     # ── S3 headline + KPI hero
-    headline = _headline(fitness, metrics)
+    headline = summary.get("result_headline") or {}
+    headline_level = str(headline.get("Level") or "").lower()
+    headline_tone = (
+        " callout--high" if headline_level == "high"
+        else (" callout--caution" if headline_level == "caution" else "")
+    )
     hero = (
-        '<div class="callout"><div class="verdict" style="color:#fff">' + _esc(headline) + '</div>'
-        '<div style="font-size:12px;color:#e8f4f3">Below are the headline numbers your training is built on. '
-        'Everything after page one is the detail behind them.</div></div>'
+        f'<section class="callout{headline_tone}" aria-labelledby="result-headline">'
+        '<h2 class="verdict" id="result-headline" style="color:#fff">'
+        + _esc(headline.get("Headline", ""))
+        + '</h2><div style="font-size:12px;color:#fff">'
+        + _esc(headline.get("Meaning", ""))
+        + (f' <b>Next:</b> {_esc(headline.get("Next step", ""))}' if headline.get("Next step") else "")
+        + '</div></section>'
         + _kpi_tiles(metrics, summary, has_power)
     )
+    clinical_review = _clinical_review_section(summary)
 
     # ── S4 mini zone bar
     zone_bar = _zone_bar_svg(chart, z2, has_power)
-    s4 = ('<div class="section-title">Your training zones at a glance</div><div class="card">' + zone_bar
+    s4 = ('<h2 class="section-title">Your training zones at a glance</h2><div class="card"><div class="zone-chart">'
+          + zone_bar + '</div>'
           + '<p class="small" style="margin-top:8px">Zone 2 (endurance) is the shaded band topping out at VT1/LT1 — '
             'your ~2 mmol lactate line. Work the top of it; the FatMax marker is its floor, not its target.</p></div>'
-          + '<div class="page-break"></div>') if zone_bar else ''
+          + '<div class="page-break"></div>') if zone_bar and not prescriptions_suppressed else ''
 
     # ── S5 fitness vs norms
     bullet = _percentile_bullet_svg(fitness)
@@ -486,17 +537,18 @@ def generate_cpet_client_report(
           '<div class="table-wrap">' + _threshold_ladder(metrics, has_power) + '</div>'
           '<p class="footnote">&dagger; Thresholds were identified automatically from your gas-exchange and ventilation '
           'curves and labelled against the ~2 / 4 mmol lactate equivalents (no blood drawn unless noted). '
-          'Auto-detection is a good estimate, not exact — a threshold is a zone, not a line.</p></div>')
+          'Auto-detection is a good estimate, not exact — a threshold is a zone, not a line.</p></div>') \
+        if not anchor_order_invalid else ""
 
     # ── S7 zone table
     z2_line = z2.get("power") if (has_power and z2.get("power")) else z2.get("hr", "")
-    s7 = ('<div class="section-title">Your individualized zones</div>'
+    s7 = ('<h2 class="section-title">Your individualized zones</h2>'
           + (f'<div class="callout">Zone 2 target: <b>{_esc(z2_line)}</b> — aim ~{_esc(z2.get("target_hr",""))}, '
              f'cap at {_esc(z2.get("ceiling_hr",""))} bpm (LT1 / ~2 mmol). FatMax {_esc(z2.get("fatmax_floor",""))} '
              'is the floor, not the target.</div>' if z2.get("target_hr") else '')
           + '<div class="card"><div class="table-wrap">' + _zone_table(summary, has_power) + '</div>'
           + (f'<p class="body" style="margin-top:10px">{_esc(summary.get("training_narrative",""))}</p>' if summary.get("training_narrative") else '')
-          + '</div><div class="page-break"></div>')
+          + '</div><div class="page-break"></div>') if zones.get("has_zones") and not prescriptions_suppressed else ""
 
     # ── S8 metabolic
     metab = summary.get("metabolic_profile")
@@ -507,7 +559,10 @@ def generate_cpet_client_report(
               + _tile("Max fat oxidation", _r2(_num(metab.get("mfo_g_min"))), "g/min", "", _chip(metab.get("mfo_class", ""), "good"))
               + _tile("FatMax heart rate", _r0(_num(metab.get("fatmax_hr"))), "bpm", "peak fat-burning intensity")
               + '</div>'
-              + (f'<p class="body" style="margin-top:10px">{_esc(summary.get("metabolic_narrative",""))}</p>' if summary.get("metabolic_narrative") else '')
+              + (
+                  f'<p class="body" style="margin-top:10px">{_esc(summary.get("metabolic_narrative", ""))}</p>'
+                  if summary.get("metabolic_narrative") and not prescriptions_suppressed else ""
+              )
               + '</div>')
 
     # ── S9 limiter / efficiency
@@ -528,8 +583,11 @@ def generate_cpet_client_report(
           + '</tbody></table></div></div>')
 
     # ── S10 action plan
-    s10 = ('<div class="section-title">Your training plan</div><div class="card">'
-           + _action_plan(metrics, summary, has_power) + '</div><div class="page-break"></div>')
+    s10 = (
+        '<h2 class="section-title">Your training plan</h2><div class="card">'
+        + _action_plan(metrics, summary, has_power)
+        + '</div><div class="page-break"></div>'
+    ) if not prescriptions_suppressed else ""
 
     s_retest = ''
     if summary.get("retest_targets"):
@@ -561,7 +619,10 @@ def generate_cpet_client_report(
         'before starting or significantly changing an exercise program.</div></div>')
 
     effort = _effort_badge(metrics)
-    body = header + effort + hero + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s_retest + methodology
+    body = (
+        header + '<main>' + hero + clinical_review + effort + s4 + s5 + s6 + s7 + s8 + s9
+        + s10 + s_retest + methodology + '</main>'
+    )
 
     return (
         '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">'

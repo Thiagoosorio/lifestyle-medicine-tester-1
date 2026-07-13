@@ -443,17 +443,28 @@ with tab_upload:
         )
 
         if uploaded_pdfs:
+            from components.privacy_notice import cloud_health_data_consent
+            from services.document_safety_service import MAX_BATCH_BYTES, MAX_BATCH_FILES
+
             n = len(uploaded_pdfs)
+            batch_bytes = sum(getattr(file, "size", 0) for file in uploaded_pdfs)
+            batch_allowed = n <= MAX_BATCH_FILES and batch_bytes <= MAX_BATCH_BYTES
             names_preview = ", ".join(f.name for f in uploaded_pdfs[:3])
             if n > 3:
                 names_preview += f" +{n - 3} more"
             st.caption(f"{n} file{'s' if n > 1 else ''} selected: {names_preview}")
+            if n > MAX_BATCH_FILES:
+                st.error(f"Select no more than {MAX_BATCH_FILES} reports per extraction batch.")
+            if batch_bytes > MAX_BATCH_BYTES:
+                st.error("The selected reports exceed the 50 MB batch limit.")
+            cloud_consent = cloud_health_data_consent(key="lab_pdf_cloud_consent")
 
             if st.button(
                 f"Extract Values from {n} PDF{'s' if n > 1 else ''} with AI",
                 type="primary",
                 use_container_width=True,
                 key="pdf_extract_btn",
+                disabled=not batch_allowed or not cloud_consent,
             ):
                 all_defs = get_all_definitions()
                 all_results: list[dict] = []

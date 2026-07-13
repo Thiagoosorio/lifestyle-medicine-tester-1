@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from config.settings import PILLARS
 from models.habit import toggle_habit, get_habit_streak
 from services.microhabit_service import get_never_miss_twice_alerts, get_missed_yesterday
+from components.html_utils import escape_html
 
 # Celebration messages for different streak milestones
 CELEBRATIONS = {
@@ -42,14 +43,14 @@ def _render_never_miss_twice_banner(user_id: int):
                 f'<div>'
                 f'<div style="font-weight:600;color:#FF3B30;font-size:14px">'
                 f'Never Miss Twice!</div>'
-                f'<div style="color:#ccc;font-size:13px">{a["message"]}</div>'
+                f'<div style="color:#ccc;font-size:13px">{escape_html(a["message"])}</div>'
                 f'</div></div>'
             )
             st.markdown(banner, unsafe_allow_html=True)
 
     missed_only = [m for m in missed if m["id"] not in {a["id"] for a in alerts}]
     if missed_only:
-        names = ", ".join(m["name"] for m in missed_only[:5])
+        names = ", ".join(escape_html(m["name"]) for m in missed_only[:5])
         extra = f" +{len(missed_only)-5} more" if len(missed_only) > 5 else ""
         banner = (
             f'<div style="background:rgba(255,204,0,0.10);border:1px solid rgba(255,204,0,0.3);'

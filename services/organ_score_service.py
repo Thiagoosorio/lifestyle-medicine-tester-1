@@ -19,6 +19,9 @@ from models.organ_score import (
 from models.clinical_profile import get_profile, get_age, get_bmi
 
 
+MAX_PANEL_DATE_GAP_DAYS = 30
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # BIOMARKER DATA ACCESS (adapted for tester-1's biomarker_service API)
 # ══════════════════════════════════════════════════════════════════════════════
@@ -89,6 +92,46 @@ def _most_recent_iso_lab_date(lab_dates: list[str]) -> str:
     if not parsed_dates:
         return "unknown"
     return max(parsed_dates).isoformat()
+
+
+def _get_panel_date_metadata(required_biomarkers: list[str],
+                             biomarkers_with_dates: dict) -> dict:
+    """Describe whether required biomarker dates form a coherent panel.
+
+    A 30-day span permits short follow-up collection delays while preventing
+    independently selected historical biomarkers from being presented as one
+    synthetic current panel. Unknown dates remain visible in the metadata but
+    do not establish incoherence.
+    """
+    input_lab_dates = {}
+    parsed_dates = []
+    undated_biomarkers = []
+
+    for code in required_biomarkers:
+        payload = biomarkers_with_dates.get(code) or {}
+        raw_date = payload.get("lab_date")
+        display_date = raw_date if isinstance(raw_date, str) and raw_date else "unknown"
+        input_lab_dates[code] = display_date
+        try:
+            parsed_dates.append(date.fromisoformat(display_date))
+        except ValueError:
+            undated_biomarkers.append(code)
+
+    panel_date_span_days = None
+    if parsed_dates:
+        panel_date_span_days = (max(parsed_dates) - min(parsed_dates)).days
+
+    return {
+        "input_lab_dates": input_lab_dates,
+        "lab_date": max(parsed_dates).isoformat() if parsed_dates else "unknown",
+        "panel_date_span_days": panel_date_span_days,
+        "max_panel_date_gap_days": MAX_PANEL_DATE_GAP_DAYS,
+        "date_coherent": (
+            panel_date_span_days is None
+            or panel_date_span_days <= MAX_PANEL_DATE_GAP_DAYS
+        ),
+        "undated_biomarkers": undated_biomarkers,
+    }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -3166,6 +3209,22 @@ def _get_clinical_data(user_id: int) -> dict:
     return result
 
 
+def _delete_persisted_score_results(user_id: int,
+                                    score_def_ids: set[int]) -> None:
+    """Remove rows that can no longer represent a currently valid score."""
+    if not score_def_ids:
+        return
+    conn = get_connection()
+    try:
+        conn.executemany(
+            "DELETE FROM organ_score_results WHERE user_id = ? AND score_def_id = ?",
+            ((user_id, score_def_id) for score_def_id in score_def_ids),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_computable_scores(user_id: int) -> dict:
     """Check which scores can/can't be computed and what's missing.
 
@@ -3174,9 +3233,11 @@ def get_computable_scores(user_id: int) -> dict:
     _ensure_score_definitions_seeded()
     definitions = get_all_score_definitions()
     biomarkers = _get_latest_biomarkers_as_dict(user_id)
+    bio_with_dates = _get_latest_biomarkers_with_dates(user_id)
     dexa_with_dates = _get_latest_dexa_inputs_with_dates(user_id)
     for code, payload in dexa_with_dates.items():
         biomarkers[code] = payload["value"]
+        bio_with_dates[code] = payload
     clinical = _get_clinical_data(user_id)
 
     computable = []
@@ -3188,17 +3249,30 @@ def get_computable_scores(user_id: int) -> dict:
         for c in defn.get("required_clinical", []):
             if c not in clinical or clinical[c] is None:
                 missing_clin.append(c)
+        date_metadata = _get_panel_date_metadata(
+            defn["required_biomarkers"], bio_with_dates
+        )
 
-        if not missing_bio and not missing_clin:
+        if not missing_bio and not missing_clin and date_metadata["date_coherent"]:
             computable.append(defn)
         else:
+            if missing_bio or missing_clin:
+                reason = "missing_required_inputs"
+            else:
+                reason = "required_biomarker_dates_exceed_max_gap"
             missing.append({
                 "definition": defn,
                 "missing_biomarkers": missing_bio,
                 "missing_clinical": missing_clin,
+                "reason": reason,
+                "date_metadata": date_metadata,
             })
 
-    return {"computable": computable, "missing": missing}
+    return {
+        "computable": computable,
+        "missing": missing,
+        "max_panel_date_gap_days": MAX_PANEL_DATE_GAP_DAYS,
+    }
 
 
 def compute_all_scores(user_id: int) -> list:
@@ -3217,36 +3291,44 @@ def compute_all_scores(user_id: int) -> list:
     clinical = _get_clinical_data(user_id)
 
     results = []
+    invalid_score_def_ids = set()
 
     for defn in definitions:
         formula_key = defn["formula_key"]
         if formula_key not in FORMULA_DISPATCH:
+            invalid_score_def_ids.add(defn["id"])
             continue
 
         missing_bio = [b for b in defn["required_biomarkers"] if b not in biomarkers or biomarkers[b] is None]
         missing_clin = [c for c in defn.get("required_clinical", []) if c not in clinical or clinical[c] is None]
         if missing_bio or missing_clin:
+            invalid_score_def_ids.add(defn["id"])
+            continue
+
+        date_metadata = _get_panel_date_metadata(
+            defn["required_biomarkers"], bio_with_dates
+        )
+        if not date_metadata["date_coherent"]:
+            invalid_score_def_ids.add(defn["id"])
             continue
 
         func, arg_builder = FORMULA_DISPATCH[formula_key]
         try:
             kwargs = arg_builder(biomarkers, clinical)
             if any(v is None for v in kwargs.values()):
+                invalid_score_def_ids.add(defn["id"])
                 continue
             value = func(**kwargs)
         except (TypeError, ValueError, ZeroDivisionError):
+            invalid_score_def_ids.add(defn["id"])
             continue
 
         if value is None:
+            invalid_score_def_ids.add(defn["id"])
             continue
 
         interp = interpret_score(value, defn)
-
-        lab_dates = []
-        for bcode in defn["required_biomarkers"]:
-            if bcode in bio_with_dates:
-                lab_dates.append(bio_with_dates[bcode]["lab_date"])
-        lab_date = _most_recent_iso_lab_date(lab_dates)
+        lab_date = date_metadata["lab_date"]
 
         input_snapshot = {}
         for bcode in defn["required_biomarkers"]:
@@ -3255,6 +3337,9 @@ def compute_all_scores(user_id: int) -> list:
         for cfield in defn.get("required_clinical", []):
             if cfield in clinical:
                 input_snapshot[cfield] = clinical[cfield]
+        input_snapshot["_input_lab_dates"] = date_metadata["input_lab_dates"]
+        input_snapshot["_panel_date_span_days"] = date_metadata["panel_date_span_days"]
+        input_snapshot["_max_panel_date_gap_days"] = MAX_PANEL_DATE_GAP_DAYS
 
         save_score_result(
             user_id=user_id,
@@ -3275,9 +3360,13 @@ def compute_all_scores(user_id: int) -> list:
             "label": interp["label"],
             "severity": interp["severity"],
             "lab_date": lab_date,
+            "input_lab_dates": date_metadata["input_lab_dates"],
+            "panel_date_span_days": date_metadata["panel_date_span_days"],
+            "max_panel_date_gap_days": MAX_PANEL_DATE_GAP_DAYS,
             "citation_pmid": defn.get("citation_pmid"),
         })
 
+    _delete_persisted_score_results(user_id, invalid_score_def_ids)
     return results
 
 

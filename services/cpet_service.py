@@ -493,17 +493,9 @@ NINE_PANEL_ROWS = [
 
 def read_pdf_text(pdf_bytes: bytes) -> str:
     """Extract readable text from a digital CPET PDF."""
-    try:
-        import pypdf
+    from services.document_safety_service import extract_pdf_text_safely
 
-        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        text = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-    except Exception as exc:
-        raise ValueError(f"Could not read PDF: {exc}") from exc
-
-    if len(text) < 20:
-        raise ValueError("PDF has no readable text. It may be a scanned image.")
-    return text
+    return extract_pdf_text_safely(pdf_bytes, label="CPET report PDF")
 
 
 def extract_cpet_from_pdf(pdf_bytes: bytes) -> dict[str, Any]:
@@ -765,8 +757,12 @@ def build_cpet_coach_summary(
     normalized = normalize_cpet_metrics(metrics)
     fitness = _classify_fitness(normalized, modality)
     validity = _build_validity_gate(normalized)
-    flags = _build_coach_flags(normalized, client_context, fitness)
     training_zones = build_training_zones(normalized, modality)
+    flags = _build_coach_flags(normalized, client_context, fitness, training_zones)
+    clinical_review_flags = _clinical_review_flags(flags)
+    high_priority_review = [flag for flag in clinical_review_flags if flag.get("Priority") == "High"]
+    if high_priority_review:
+        training_zones = _suppress_training_prescription(training_zones, high_priority_review)
     metabolic_profile = build_metabolic_profile(normalized)
     consistency_rows = _build_consistency_checks(normalized, fitness, raw_metrics=metrics)
     trend_notes = _build_trend_notes(normalized, previous_metrics or {})
@@ -795,6 +791,8 @@ def build_cpet_coach_summary(
         "fitness_classification": fitness,
         "validity_gate": validity,
         "coach_flags": flags,
+        "clinical_review_flags": clinical_review_flags,
+        "prescriptions_suppressed": bool(high_priority_review),
         "result_headline": _build_result_headline(normalized, fitness, validity, flags, training_zones),
         "result_rows": result_rows,
         "action_plan": action_plan,
@@ -872,6 +870,73 @@ def _zone_range_strings(v1: float, v2: float, floor: float, decimals: int) -> li
     ]
 
 
+def _training_anchor_issues(metrics: dict[str, Any]) -> list[dict[str, str]]:
+    """Return threshold anchors that cannot represent increasing exercise intensity."""
+    anchor_specs = [
+        ("Heart rate", "bpm", "vt1_hr_bpm", "vt2_hr_bpm", "peak_hr_bpm"),
+        ("Power", "W", "vt1_power_w", "vt2_power_w", "peak_power_w"),
+        ("VO2", "mL/kg/min", "vt1_vo2_ml_kg_min", "vt2_vo2_ml_kg_min", "peak_vo2_ml_kg_min"),
+    ]
+    issues: list[dict[str, str]] = []
+    for label, unit, vt1_field, vt2_field, peak_field in anchor_specs:
+        vt1 = _as_float(metrics.get(vt1_field))
+        vt2 = _as_float(metrics.get(vt2_field))
+        peak = _as_float(metrics.get(peak_field))
+        if vt1 is None or vt2 is None:
+            continue
+        invalid = vt1 >= vt2 or (peak is not None and vt2 >= peak)
+        if not invalid:
+            continue
+        sequence = f"VT1 {vt1:g} {unit}, VT2 {vt2:g} {unit}"
+        if peak is not None:
+            sequence += f", peak {peak:g} {unit}"
+        issues.append(
+            {
+                "anchor": label,
+                "message": f"{label} anchors must satisfy VT1 < VT2 < peak; received {sequence}.",
+            }
+        )
+
+    vt1_speed = _as_float(metrics.get("vt1_speed_kmh"))
+    vt2_speed = _as_float(metrics.get("vt2_speed_kmh"))
+    if vt1_speed is not None and vt2_speed is not None and vt1_speed >= vt2_speed:
+        issues.append(
+            {
+                "anchor": "Speed",
+                "message": (
+                    "Speed anchors must increase from VT1 to VT2; received "
+                    f"VT1 {vt1_speed:g} km/h and VT2 {vt2_speed:g} km/h."
+                ),
+            }
+        )
+    return issues
+
+
+def _suppress_training_prescription(
+    zones: dict[str, Any],
+    high_priority_flags: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Remove prescription payloads while preserving the reason they were withheld."""
+    anchor_issues = zones.get("anchor_issues") or []
+    if anchor_issues:
+        note = zones.get("incomplete_note") or "Training zones are suppressed pending anchor review."
+        reason = "anchor_order"
+    else:
+        areas = ", ".join(flag.get("Area", "clinical review") for flag in high_priority_flags[:3])
+        note = (
+            "Training zones and exercise prescriptions are withheld pending clinician clearance"
+            + (f" for: {areas}." if areas else ".")
+        )
+        reason = "clinical_review"
+    return {
+        "has_zones": False,
+        "prescription_suppressed": True,
+        "suppression_reason": reason,
+        "incomplete_note": note,
+        "anchor_issues": anchor_issues,
+    }
+
+
 def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -> dict[str, Any]:
     """Build a threshold-anchored 5-zone prescription plus a polarized monitor.
 
@@ -889,6 +954,19 @@ def build_training_zones(metrics: dict[str, Any], modality: str | None = None) -
     fatmax_hr = _as_float(metrics.get("fatmax_hr_bpm"))
     fatmax_low = _as_float(metrics.get("fatmax_hr_low_bpm"))
     fatmax_high = _as_float(metrics.get("fatmax_hr_high_bpm"))
+
+    anchor_issues = _training_anchor_issues(metrics)
+    if anchor_issues:
+        return {
+            "has_zones": False,
+            "prescription_suppressed": True,
+            "suppression_reason": "anchor_order",
+            "anchor_issues": anchor_issues,
+            "incomplete_note": (
+                "Training zones and prescriptions are suppressed because VT1, VT2, and peak anchors are not "
+                "strictly increasing. Review the source report or threshold selection before prescribing exercise."
+            ),
+        }
 
     is_running = "run" in str(modality or "").lower() or "tread" in str(modality or "").lower()
 
@@ -1768,6 +1846,25 @@ def _build_retest_targets(
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
 
+    high_priority_review = _clinical_review_flags(flags, priority="High")
+    if high_priority_review:
+        return [
+            {
+                "Priority": "Clinical",
+                "Metric": "Clinical-pattern signals",
+                "Current": "; ".join(flag.get("Area", "Review") for flag in high_priority_review[:3]),
+                "Target": "Clinician-defined stability, clearance, or follow-up.",
+                "Why it matters": "Safety and medical interpretation come before performance progression.",
+            },
+            {
+                "Priority": "Method",
+                "Metric": "Comparability",
+                "Current": "same lab/protocol/averaging window",
+                "Target": "Repeat only when clinically appropriate, using matching test conditions.",
+                "Why it matters": "A CPET trend is only meaningful when the method is comparable.",
+            },
+        ]
+
     vt2_power = _as_float(metrics.get("vt2_power_w"))
     vt2_speed = _as_float(metrics.get("vt2_speed_kmh"))
     vt2_hr = _as_float(metrics.get("vt2_hr_bpm"))
@@ -2008,6 +2105,24 @@ def _build_result_rows(
                 ),
             }
         )
+    elif zones.get("prescription_suppressed"):
+        anchor_issue = zones.get("suppression_reason") == "anchor_order"
+        rows.append(
+            {
+                "Domain": "Training zones",
+                "Finding": zones.get("incomplete_note", "Training prescriptions are withheld pending review."),
+                "What it means": (
+                    "The entered threshold sequence is not physiologically ordered, so calculated ranges would be unsafe."
+                    if anchor_issue
+                    else "Measured anchors may be present, but a high-priority clinical signal takes precedence."
+                ),
+                "Coach response": (
+                    "Reconcile VT1, VT2, and peak values with the source report before rebuilding zones."
+                    if anchor_issue
+                    else "Wait for clinician clearance and defined exercise limits before issuing zones or sessions."
+                ),
+            }
+        )
     else:
         rows.append(
             {
@@ -2114,6 +2229,7 @@ def _build_action_plan(
                 "Guardrail": "No unsupervised hard intervals until the clinician confirms clearance and limits.",
             }
         )
+        return plan
     elif effort_limited:
         plan.append(
             {
@@ -2241,6 +2357,8 @@ def _priority_rank(priority: str | None) -> int:
 
 
 _CLINICAL_REVIEW_AREAS = {
+    "Severe aerobic incapacity",
+    "Threshold anchor consistency",
     "Ventilatory efficiency",
     "Breathing reserve",
     "O2 pulse",
@@ -2291,6 +2409,7 @@ def _build_coach_flags(
     metrics: dict[str, Any],
     client_context: str,
     fitness: dict[str, Any] | None = None,
+    training_zones: dict[str, Any] | None = None,
 ) -> list[dict[str, str]]:
     flags: list[dict[str, str]] = []
     peak_vo2 = _as_float(metrics.get("peak_vo2_ml_kg_min"))
@@ -2309,6 +2428,19 @@ def _build_coach_flags(
     vt2_pct = _as_float(metrics.get("vt2_pct_peak_vo2"))
     peak_rer = _as_float(metrics.get("peak_rer"))
     dyspnea_context = client_context == "cardiology"
+
+    if peak_vo2 is not None and peak_vo2 < 10:
+        flags.append(
+            {
+                "Priority": "High",
+                "Area": "Severe aerobic incapacity",
+                "Signal": f"Peak VO2 is {peak_vo2:.1f} mL/kg/min, within the severe aerobic-incapacity range.",
+                "Coach action": (
+                    "Treat this as a clinical-review and clearance finding before exercise prescription; confirm effort, "
+                    "symptoms, diagnosis, and clinician-defined limits."
+                ),
+            }
+        )
 
     # Headline aerobic capacity: prefer the age/sex/modality percentile classification.
     if peak_vo2 is not None and fitness and fitness.get("percentile") is not None:
@@ -2635,7 +2767,21 @@ def _build_coach_flags(
             }
         )
 
-    if not build_training_zones(metrics).get("has_zones"):
+    zone_result = training_zones if training_zones is not None else build_training_zones(metrics)
+    anchor_issues = zone_result.get("anchor_issues") or []
+    if anchor_issues:
+        flags.append(
+            {
+                "Priority": "High",
+                "Area": "Threshold anchor consistency",
+                "Signal": " ".join(issue.get("message", "") for issue in anchor_issues),
+                "Coach action": (
+                    "Do not prescribe zones from these values. Recheck the source report and threshold labels; VT1, "
+                    "VT2, and peak must increase strictly for each anchor."
+                ),
+            }
+        )
+    elif not zone_result.get("has_zones"):
         flags.append(
             {
                 "Priority": "Medium",

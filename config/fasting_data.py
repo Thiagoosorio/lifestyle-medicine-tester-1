@@ -1,16 +1,16 @@
 """
-Fasting Data — Metabolic zone definitions, fasting type configurations,
-and zone-specific guidance.
+Fasting Data — Approximate fasting phase definitions, protocol configurations,
+and safety guidance.
 
 Scientific basis:
-- Fed → Early Fasting → Fat Burning → Ketosis → Deep Ketosis & Autophagy
-- Zone timings from consensus of metabolic physiology literature
-- Autophagy evidence largely from animal models (PMID: 30172870)
+- Time bands are approximate population-level physiology, not measured states
+- Individual substrate use and ketone production vary substantially
+- Human autophagy onset cannot be inferred from a fasting timer
 - IF umbrella reviews: PMID 39618023, 34919135, 38335125
 """
 
 # ── Metabolic Zones ──────────────────────────────────────────────────────
-# Each zone describes the dominant metabolic state at that fasting duration.
+# Each phase is an approximate educational time band, not a measured metabolic state.
 
 FASTING_ZONES = [
     {
@@ -20,11 +20,11 @@ FASTING_ZONES = [
         "end_hours": 4,
         "color": "#30D158",       # green — energy available
         "icon": "&#127860;",      # fork and knife
-        "description": "Insulin elevated, nutrients being absorbed and stored.",
+        "description": "A recent meal may still be undergoing absorption and storage.",
         "mechanism": (
-            "After eating, blood glucose rises and the pancreas releases insulin. "
-            "Glucose is taken up by cells for energy; excess is stored as glycogen "
-            "in the liver and muscles, and as triglycerides in adipose tissue."
+            "After eating, glucose and insulin typically rise while nutrients are absorbed. "
+            "The timing and magnitude vary with meal composition, activity, medications, "
+            "and individual physiology; this timer does not measure them."
         ),
         "causation_note": None,
     },
@@ -35,65 +35,62 @@ FASTING_ZONES = [
         "end_hours": 12,
         "color": "#FFD60A",       # yellow — transitioning
         "icon": "&#9203;",        # timer
-        "description": "Insulin drops, liver glycogen fuels blood glucose.",
+        "description": "Post-meal insulin may decline while liver glycogen supports glucose.",
         "mechanism": (
-            "Insulin levels fall as the post-absorptive state begins. The liver "
-            "breaks down glycogen (glycogenolysis) to maintain blood glucose. "
-            "Free fatty acid release from adipose tissue begins to increase."
+            "As absorption winds down, insulin generally declines and liver glycogen may "
+            "contribute more to blood glucose. Fatty-acid release may increase gradually. "
+            "A clock alone cannot determine these changes for an individual."
         ),
         "causation_note": None,
     },
     {
         "id": "fat_burning",
-        "name": "Fat Burning",
+        "name": "Greater Fat Use May Begin",
         "start_hours": 12,
         "end_hours": 18,
         "color": "#FF9F0A",       # orange — active lipolysis
         "icon": "&#128293;",      # fire
-        "description": "Glycogen depleted, lipolysis accelerates, growth hormone rises.",
+        "description": "Fat oxidation may contribute more; glycogen is not assumed depleted.",
         "mechanism": (
-            "Hepatic glycogen stores are substantially depleted. The body shifts "
-            "to fatty acid oxidation as the primary fuel source. Growth hormone "
-            "secretion increases, promoting fat mobilization while preserving "
-            "lean mass. Gluconeogenesis maintains blood glucose from amino acids "
-            "and glycerol."
+            "Population studies suggest fat oxidation often contributes more as fasting "
+            "continues, while glycogen use and gluconeogenesis vary. This is not a claim "
+            "that glycogen is depleted or that fat is the primary fuel at this time."
         ),
         "causation_note": None,
     },
     {
         "id": "ketosis",
-        "name": "Ketosis",
+        "name": "Ketone Production May Rise",
         "start_hours": 18,
         "end_hours": 24,
         "color": "#BF5AF2",       # purple — metabolic shift
         "icon": "&#9889;",        # lightning bolt
-        "description": "Liver produces ketone bodies; brain begins using BHB for fuel.",
+        "description": "Ketones may rise, but ketosis is not established without measurement.",
         "mechanism": (
-            "With sustained low insulin and depleted glycogen, the liver converts "
-            "fatty acids into ketone bodies (beta-hydroxybutyrate, acetoacetate). "
-            "The brain, which cannot directly use fatty acids, begins utilizing "
-            "BHB for up to 60-70% of its energy needs. AMPK signaling increases."
+            "The liver may increase ketone production as insulin and carbohydrate "
+            "availability decline. The onset and degree vary widely, and this timer does "
+            "not measure beta-hydroxybutyrate, glucose, insulin, or cellular signaling."
         ),
         "causation_note": None,
     },
     {
         "id": "deep_ketosis",
-        "name": "Deep Ketosis & Autophagy",
+        "name": "Extended Fasting",
         "start_hours": 24,
         "end_hours": 72,
         "color": "#FF375F",       # red — advanced
         "icon": "&#9851;",        # recycling symbol
-        "description": "Cellular recycling pathways activated; mTOR suppressed.",
+        "description": "Metabolic and cellular responses remain variable and unmeasured.",
         "mechanism": (
-            "Prolonged fasting further activates AMPK and suppresses mTOR, "
-            "triggering autophagy — the cell's recycling program that degrades "
-            "damaged organelles and misfolded proteins. Ketone levels peak. "
-            "Immune cell regeneration may occur with extended fasts (>48h)."
+            "Longer fasting can increase ketone production and alter nutrient-sensing "
+            "pathways, but a duration threshold does not establish deep ketosis, autophagy, "
+            "or immune-cell regeneration in an individual. Extended fasting also carries "
+            "greater medication, glucose, hydration, and electrolyte risks."
         ),
         "causation_note": (
-            "Most autophagy timing evidence derives from animal models. "
-            "Human autophagy biomarker studies are limited and exact onset "
-            "timing varies individually (PMID: 30172870)."
+            "Human autophagy evidence is limited and tissue-specific; onset cannot be "
+            "determined from elapsed time (PMID: 30172870). More than 24 hours requires "
+            "review of the specific plan with a qualified clinician."
         ),
     },
 ]
@@ -221,6 +218,21 @@ FASTING_SAFETY = {
         "Children and adolescents under 18",
         "Active infections or acute illness",
     ],
+    "glucose_medication_question": (
+        "I take insulin or another glucose-lowering medication."
+    ),
+    "screen_acknowledgement": (
+        "I reviewed the conditions above, answered accurately, and understand that "
+        "this tracker cannot determine whether fasting is medically safe for me."
+    ),
+    "clinician_review_acknowledgement": (
+        "A qualified clinician who knows my medications and health history has reviewed "
+        "this specific fasting duration with me."
+    ),
+    "phase_notice": (
+        "The phase shown is only an approximate time-based estimate. It does not measure "
+        "glycogen, fuel use, ketosis, insulin, autophagy, or any other metabolic state."
+    ),
     "general_guidance": (
         "Stay hydrated with water, black coffee, or plain tea during fasts. "
         "Break extended fasts gently with small, easily digestible meals. "

@@ -303,14 +303,16 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
     Returns a dict with all recognized DEXA fields (nulls for unavailable).
     """
     import anthropic
+    from config.ai_models import anthropic_model
     import json
     import re
-    import io
+    from services.document_safety_service import extract_pdf_text_safely, redact_direct_identifiers
 
     try:
         import pypdf
-        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        pdf_text = "\n".join(p.extract_text() or "" for p in reader.pages).strip()
+        pdf_text = redact_direct_identifiers(
+            extract_pdf_text_safely(pdf_bytes, label="DEXA report PDF")
+        )
     except Exception as exc:
         raise ValueError(f"Could not read PDF: {exc}") from exc
 
@@ -355,7 +357,7 @@ def extract_dexa_from_pdf(pdf_bytes: bytes) -> dict:
 
     client = anthropic.Anthropic()
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=anthropic_model(),
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )

@@ -246,44 +246,31 @@ def import_body_composition(user_id, client, days=30):
 
 
 def import_heart_rate(user_id, client, days=7):
-    """Import resting heart rate data as biomarker entries."""
-    imported = 0
-    conn = get_connection()
-    try:
-        # Get resting HR biomarker ID
-        hr_bio = conn.execute(
-            "SELECT id FROM biomarkers WHERE LOWER(name) LIKE '%resting heart rate%' OR code = 'rhr'",
-        ).fetchone()
+    """Import resting heart rate into the canonical wearable measurement store."""
+    from services.wearable_wheel_service import save_measurements
 
-        if not hr_bio:
-            return 0
-
-        bio_id = hr_bio["id"]
-
-        for i in range(days):
-            d = date.today() - timedelta(days=i)
-            try:
-                hr_data = client.get_heart_rates(d.isoformat())
-                if not hr_data:
-                    continue
-
-                rhr = hr_data.get("restingHeartRate")
-                if not rhr:
-                    continue
-
-                cursor = conn.execute(
-                    """INSERT OR IGNORE INTO biomarker_results
-                       (user_id, biomarker_id, value, lab_date, lab_name, notes)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (user_id, bio_id, rhr, d.isoformat(),
-                     "Garmin Connect", "Auto-imported from Garmin"),
-                )
-                if cursor.rowcount > 0:
-                    imported += 1
-            except Exception:
-                LOGGER.exception("Failed to import Garmin resting heart rate for %s", d.isoformat())
+    rows = []
+    for i in range(days):
+        d = date.today() - timedelta(days=i)
+        try:
+            hr_data = client.get_heart_rates(d.isoformat())
+            if not hr_data:
                 continue
-        conn.commit()
-    finally:
-        conn.close()
-    return imported
+            rhr = hr_data.get("restingHeartRate")
+            if rhr is None:
+                continue
+            rows.append(
+                {
+                    "metric_code": "resting_heart_rate_bpm",
+                    "value": rhr,
+                    "unit": "bpm",
+                    "measured_at": f"{d.isoformat()}T12:00:00",
+                    "source": "garmin",
+                    "external_id": f"garmin-rhr-{d.isoformat()}",
+                }
+            )
+        except Exception:
+            LOGGER.exception("Failed to import Garmin resting heart rate for %s", d.isoformat())
+    if not rows:
+        return 0
+    return save_measurements(user_id, rows, default_source="garmin")["inserted"]

@@ -37,6 +37,112 @@ def _table_columns(conn, table_name: str) -> set[str]:
     return columns
 
 
+def _migrate_user_identity_integrity(conn: sqlite3.Connection) -> None:
+    """Guard the identity namespace without rewriting ambiguous legacy rows."""
+    conn.execute(
+        """CREATE TRIGGER IF NOT EXISTS users_identity_insert_guard
+        BEFORE INSERT ON users
+        BEGIN
+            SELECT CASE
+                WHEN NEW.email IS NOT NULL
+                 AND NEW.email <> LOWER(TRIM(NEW.email))
+                THEN RAISE(ABORT, 'Email must be normalized')
+            END;
+            SELECT CASE WHEN EXISTS (
+                SELECT 1 FROM users
+                WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.username))
+                   OR (email IS NOT NULL AND TRIM(email) <> ''
+                       AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.username)))
+            ) THEN RAISE(ABORT, 'Username already exists or conflicts with email') END;
+            SELECT CASE
+                WHEN NEW.email IS NOT NULL AND TRIM(NEW.email) <> ''
+                 AND (LOWER(TRIM(NEW.username)) = LOWER(TRIM(NEW.email)) OR EXISTS (
+                        SELECT 1 FROM users
+                        WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.email))
+                           OR (email IS NOT NULL AND TRIM(email) <> ''
+                               AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.email)))
+                     ))
+                THEN RAISE(ABORT, 'Email already exists or conflicts with username')
+            END;
+        END"""
+    )
+    conn.execute(
+        """CREATE TRIGGER IF NOT EXISTS users_identity_update_guard
+        BEFORE UPDATE OF username, email ON users
+        BEGIN
+            SELECT CASE
+                WHEN NEW.email IS NOT NULL
+                 AND NEW.email <> LOWER(TRIM(NEW.email))
+                THEN RAISE(ABORT, 'Email must be normalized')
+            END;
+            SELECT CASE
+                WHEN (NEW.email IS NOT NULL AND TRIM(NEW.email) <> ''
+                      AND LOWER(TRIM(NEW.username)) = LOWER(TRIM(NEW.email)))
+                  OR EXISTS (
+                        SELECT 1 FROM users
+                        WHERE id <> OLD.id
+                          AND (LOWER(TRIM(username)) = LOWER(TRIM(NEW.username))
+                               OR (email IS NOT NULL AND TRIM(email) <> ''
+                                   AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.username))))
+                     )
+                THEN RAISE(ABORT, 'Username already exists or conflicts with email')
+            END;
+            SELECT CASE
+                WHEN NEW.email IS NOT NULL AND TRIM(NEW.email) <> '' AND EXISTS (
+                    SELECT 1 FROM users
+                    WHERE LOWER(TRIM(username)) = LOWER(TRIM(NEW.email))
+                       OR (id <> OLD.id AND email IS NOT NULL AND TRIM(email) <> ''
+                           AND LOWER(TRIM(email)) = LOWER(TRIM(NEW.email)))
+                )
+                THEN RAISE(ABORT, 'Email already exists or conflicts with username')
+            END;
+        END"""
+    )
+
+    duplicate_emails = conn.execute(
+        """SELECT LOWER(TRIM(email)) AS normalized_email,
+                  COUNT(*) AS duplicate_count,
+                  GROUP_CONCAT(id) AS user_ids
+           FROM users
+           WHERE email IS NOT NULL AND TRIM(email) <> ''
+           GROUP BY LOWER(TRIM(email))
+           HAVING COUNT(*) > 1"""
+    ).fetchall()
+    cross_namespace_collisions = conn.execute(
+        """SELECT LOWER(TRIM(email_user.email)) AS normalized_identifier,
+                  email_user.id AS email_user_id,
+                  username_user.id AS username_user_id
+           FROM users AS email_user
+           JOIN users AS username_user
+             ON LOWER(TRIM(email_user.email)) = LOWER(TRIM(username_user.username))
+           WHERE email_user.email IS NOT NULL AND TRIM(email_user.email) <> ''"""
+    ).fetchall()
+    for row in cross_namespace_collisions:
+        LOGGER.warning(
+            "Legacy identifier %r crosses the email/username namespace "
+            "(email user id: %s, username user id: %s); rows were preserved",
+            row[0],
+            row[1],
+            row[2],
+        )
+    if duplicate_emails:
+        for row in duplicate_emails:
+            LOGGER.warning(
+                "Ambiguous legacy email %r is used by %s users (ids: %s); "
+                "rows were preserved and login by this identifier is disabled",
+                row[0],
+                row[1],
+                row[2],
+            )
+        return
+
+    conn.execute(
+        """CREATE UNIQUE INDEX IF NOT EXISTS ux_users_email_normalized
+           ON users(LOWER(TRIM(email)))
+           WHERE email IS NOT NULL AND TRIM(email) <> ''"""
+    )
+
+
 def _migrate(conn):
     """Add columns/tables that may be missing in older databases."""
     migrations = [
@@ -284,7 +390,7 @@ def _migrate(conn):
             user_id INTEGER NOT NULL REFERENCES users(id),
             lab_date TEXT NOT NULL,
             analysis_text TEXT NOT NULL,
-            model_used TEXT DEFAULT 'claude-sonnet-4-20250514',
+            model_used TEXT DEFAULT 'claude-sonnet-4-6',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             UNIQUE(user_id, lab_date))""",
         # DEXA body composition scans
@@ -420,6 +526,7 @@ def _migrate(conn):
             WHERE source IS NULL OR TRIM(source) = ''
             """
         )
+    _migrate_user_identity_integrity(conn)
     conn.commit()
 
 

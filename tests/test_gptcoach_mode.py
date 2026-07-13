@@ -1,5 +1,6 @@
 import services.coaching_service as coaching
 from config.prompts import get_context_prompt
+import pytest
 
 
 def _create_user(db_conn, username="gptcoach.user"):
@@ -50,3 +51,22 @@ def test_clear_conversation_can_target_single_context(db_conn, monkeypatch):
 
     assert len(remaining) == 1
     assert remaining[0]["content"] == "general message"
+
+
+def test_coaching_rejects_oversized_message_before_persistence(monkeypatch):
+    monkeypatch.setattr(
+        coaching,
+        "_save_message",
+        lambda *_args, **_kwargs: pytest.fail("oversized message must not be saved"),
+    )
+    with pytest.raises(ValueError, match="4,000 characters"):
+        coaching.get_coaching_response(1, "x" * 4001)
+
+
+def test_history_budget_keeps_newest_complete_messages():
+    history = [
+        {"role": "user", "content": "a" * 10},
+        {"role": "assistant", "content": "b" * 10},
+        {"role": "user", "content": "c" * 10},
+    ]
+    assert coaching._bound_history(history, max_chars=20) == history[1:]

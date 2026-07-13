@@ -1,6 +1,7 @@
 """Exercise display components — score gauge, weekly progress, workout cards."""
 
 import streamlit as st
+from components.html_utils import escape_html
 from components.custom_theme import APPLE
 from config.exercise_data import (
     EXERCISE_TYPES,
@@ -154,7 +155,7 @@ def render_exercise_card(exercise):
     calories = exercise.get("calories")
     avg_hr = exercise.get("avg_hr")
     source = exercise.get("source", "manual")
-    notes = exercise.get("notes", "")
+    notes = escape_html(exercise.get("notes", ""))
 
     # Build detail chips
     details = []

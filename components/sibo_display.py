@@ -2,6 +2,7 @@
 
 import streamlit as st
 from components.custom_theme import APPLE
+from components.html_utils import escape_html
 from config.sibo_data import (
     SIBO_DISCLAIMER, GI_SYMPTOMS, FODMAP_GROUPS, FODMAP_PHASES,
     SIBO_DIET_TYPES, CORRELATION_STRENGTH,
@@ -146,7 +147,7 @@ def render_food_log_row(entry):
 
     serving = ""
     if entry.get("serving_size") and entry.get("serving_unit"):
-        serving = f'{entry["serving_size"]} {entry["serving_unit"]}'
+        serving = f'{entry["serving_size"]} {escape_html(entry["serving_unit"])}'
 
     html = (
         f'<div style="background:{A["bg_elevated"]};border:1px solid {A["separator"]};'
@@ -154,7 +155,7 @@ def render_food_log_row(entry):
         f'display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap">'
         f'<div>'
         f'<span style="font-size:13px;font-weight:600;color:{A["label_primary"]}">'
-        f'{entry["food_name"]}</span>'
+        f'{escape_html(entry["food_name"])}</span>'
         f'<span style="font-size:11px;color:{A["label_tertiary"]};margin-left:8px">'
         f'{entry.get("meal_type", "")}</span>'
         f'{group_tags}'
@@ -288,7 +289,7 @@ def render_tolerance_summary(summary):
             f'<span style="font-size:13px;font-weight:600;color:{A["label_primary"]}">'
             f'{glabel}</span>'
             f'<span style="font-size:11px;color:{A["label_tertiary"]};margin-left:8px">'
-            f'{data["food"]}</span>'
+            f'{escape_html(data["food"])}</span>'
             f'</div>'
             f'<span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;'
             f'background:{tc}20;color:{tc}">{tl}</span>'
@@ -327,7 +328,7 @@ def render_reintro_timeline(challenges):
             f'<span style="font-size:12px;font-weight:600;color:{gc}">'
             f'{ginfo.get("label", c["fodmap_group"])}</span>'
             f'<span style="font-size:11px;color:{A["label_tertiary"]};margin-left:6px">'
-            f'{c["challenge_food"]} &middot; {c["start_date"]}</span>'
+            f'{escape_html(c["challenge_food"])} &middot; {escape_html(c["start_date"])}</span>'
             f'</div>'
             f'</div>'
         )

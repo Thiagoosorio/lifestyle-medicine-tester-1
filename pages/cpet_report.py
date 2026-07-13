@@ -31,7 +31,8 @@ from services.cpet_report_html import generate_cpet_client_report
 
 
 def _render_client_report_download(metrics: dict, *, key: str, athlete_default: str,
-                                   test_date: str, modality: str | None, protocol: str | None) -> None:
+                                   test_date: str, modality: str | None, protocol: str | None,
+                                   client_context: str) -> None:
     """Athlete-name + branding inputs, generate, and download the client HTML report."""
     cols = st.columns([2, 2, 1])
     name = cols[0].text_input("Athlete name (on the report)", value=athlete_default or "", key=f"{key}_name")
@@ -40,7 +41,8 @@ def _render_client_report_download(metrics: dict, *, key: str, athlete_default: 
         try:
             st.session_state[f"{key}_html"] = generate_cpet_client_report(
                 metrics, athlete_name=name or "Athlete", test_date=test_date or "",
-                modality=modality, protocol=protocol, org_name=org or "Performance Lab",
+                modality=modality, protocol=protocol, client_context=client_context,
+                org_name=org or "Performance Lab",
             )
         except Exception as exc:  # never let report-gen crash the page
             st.error(f"Could not build the report: {exc}")
@@ -389,6 +391,11 @@ def _render_result_overview(summary: dict) -> None:
         else:
             st.info(body)
 
+    flags = summary.get("coach_flags") or []
+    if flags:
+        st.markdown("**Coach review flags**")
+        st.dataframe(pd.DataFrame(flags), use_container_width=True, hide_index=True)
+
     rows = summary.get("result_rows") or []
     _render_result_cards(rows)
 
@@ -494,10 +501,6 @@ def _render_summary(
     else:
         st.info("No CPET metrics entered yet. Upload a readable report or enter the key values manually.")
 
-    if summary["coach_flags"]:
-        st.markdown("**Coach review flags**")
-        st.dataframe(pd.DataFrame(summary["coach_flags"]), use_container_width=True, hide_index=True)
-
     if summary["trend_notes"]:
         st.markdown("**Trend notes versus prior CPET**")
         for note in summary["trend_notes"]:
@@ -574,6 +577,7 @@ def _render_saved_report(report: dict, previous: dict | None = None) -> None:
             test_date=report.get("test_date", ""),
             modality=report.get("test_modality"),
             protocol=report.get("protocol"),
+            client_context=context,
         )
         if st.button("Delete CPET report", key=f"delete_cpet_{report['id']}", type="secondary"):
             delete_cpet_report(user_id, report["id"])
@@ -656,11 +660,10 @@ def _render_plot_qc_tab(latest_report: dict | None) -> None:
             pages = []
         if pages:
             labels = [f"Page {p['page']}" for p in pages]
-            default = labels  # let the coach deselect the cover/summary pages
             chosen = st.multiselect(
                 "Choose the plot pages to analyze (deselect cover / summary / medical-findings pages)",
                 labels,
-                default=default,
+                default=[],
                 key="cpet_qc_pages",
             )
             thumb_cols = st.columns(min(4, max(1, len(pages))))
@@ -690,8 +693,19 @@ def _render_plot_qc_tab(latest_report: dict | None) -> None:
         st.caption("No saved report found — the review will run on the images alone, without numeric context.")
 
     st.caption(f"{len(images)} image(s) selected · model: {vision_model()}")
+    from components.privacy_notice import cloud_health_data_consent
 
-    if st.button("Run AI plot QC", type="primary", use_container_width=True, disabled=not images):
+    qc_cloud_consent = cloud_health_data_consent(
+        key="cpet_qc_cloud_consent",
+        sends_full_document=True,
+    )
+
+    if st.button(
+        "Run AI plot QC",
+        type="primary",
+        use_container_width=True,
+        disabled=not images or not qc_cloud_consent,
+    ):
         with st.spinner("Reviewing the plots..."):
             try:
                 result = analyze_cpet_plots(images, context=context)
@@ -736,6 +750,12 @@ with tab_upload:
         "Text-readable PDFs are parsed directly. Scanned or image-only PDFs (many Cortex exports) "
         "are read by AI — you review every value before saving."
     )
+    from components.privacy_notice import cloud_health_data_consent
+
+    cpet_cloud_consent = cloud_health_data_consent(
+        key="cpet_extract_cloud_consent",
+        sends_full_document=True,
+    )
     if uploaded and st.button("Extract CPET Report", type="primary", use_container_width=True):
         with st.spinner("Reading CPET report..."):
             extracted = None
@@ -752,19 +772,30 @@ with tab_upload:
                 except Exception as exc:
                     text_error = exc
                 if extracted is None:
-                    try:
-                        with st.spinner("No text layer found — reading the PDF with AI..."):
-                            extracted = extract_cpet_from_pdf_via_vision(payload)
-                    except VisionUnavailableError as exc:
+                    if not cpet_cloud_consent:
                         st.error(
-                            f"This PDF has no readable text and AI reading is unavailable ({exc}). "
-                            "Enter the values manually below."
+                            "This PDF needs cloud image reading. Confirm Anthropic processing above, "
+                            "or enter the values manually."
                         )
-                    except Exception as exc:
-                        st.error(f"AI reading failed: {exc}" + (f" (text parser: {text_error})" if text_error else ""))
+                    else:
+                        try:
+                            with st.spinner("No text layer found — reading the PDF with AI..."):
+                                extracted = extract_cpet_from_pdf_via_vision(payload)
+                        except VisionUnavailableError as exc:
+                            st.error(
+                                f"This PDF has no readable text and AI reading is unavailable ({exc}). "
+                                "Enter the values manually below."
+                            )
+                        except Exception as exc:
+                            st.error(
+                                f"AI reading failed: {exc}"
+                                + (f" (text parser: {text_error})" if text_error else "")
+                            )
             else:
-                raw_text = payload.decode("utf-8", errors="ignore")
+                from services.document_safety_service import validate_text_upload
+
                 try:
+                    raw_text = validate_text_upload(payload, label="CPET text export")
                     extracted = extract_cpet_from_text(raw_text)
                     extracted["raw_text"] = raw_text
                 except Exception as exc:
@@ -799,6 +830,9 @@ with tab_upload:
                 test_date=extracted.get("test_date") or "",
                 modality=extracted.get("test_modality"),
                 protocol=extracted.get("protocol"),
+                client_context=st.session_state.get(
+                    "cpet_extracted_context", extracted.get("client_context") or "general"
+                ),
             )
 
         with st.form("cpet_extracted_form"):
@@ -816,7 +850,7 @@ with tab_upload:
                         source_filename=extracted.get("source_filename"),
                         test_modality=modality or extracted.get("test_modality"),
                         protocol=protocol or extracted.get("protocol"),
-                        raw_text=extracted.get("raw_text"),
+                        raw_text=None,
                         notes=notes or None,
                     )
                     del st.session_state["cpet_extracted"]

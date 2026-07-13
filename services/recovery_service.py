@@ -3,7 +3,7 @@
 Recovery Score (0-100) based on psychoneuroimmunology research.
 Components:
   - Sleep (30%): Last night's sleep score
-  - Stress (20%): Inverse of most recent stress rating
+  - Stress management (20%): Most recent stress-management pillar rating
   - Training Load (20%): Inverse of acute training load (last 48h)
   - Activity (10%): Exercise consistency score
   - Habit consistency (10%): Recent habit completion rate
@@ -12,6 +12,16 @@ Components:
 
 from datetime import date, timedelta
 from db.database import get_connection
+
+
+RECOVERY_WEIGHTS = {
+    "sleep": 0.30,
+    "stress": 0.20,
+    "training_load": 0.20,
+    "activity": 0.10,
+    "habits": 0.10,
+    "mood": 0.10,
+}
 
 
 def calculate_recovery_score(user_id):
@@ -23,22 +33,34 @@ def calculate_recovery_score(user_id):
     if not components:
         return None
 
+    available = [key for key, item in components.items() if item["raw"] is not None]
+    available_weight = sum(RECOVERY_WEIGHTS[key] for key in available)
+    if available_weight <= 0:
+        return None
     score = round(
-        components["sleep"]["score"] * 0.30
-        + components["stress"]["score"] * 0.20
-        + components["training_load"]["score"] * 0.20
-        + components["activity"]["score"] * 0.10
-        + components["habits"]["score"] * 0.10
-        + components["mood"]["score"] * 0.10
+        sum(components[key]["score"] * RECOVERY_WEIGHTS[key] for key in available)
+        / available_weight
     )
     score = max(0, min(100, score))
 
-    zone = get_recovery_zone(score)
+    coverage_pct = round(available_weight * 100)
+    zone = (
+        get_recovery_zone(score)
+        if coverage_pct >= 50
+        else {
+            "label": "Limited Data",
+            "color": "#8E8E93",
+            "icon": "&#9675;",
+            "message": "More data is needed before treating this as a readiness signal.",
+            "recommendation": "Log sleep and a daily check-in; do not use this partial score to select hard training.",
+        }
+    )
 
     return {
         "score": score,
         "zone": zone,
         "components": components,
+        "coverage_pct": coverage_pct,
     }
 
 
@@ -85,7 +107,7 @@ def _get_sleep_component(user_id):
 
 
 def _get_stress_component(user_id):
-    """Stress component: inverse of most recent stress_rating (1-10)."""
+    """Stress-management component: higher pillar ratings are better (1-10)."""
     conn = get_connection()
     row = conn.execute(
         """SELECT stress_rating FROM daily_checkins
@@ -96,11 +118,10 @@ def _get_stress_component(user_id):
     conn.close()
 
     if row and row["stress_rating"] is not None:
-        # stress_rating 1-10 where 10=highest stress → invert
         raw = row["stress_rating"]
-        score = round((10 - raw) / 9 * 100)
-        return {"score": score, "raw": raw, "label": "Stress", "icon": "&#129495;"}
-    return {"score": 50, "raw": None, "label": "Stress", "icon": "&#129495;"}
+        score = round(raw / 10 * 100)
+        return {"score": score, "raw": raw, "label": "Stress Management", "icon": "&#129495;"}
+    return {"score": 50, "raw": None, "label": "Stress Management", "icon": "&#129495;"}
 
 
 def _get_training_load_component(user_id):
@@ -307,7 +328,10 @@ def get_recovery_history(user_id, days=30):
         d_date = date.fromisoformat(d_str)
         d_minus1 = (d_date - timedelta(days=1)).isoformat()
         d_minus2 = (d_date - timedelta(days=2)).isoformat()
-        load = exercise_by_date.get(d_str, 0) + exercise_by_date.get(d_minus1, 0) + exercise_by_date.get(d_minus2, 0)
+        window_dates = (d_str, d_minus1, d_minus2)
+        if not any(day in exercise_by_date for day in window_dates):
+            return None
+        load = sum(exercise_by_date.get(day, 0) for day in window_dates)
         if load == 0:
             return 90
         elif load <= 60:
@@ -318,26 +342,45 @@ def get_recovery_history(user_id, days=30):
             return max(10, round(30 - (load - 120) / 120 * 20))
 
     # Collect all dates
-    all_dates = sorted(set(list(sleep_by_date.keys()) + list(checkin_by_date.keys())))
+    all_dates = sorted(
+        set(sleep_by_date) | set(checkin_by_date) | set(habits_by_date) | set(exercise_by_date)
+    )
 
     history = []
     for d in all_dates:
-        sleep = sleep_by_date.get(d, 50)
+        sleep = sleep_by_date.get(d)
         ci = checkin_by_date.get(d, {})
         stress_raw = ci.get("stress_rating")
-        stress = round((10 - stress_raw) / 9 * 100) if stress_raw else 50
+        stress = round(stress_raw / 10 * 100) if stress_raw else None
         activity_raw = ci.get("activity_rating")
-        activity = round(activity_raw / 10 * 100) if activity_raw else 50
+        activity = round(activity_raw / 10 * 100) if activity_raw else None
         mood_raw = ci.get("mood")
-        mood = round(mood_raw / 10 * 100) if mood_raw else 50
-        habits = habits_by_date.get(d, 50)
+        mood = round(mood_raw / 10 * 100) if mood_raw else None
+        habits = habits_by_date.get(d)
         training_load = _training_load_score_for_date(d)
 
+        values = {
+            "sleep": sleep,
+            "stress": stress,
+            "training_load": training_load,
+            "activity": activity,
+            "habits": habits,
+            "mood": mood,
+        }
+        available_weight = sum(
+            RECOVERY_WEIGHTS[key] for key, value in values.items() if value is not None
+        )
+        if available_weight <= 0:
+            continue
         score = round(
-            sleep * 0.30 + stress * 0.20 + training_load * 0.20
-            + activity * 0.10 + habits * 0.10 + mood * 0.10
+            sum(
+                value * RECOVERY_WEIGHTS[key]
+                for key, value in values.items()
+                if value is not None
+            )
+            / available_weight
         )
         score = max(0, min(100, score))
-        history.append({"date": d, "score": score})
+        history.append({"date": d, "score": score, "coverage_pct": round(available_weight * 100)})
 
     return history

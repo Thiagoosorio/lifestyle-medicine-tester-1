@@ -59,8 +59,9 @@ CRITICAL_COMMUNICATION_POLICY = {
 }
 
 
-# Per-analyte communication windows for clearly acute-risk patterns.
-# All unspecified markers fall back to the default policy timings.
+# Approved analytes and communication windows for clearly acute-risk patterns.
+# Unspecified markers must not enter this urgent communication workflow merely
+# because their biomarker definition contains a diagnostic/preventive threshold.
 CRITICAL_ANALYTE_PROTOCOL = {
     "potassium": {
         "urgency_level": "immediate",
@@ -160,6 +161,7 @@ CRITICAL_ANALYTE_PROTOCOL = {
 }
 
 
+# Baseline fields merged only into explicitly approved analyte protocols above.
 DEFAULT_CRITICAL_PROTOCOL = {
     "urgency_level": "urgent_review",
     "notify_within_minutes": CRITICAL_COMMUNICATION_POLICY["default_notify_within_minutes"],

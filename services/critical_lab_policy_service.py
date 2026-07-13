@@ -12,17 +12,24 @@ from config.critical_lab_policy_data import (
 from services.biomarker_service import classify_result
 
 
-def _parse_detection_time(raw: str | None) -> datetime:
-    """Best-effort parse of lab_date. Returns current UTC time on failure."""
+def _parse_detection_time(raw: str | None, fallback: datetime) -> datetime:
+    """Parse an explicit timestamp, using workflow receipt for dates/failures."""
     if not raw:
-        return datetime.now(timezone.utc)
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
-        try:
-            parsed = datetime.strptime(raw, fmt)
-            return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
-        except ValueError:
-            continue
-    return datetime.now(timezone.utc)
+        return fallback
+
+    timestamp = str(raw).strip()
+    # A collection date is not evidence that the result was detected at
+    # midnight that day. Starting the clock there creates retroactive alerts.
+    if ":" not in timestamp[10:]:
+        return fallback
+
+    try:
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return fallback
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _critical_threshold_text(row: dict) -> str:
@@ -35,12 +42,14 @@ def _critical_threshold_text(row: dict) -> str:
     return "Configured critical threshold"
 
 
-def _alert_protocol_for_code(code: str | None) -> dict:
-    if not code:
-        return dict(DEFAULT_CRITICAL_PROTOCOL)
+def _alert_protocol_for_code(code: str | None) -> dict | None:
+    """Return a protocol only for analytes approved for urgent workflows."""
+    analyte_protocol = CRITICAL_ANALYTE_PROTOCOL.get(code or "")
+    if analyte_protocol is None:
+        return None
     return {
         **DEFAULT_CRITICAL_PROTOCOL,
-        **CRITICAL_ANALYTE_PROTOCOL.get(code, {}),
+        **analyte_protocol,
     }
 
 
@@ -56,7 +65,14 @@ def build_critical_communication_plan(critical_rows: list[dict]) -> dict:
     alerts = []
     for row in critical_rows:
         protocol = _alert_protocol_for_code(row.get("code"))
-        detected_at = _parse_detection_time(row.get("lab_date"))
+        if protocol is None:
+            continue
+        detection_timestamp = (
+            row.get("detected_at")
+            or row.get("detected_at_iso")
+            or row.get("lab_date")
+        )
+        detected_at = _parse_detection_time(detection_timestamp, fallback=now)
         notify_minutes = int(protocol["notify_within_minutes"])
         escalate_minutes = int(protocol["escalate_after_minutes"])
         notify_by = detected_at + timedelta(minutes=notify_minutes)
@@ -118,6 +134,8 @@ def build_critical_communication_plan_from_results(results: list[dict]) -> dict:
                 "critical_low": row.get("critical_low"),
                 "critical_high": row.get("critical_high"),
                 "lab_date": row.get("lab_date"),
+                "detected_at": row.get("detected_at"),
+                "detected_at_iso": row.get("detected_at_iso"),
             }
         )
     return build_critical_communication_plan(critical_rows)

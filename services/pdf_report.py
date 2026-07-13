@@ -226,7 +226,7 @@ def _fetch_all_data(user_id, start, end, prev_start, prev_end):
                 """SELECT br.value, br.lab_date, br.lab_name, br.notes,
                           b.name, b.category, b.unit, b.standard_low, b.standard_high,
                           b.optimal_low, b.optimal_high
-                   FROM biomarker_results br JOIN biomarkers b ON br.biomarker_id = b.id
+                   FROM biomarker_results br JOIN biomarker_definitions b ON br.biomarker_id = b.id
                    WHERE br.user_id = ? AND br.lab_date BETWEEN ? AND ?
                    ORDER BY b.category, b.name""",
                 (user_id, s, e),

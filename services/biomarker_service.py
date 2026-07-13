@@ -1,6 +1,7 @@
 """Service for managing biomarker definitions, results, and scoring."""
 
 import os
+import re
 from pathlib import Path
 from db.database import get_connection
 from datetime import date
@@ -504,12 +505,15 @@ def save_blood_analysis(
     user_id: int,
     lab_date: str,
     analysis_text: str,
-    model: str = "claude-sonnet-4-20250514",
+    model: str | None = None,
 ) -> None:
     """Cache or update a BloodGPT AI analysis for a specific lab date.
 
     Silently no-ops if the cache table does not yet exist (first deploy before migration).
     """
+    from config.ai_models import anthropic_model
+
+    model = model or anthropic_model()
     conn = get_connection()
     try:
         conn.execute(
@@ -527,7 +531,66 @@ def save_blood_analysis(
 
 # ---------------------------- PDF Lab Report Extraction ----------------------------
 
-def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dict]:
+_EXTRACTED_UNIT_CONVERSION_FACTORS = {
+    # Conversions are deliberately analyte-specific. Matching dimensions alone
+    # is not enough to safely reinterpret an extracted laboratory result.
+    ("fasting_glucose", "mmol/l", "mg/dl"): 18.0182,
+    ("creatinine", "umol/l", "mg/dl"): 1 / 88.4,
+    ("total_cholesterol", "mmol/l", "mg/dl"): 38.67,
+    ("ldl_cholesterol", "mmol/l", "mg/dl"): 38.67,
+    ("hdl_cholesterol", "mmol/l", "mg/dl"): 38.67,
+    ("non_hdl_cholesterol", "mmol/l", "mg/dl"): 38.67,
+    ("triglycerides", "mmol/l", "mg/dl"): 88.57,
+    ("sodium", "mmol/l", "meq/l"): 1.0,
+    ("potassium", "mmol/l", "meq/l"): 1.0,
+    ("calcium", "mmol/l", "mg/dl"): 4.008,
+    ("total_bilirubin", "umol/l", "mg/dl"): 1 / 17.104,
+    ("uric_acid", "umol/l", "mg/dl"): 1 / 59.48,
+}
+
+
+def _normalize_extracted_unit(unit: object) -> str:
+    """Normalize notation only; do not infer a different measurement unit."""
+    normalized = str(unit or "").strip().casefold()
+    normalized = normalized.replace("\u00b5", "u").replace("\u03bc", "u")
+    normalized = normalized.replace("micro", "u").replace("mcg", "ug")
+    normalized = normalized.replace("\u00b3", "3").replace("\u00d7", "x")
+    normalized = re.sub(r"\s+", "", normalized)
+    normalized = normalized.replace("^", "")
+    aliases = {
+        "x103/ul": "103/ul",
+        "k/ul": "103/ul",
+        "x106/ul": "106/ul",
+        "m/ul": "106/ul",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _convert_extracted_value(
+    code: str,
+    source_value: float,
+    source_unit: object,
+    canonical_unit: object,
+) -> float | None:
+    """Return a value in the biomarker's canonical unit, or reject it safely."""
+    normalized_source = _normalize_extracted_unit(source_unit)
+    normalized_canonical = _normalize_extracted_unit(canonical_unit)
+    if not normalized_source or not normalized_canonical:
+        return None
+    if normalized_source == normalized_canonical:
+        return source_value
+
+    factor = _EXTRACTED_UNIT_CONVERSION_FACTORS.get(
+        (code, normalized_source, normalized_canonical)
+    )
+    if factor is None:
+        return None
+    return source_value * factor
+
+
+def extract_biomarkers_from_pdf(
+    pdf_bytes: bytes, definitions: list
+) -> tuple[list[dict], list[dict]]:
     """Use Claude to extract biomarker values from a PDF blood test report.
 
     Strategy:
@@ -536,24 +599,23 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     3. Multi-level fuzzy matching against our definitions on our side
 
     Returns:
-        List of dicts: {biomarker_id, code, name, value, unit, lab_date, lab_name}
+        List of dicts: {biomarker_id, code, name, value, unit,
+        source_value, source_unit, lab_date, lab_name}. ``value`` and ``unit``
+        are canonical; source fields retain what the report supplied.
         lab_date/lab_name are auto-detected from the PDF (may be None).
     Raises:
         Exception: propagated so the UI can display the real error message.
     """
     import anthropic
     import json
-    import re
-    import io
+    from services.document_safety_service import extract_pdf_text_safely, redact_direct_identifiers
 
     # ---- Step 1: Extract text from PDF ----
     try:
         import pypdf
-        reader = pypdf.PdfReader(io.BytesIO(pdf_bytes))
-        pages_text = []
-        for page in reader.pages:
-            pages_text.append(page.extract_text() or "")
-        pdf_text = "\n".join(pages_text).strip()
+        pdf_text = redact_direct_identifiers(
+            extract_pdf_text_safely(pdf_bytes, label="Lab report PDF")
+        )
     except Exception as exc:
         raise ValueError(f"Could not read PDF: {exc}") from exc
 
@@ -592,8 +654,10 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
     )
 
     client = anthropic.Anthropic()
+    from config.ai_models import anthropic_model
+
     response = client.messages.create(
-        model="claude-sonnet-4-20250514",
+        model=anthropic_model(),
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt_text}],
     )
@@ -739,11 +803,12 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
 
     for item in extracted_raw:
         raw_name = str(item.get("name", "")).strip()
-        val = item.get("value")
-        if not raw_name or val is None:
+        raw_value = item.get("value")
+        source_unit = str(item.get("unit", "")).strip()
+        if not raw_name or raw_value is None:
             continue
         try:
-            val = float(val)
+            source_value = float(raw_value)
         except (TypeError, ValueError):
             continue
 
@@ -767,22 +832,34 @@ def extract_biomarkers_from_pdf(pdf_bytes: bytes, definitions: list) -> list[dic
                         defn = d
                         break
 
-        if defn and val >= 0 and defn["id"] not in seen_ids:
+        canonical_value = None
+        if defn and source_value >= 0:
+            canonical_value = _convert_extracted_value(
+                defn["code"], source_value, source_unit, defn["unit"]
+            )
+
+        if defn and canonical_value is not None and defn["id"] not in seen_ids:
             seen_ids.add(defn["id"])
             results.append({
                 "biomarker_id": defn["id"],
                 "code":         defn["code"],
                 "name":         defn["name"],
-                "value":        val,
+                "value":        canonical_value,
                 "unit":         defn["unit"],
+                "source_value": source_value,
+                "source_unit":  source_unit,
                 "lab_date":     detected_date,
                 "lab_name":     detected_lab,
             })
-        elif not defn and val >= 0:
+        elif source_value >= 0 and (not defn or canonical_value is None):
             unmatched.append({
                 "name": raw_name,
-                "value": val,
-                "unit": str(item.get("unit", "")),
+                "value": source_value,
+                "unit": source_unit,
+                "source_value": source_value,
+                "source_unit": source_unit,
+                "reason": "unrecognized_biomarker" if not defn else "incompatible_unit",
+                "expected_unit": defn.get("unit") if defn else None,
             })
 
     return results, unmatched

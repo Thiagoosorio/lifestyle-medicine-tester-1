@@ -180,7 +180,8 @@ with tab_strava:
         f'border-radius:{A["radius_md"]};padding:12px 16px;margin-bottom:16px">'
         f'<div style="font-size:12px;color:{A["label_secondary"]}">'
         f'&#128274; <strong>Privacy:</strong> We request read-only access to your Strava activities. '
-        f'Your Strava credentials are never stored. You can disconnect at any time.</div></div>'
+        f'Your Strava credentials are never stored; OAuth tokens are encrypted at rest. '
+        f'You can disconnect at any time.</div></div>'
     )
     st.markdown(privacy_html, unsafe_allow_html=True)
 
@@ -195,7 +196,8 @@ with tab_strava:
             f'add them to <code>.streamlit/secrets.toml</code>:'
             f'<br><br>'
             f'<code>STRAVA_CLIENT_ID = "your_client_id"</code><br>'
-            f'<code>STRAVA_CLIENT_SECRET = "your_client_secret"</code>'
+            f'<code>STRAVA_CLIENT_SECRET = "your_client_secret"</code><br>'
+            f'<code>STRAVA_TOKEN_KEY = "your_fernet_key"</code>'
             f'<br><br>'
             f'Get these from '
             f'<a href="https://www.strava.com/settings/api" style="color:{A["blue"]}">'

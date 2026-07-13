@@ -225,11 +225,12 @@ FODMAP_PHASES = {
     "elimination": {
         "label": "Elimination",
         "duration_weeks": "2-6",
-        "description": "Remove all high-FODMAP foods to establish a symptom baseline.",
+        "description": "Temporarily reduce high-FODMAP foods to assess IBS-type symptoms.",
         "color": "#FF453A",
         "guidance": (
-            "During elimination, eat only low-FODMAP foods. This phase typically lasts "
-            "2-6 weeks. If symptoms improve significantly, proceed to reintroduction."
+            "With dietitian or clinician guidance, temporarily reduce high-FODMAP foods "
+            "for 2-6 weeks, then reintroduce them systematically. This is an IBS symptom "
+            "strategy and is not established as SIBO eradication treatment."
         ),
     },
     "reintroduction": {
@@ -263,22 +264,24 @@ FODMAP_PHASES = {
 SIBO_DIET_TYPES = {
     "low_fodmap": {
         "label": "Low-FODMAP",
-        "confidence": "A",
-        "note": "First-line dietary approach for SIBO/IBS symptom management",
+        "confidence": "B",
+        "note": "IBS symptom evidence; not established as SIBO eradication treatment",
         "description": (
             "Systematic elimination and reintroduction of fermentable short-chain "
             "carbohydrates. Supported by meta-analysis (Black 2021) showing superiority "
-            "over other dietary interventions for IBS symptoms."
+            "over other dietary interventions for IBS symptoms. Those IBS findings should "
+            "not be interpreted as evidence that the diet eradicates SIBO."
         ),
     },
     "elemental": {
         "label": "Elemental Diet",
-        "confidence": "B",
-        "note": "80-85% lactulose breath test normalization in 14 days (Pimentel 2004)",
+        "confidence": "C",
+        "note": "Very low-certainty, uncontrolled single-arm evidence; medical supervision required",
         "description": (
             "Pre-digested liquid formula (amino acids, simple sugars, medium-chain "
             "triglycerides) that is absorbed in the proximal small intestine, starving "
-            "distal bacterial overgrowth. Requires medical supervision."
+            "distal bacterial exposure. The often-cited response estimate comes from an "
+            "uncontrolled single-arm study and requires controlled confirmation."
         ),
     },
     "biphasic": {
@@ -303,8 +306,36 @@ SIBO_DIET_TYPES = {
     },
 }
 
+
+RESTRICTIVE_DIET_SAFETY = {
+    "red_flags": [
+        "Blood in stool or black, tarry stool",
+        "Unintentional weight loss",
+        "Persistent vomiting, fever, or severe/worsening abdominal pain",
+        "Symptoms that repeatedly wake me from sleep",
+        "Known or suspected anemia",
+    ],
+    "nutrition_risks": [
+        "Underweight, recent malnutrition, or difficulty maintaining weight",
+        "Current or past eating disorder",
+        "Pregnancy or breastfeeding",
+        "Child or adolescent under 18",
+        "Already following another restrictive diet or having multiple food allergies",
+    ],
+    "notice": (
+        "A low-FODMAP elimination phase can reduce dietary variety and fiber and may cause "
+        "nutrient inadequacy if prolonged. Red-flag symptoms need medical evaluation, and "
+        "people at nutrition risk should use a qualified clinician or dietitian. The goal "
+        "is a short restriction followed by reintroduction, not long-term broad avoidance."
+    ),
+    "acknowledgement": (
+        "I reviewed the red flags and nutrition risks and understand that this tracker is "
+        "for symptom exploration, not SIBO diagnosis or eradication treatment."
+    ),
+}
+
 # ==============================================================================
-# EVIDENCE — 6 PubMed-verified citations (Tier A & B only)
+# EVIDENCE — PubMed-indexed citations with study-design limitations
 # Same structure as config/evidence_data.py EVIDENCE_LIBRARY entries
 # ==============================================================================
 
@@ -396,13 +427,13 @@ SIBO_EVIDENCE = [
         "study_type": "systematic_review", "evidence_grade": "B", "pillar_id": 1,
         "summary": (
             "Comprehensive review of elemental diets for GI diseases including SIBO. "
-            "Elemental diets appear to exhibit clinical benefit in SIBO, EoE, IBD, and "
-            "other conditions. High passive absorption rate and anti-inflammatory "
-            "properties are key mechanisms."
+            "It describes possible benefits in SIBO and other conditions, but the SIBO "
+            "literature is small and largely uncontrolled. Proposed mechanisms include "
+            "proximal absorption and reduced delivery of fermentable substrate."
         ),
         "key_finding": (
-            "Elemental diets show benefit across multiple GI conditions. "
-            "Intolerance rates up to 40% when taken orally due to poor palatability."
+            "Controlled SIBO efficacy data are lacking, and oral intolerance rates up to "
+            "40% have been reported because of poor palatability."
         ),
         "effect_size": None,
         "sample_size": None,
@@ -421,9 +452,10 @@ SIBO_EVIDENCE = [
         "title": "A 14-day elemental diet is highly effective in normalizing the lactulose breath test",
         "authors": "Pimentel M, Constantino T, Kong Y, Bajwa M, Rezaei A, Park S",
         "journal": "Dig Dis Sci", "year": 2004,
-        "study_type": "cohort", "evidence_grade": "B", "pillar_id": 1,
+        "study_type": "cohort", "evidence_grade": "C", "pillar_id": 1,
         "summary": (
-            "Landmark study showing a 14-day exclusive elemental diet normalized the "
+            "An uncontrolled single-arm study reported that a 14-day elemental diet "
+            "normalized the "
             "lactulose breath test in 80% of IBS subjects with suspected SIBO by day 15, "
             "and 85% by day 21. Normalized subjects showed 66% symptom improvement."
         ),
@@ -436,8 +468,9 @@ SIBO_EVIDENCE = [
         "population": "IBS subjects with abnormal lactulose breath test",
         "dose_response": "14 days: 80%; extended to 21 days: 85% normalization",
         "causation_note": (
-            "Retrospective chart review without control group. "
-            "Strong effect size but requires confirmation in controlled trials."
+            "Very low-certainty study without a control group; symptom follow-up was "
+            "assessed by chart review. Selection bias, regression to the mean, and the "
+            "breath-test endpoint limit inference; controlled confirmation is needed."
         ),
         "tags": "elemental_diet,SIBO,lactulose_breath_test,IBS,Pimentel",
         "url": "https://pubmed.ncbi.nlm.nih.gov/14992438/",
@@ -455,8 +488,9 @@ SIBO_EVIDENCE = [
             "role of the dietitian. Emphasizes nutrition as pivotal in SIBO management."
         ),
         "key_finding": (
-            "Low-FODMAP and elemental diets have the strongest evidence for SIBO symptom "
-            "management. Biphasic and SCD diets lack controlled trial evidence."
+            "Low-FODMAP evidence primarily addresses IBS symptoms rather than SIBO "
+            "eradication. Elemental-diet SIBO evidence is limited and largely uncontrolled; "
+            "biphasic and SCD diets also lack controlled SIBO trials."
         ),
         "effect_size": None,
         "sample_size": None,

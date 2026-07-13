@@ -274,7 +274,9 @@ with tab_upload:
                 if uploaded.name.lower().endswith(".pdf"):
                     extracted = extract_inbody_from_pdf(payload)
                 else:
-                    raw_text = payload.decode("utf-8", errors="ignore")
+                    from services.document_safety_service import validate_text_upload
+
+                    raw_text = validate_text_upload(payload, label="InBody text export")
                     extracted = extract_inbody_from_text(raw_text)
                     extracted["raw_text"] = raw_text
                 extracted["source_filename"] = uploaded.name
@@ -306,7 +308,7 @@ with tab_upload:
                         metrics=metrics,
                         source_filename=extracted.get("source_filename"),
                         device_model=device_model or extracted.get("device_model"),
-                        raw_text=extracted.get("raw_text"),
+                        raw_text=None,
                         notes=notes or None,
                     )
                     del st.session_state["inbody_extracted"]

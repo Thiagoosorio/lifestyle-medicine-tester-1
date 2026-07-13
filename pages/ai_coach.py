@@ -151,7 +151,7 @@ for msg in history:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-user_input = st.chat_input("Type your message...")
+user_input = st.chat_input("Type your message...", max_chars=4000)
 if selected_quick:
     user_input = selected_quick
 

@@ -150,6 +150,9 @@ def extract_cpet_from_pdf_via_vision(pdf_bytes: bytes, model: str | None = None)
     passed through ``normalize_cpet_metrics``. Raises VisionUnavailableError when
     the provider/key is missing; other API errors propagate.
     """
+    from services.document_safety_service import validate_pdf_upload
+
+    validate_pdf_upload(pdf_bytes, label="CPET report PDF")
     client = _anthropic_client()
     content = [
         {
@@ -208,6 +211,9 @@ def render_pdf_pages_to_images(pdf_bytes: bytes, max_pages: int = 12) -> list[di
     VisionUnavailableError when PyMuPDF is not available so the caller can fall
     back to asking the coach to upload plot screenshots.
     """
+    from services.document_safety_service import validate_pdf_upload
+
+    validate_pdf_upload(pdf_bytes, label="CPET plot PDF", max_pages=max_pages)
     try:
         import fitz  # PyMuPDF
     except Exception as exc:  # pragma: no cover - environment dependent
@@ -231,6 +237,13 @@ def render_pdf_pages_to_images(pdf_bytes: bytes, max_pages: int = 12) -> list[di
 
 def _prepare_image(image_bytes: bytes) -> str:
     """Downscale/normalise an image and return base64 PNG for the API."""
+    from services.document_safety_service import MAX_IMAGE_BYTES, validate_upload_bytes
+
+    image_bytes = validate_upload_bytes(
+        image_bytes,
+        label="CPET plot image",
+        max_bytes=MAX_IMAGE_BYTES,
+    )
     try:
         from PIL import Image
     except Exception as exc:  # pragma: no cover

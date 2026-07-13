@@ -4,6 +4,7 @@ import streamlit as st
 import json
 from datetime import date, timedelta
 from components.custom_theme import APPLE, render_hero_banner, render_section_header
+from components.html_utils import escape_html
 from components.sibo_display import (
     render_sibo_disclaimer,
     render_symptom_summary,
@@ -22,9 +23,10 @@ from components.sibo_display import (
 from components.evidence_display import render_evidence_card
 from config.sibo_data import (
     GI_SYMPTOMS, FODMAP_GROUPS, FODMAP_FOODS, FODMAP_FOOD_CATEGORIES,
-    FODMAP_PHASES, SIBO_EVIDENCE,
+    FODMAP_PHASES, SIBO_EVIDENCE, RESTRICTIVE_DIET_SAFETY,
 )
 from services.sibo_service import (
+    RestrictiveDietSafetyError,
     log_symptoms, get_symptom_log, get_symptom_history, get_symptom_averages,
     log_fodmap_food, get_food_log, get_food_history, search_fodmap_foods,
     get_daily_fodmap_exposure,
@@ -214,15 +216,44 @@ with tab_phases:
 
     if not current_phase:
         render_section_header("Start a Phase")
-        col_phase, col_start = st.columns([3, 1])
-        with col_phase:
-            phase_options = {v["label"]: k for k, v in FODMAP_PHASES.items()}
-            selected_phase_label = st.selectbox("Select Phase", list(phase_options.keys()))
-            selected_phase = phase_options[selected_phase_label]
-        with col_start:
-            st.markdown("<div style='height:28px'></div>", unsafe_allow_html=True)
-            if st.button("Start Phase", use_container_width=True, type="primary"):
-                start_fodmap_phase(user_id, selected_phase)
+        phase_options = {v["label"]: k for k, v in FODMAP_PHASES.items()}
+        selected_phase_label = st.selectbox("Select Phase", list(phase_options.keys()))
+        selected_phase = phase_options[selected_phase_label]
+
+        phase_safety_screen = None
+        if selected_phase == "elimination":
+            st.warning(RESTRICTIVE_DIET_SAFETY["notice"])
+            selected_red_flags = st.multiselect(
+                "Red flags requiring medical evaluation before restriction",
+                RESTRICTIVE_DIET_SAFETY["red_flags"],
+            )
+            selected_nutrition_risks = st.multiselect(
+                "Nutrition risks",
+                RESTRICTIVE_DIET_SAFETY["nutrition_risks"],
+            )
+            nutrition_reviewed = False
+            if selected_nutrition_risks:
+                nutrition_reviewed = st.checkbox(
+                    "A qualified clinician or dietitian has reviewed this elimination plan with me."
+                )
+            phase_safety_acknowledged = st.checkbox(
+                RESTRICTIVE_DIET_SAFETY["acknowledgement"]
+            )
+            phase_safety_screen = {
+                "acknowledged": phase_safety_acknowledged,
+                "red_flags": selected_red_flags,
+                "nutrition_risks": selected_nutrition_risks,
+                "clinician_reviewed": nutrition_reviewed,
+            }
+
+        if st.button("Start Phase", use_container_width=True, type="primary"):
+            try:
+                start_fodmap_phase(
+                    user_id, selected_phase, safety_screen=phase_safety_screen
+                )
+            except RestrictiveDietSafetyError as exc:
+                st.error(str(exc))
+            else:
                 st.toast(f"Started {selected_phase_label} phase!")
                 st.rerun()
     else:
@@ -267,7 +298,8 @@ with tab_phases:
                 f'<div style="font-family:{A["font_display"]};font-size:18px;font-weight:700;'
                 f'color:{A["label_primary"]}">{ginfo.get("label", active_challenge["fodmap_group"])}</div>'
                 f'<div style="font-size:12px;color:{A["label_tertiary"]};margin-top:2px">'
-                f'Food: {active_challenge["challenge_food"]} &middot; Started: {active_challenge["start_date"]}</div>'
+                f'Food: {escape_html(active_challenge["challenge_food"])} &middot; '
+                f'Started: {escape_html(active_challenge["start_date"])}</div>'
                 f'</div>'
             )
             st.markdown(challenge_html, unsafe_allow_html=True)
@@ -335,7 +367,10 @@ with tab_phases:
 with tab_correlations:
     render_sibo_disclaimer()
     render_correlation_disclaimer()
-    render_section_header("FODMAP-Symptom Correlations", "Spearman rank correlations between food groups and symptoms")
+    render_section_header(
+        "Exploratory FODMAP-Symptom Correlations",
+        "Personal pattern screening; not causal, diagnostic, or confirmatory",
+    )
 
     state = get_or_create_state(user_id)
     sym_count = state.get("total_symptom_logs", 0) if state else 0
@@ -367,12 +402,12 @@ with tab_correlations:
                 f'<strong>Strength guide:</strong><br>'
                 f'&middot; 0.0 - 0.1: Negligible<br>'
                 f'&middot; 0.1 - 0.3: Weak<br>'
-                f'&middot; 0.3 - 0.5: Moderate — worth noting<br>'
-                f'&middot; 0.5 - 0.7: Strong — discuss with your provider<br>'
-                f'&middot; 0.7 - 1.0: Very Strong — likely a significant pattern<br><br>'
-                f'<strong>p-value:</strong> Lower p-values (e.g., p&lt;0.05) suggest the correlation is '
-                f'unlikely to be due to chance. However, with multiple comparisons, some false positives '
-                f'are expected.<br><br>'
+                f'&middot; 0.3 - 0.5: Moderate exploratory association<br>'
+                f'&middot; 0.5 - 0.7: Strong exploratory association<br>'
+                f'&middot; 0.7 - 1.0: Very strong exploratory association<br><br>'
+                f'<strong>Adjusted p-value:</strong> Values shown use Benjamini-Hochberg false-discovery-rate '
+                f'correction across the displayed comparisons. They are screening signals, not proof of a '
+                f'reproducible effect or a treatment decision threshold.<br><br>'
                 f'<strong>n:</strong> The number of days with both food and symptom data. '
                 f'Minimum 10 days required. More data = more reliable results.'
                 f'</div>'
@@ -385,7 +420,7 @@ with tab_correlations:
 # ══════════════════════════════════════════════════════════════════════════
 with tab_science:
     render_sibo_disclaimer()
-    render_section_header("Scientific Evidence", "PubMed-verified references (Tier A & B only)")
+    render_section_header("Scientific Evidence", "Evidence scope and limitations by study design")
 
     for ev in SIBO_EVIDENCE:
         render_evidence_card(ev)

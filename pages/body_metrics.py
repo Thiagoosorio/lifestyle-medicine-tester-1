@@ -856,8 +856,12 @@ with tab_dexa:
             type=["pdf"], key="dexa_uploader",
         )
         if dexa_pdf:
+            from components.privacy_notice import cloud_health_data_consent
+
+            cloud_consent = cloud_health_data_consent(key="dexa_cloud_consent")
             if st.button("Extract DEXA Values with AI", type="primary",
-                          use_container_width=True, key="dexa_extract_btn"):
+                          use_container_width=True, key="dexa_extract_btn",
+                          disabled=not cloud_consent):
                 with st.spinner("Reading DEXA report..."):
                     try:
                         pdf_bytes = dexa_pdf.read()

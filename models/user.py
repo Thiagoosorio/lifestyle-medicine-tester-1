@@ -34,23 +34,46 @@ def _validate_password(password: str) -> str:
     return value
 
 
+def _ensure_identifier_available(
+    conn: sqlite3.Connection,
+    identifier: str,
+    *,
+    exclude_email_user_id: int | None = None,
+) -> None:
+    normalized = identifier.strip().lower()
+    row = conn.execute(
+        """SELECT id
+           FROM users
+           WHERE LOWER(TRIM(username)) = ?
+              OR (
+                  email IS NOT NULL
+                  AND TRIM(email) <> ''
+                  AND LOWER(TRIM(email)) = ?
+                  AND (? IS NULL OR id <> ?)
+              )
+           LIMIT 1""",
+        (normalized, normalized, exclude_email_user_id, exclude_email_user_id),
+    ).fetchone()
+    if row:
+        raise sqlite3.IntegrityError("Username or email already exists")
+
+
 def create_user(username: str, password: str, display_name: str = None, email: str = None) -> int:
     username_norm = _normalize_username(username)
     if not username_norm:
         raise ValueError("Username is required")
     email_norm = _normalize_email(email)
     _validate_email(email_norm)
+    if email_norm is not None and email_norm == username_norm:
+        raise sqlite3.IntegrityError("Username and email must be different")
     password_value = _validate_password(password)
     pw_bytes = password_value.encode("utf-8")
     password_hash = bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode("utf-8")
     conn = get_connection()
     try:
-        existing = conn.execute(
-            "SELECT id FROM users WHERE LOWER(username) = LOWER(?)",
-            (username_norm,),
-        ).fetchone()
-        if existing:
-            raise sqlite3.IntegrityError("Username already exists")
+        _ensure_identifier_available(conn, username_norm)
+        if email_norm is not None:
+            _ensure_identifier_available(conn, email_norm)
 
         cursor = conn.execute(
             "INSERT INTO users (username, password_hash, display_name, email) VALUES (?, ?, ?, ?)",
@@ -68,15 +91,19 @@ def verify_user(username_or_email: str, password: str) -> dict | None:
         return None
     conn = get_connection()
     try:
-        row = conn.execute(
+        rows = conn.execute(
             """SELECT * FROM users
-               WHERE LOWER(username) = LOWER(?)
-                  OR LOWER(COALESCE(email, '')) = LOWER(?)
-               LIMIT 1""",
+               WHERE LOWER(TRIM(username)) = LOWER(?)
+                  OR (
+                      email IS NOT NULL
+                      AND TRIM(email) <> ''
+                      AND LOWER(TRIM(email)) = LOWER(?)
+                  )""",
             (identifier, identifier),
-        ).fetchone()
-        if not row:
+        ).fetchall()
+        if len(rows) != 1:
             return None
+        row = rows[0]
         stored_hash = row["password_hash"]
         # Ensure hash is bytes for bcrypt
         if isinstance(stored_hash, str):
@@ -114,6 +141,11 @@ def update_user(user_id: int, display_name: str = None, email: str = None):
             if email_raw:
                 email_norm = _normalize_email(email_raw)
                 _validate_email(email_norm)
+                _ensure_identifier_available(
+                    conn,
+                    email_norm,
+                    exclude_email_user_id=user_id,
+                )
                 updates.append("email = ?")
                 params.append(email_norm)
             else:

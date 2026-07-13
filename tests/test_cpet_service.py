@@ -451,6 +451,64 @@ def test_training_zones_incomplete_without_two_thresholds():
     assert "incomplete_note" in zones
 
 
+def test_training_zones_reject_non_increasing_hr_power_and_vo2_anchors():
+    cases = [
+        (
+            {"vt1_hr_bpm": 120, "vt2_hr_bpm": 120, "peak_hr_bpm": 170},
+            "Heart rate",
+        ),
+        (
+            {"vt1_power_w": 190, "vt2_power_w": 180, "peak_power_w": 260},
+            "Power",
+        ),
+        (
+            {
+                "vt1_vo2_ml_kg_min": 24,
+                "vt2_vo2_ml_kg_min": 36,
+                "peak_vo2_ml_kg_min": 36,
+            },
+            "VO2",
+        ),
+    ]
+
+    for metrics, anchor_name in cases:
+        zones = build_training_zones(metrics)
+        assert zones["has_zones"] is False
+        assert zones["prescription_suppressed"] is True
+        assert zones["suppression_reason"] == "anchor_order"
+        assert any(issue["anchor"] == anchor_name for issue in zones["anchor_issues"])
+
+        summary = build_cpet_coach_summary({"peak_vo2_ml_kg_min": 40, **metrics})
+        assert summary["prescriptions_suppressed"] is True
+        assert any(
+            flag["Area"] == "Threshold anchor consistency" and flag["Priority"] == "High"
+            for flag in summary["coach_flags"]
+        )
+        assert [row["Focus"] for row in summary["action_plan"]] == ["Safety handoff"]
+
+
+def test_severe_aerobic_incapacity_requires_clinical_clearance_and_suppresses_training():
+    summary = build_cpet_coach_summary(
+        {
+            "peak_vo2_ml_kg_min": 9,
+            "peak_rer": 1.12,
+            "vt1_hr_bpm": 90,
+            "vt2_hr_bpm": 110,
+            "peak_hr_bpm": 130,
+        }
+    )
+
+    assert summary["result_headline"]["Level"] == "High"
+    assert summary["prescriptions_suppressed"] is True
+    assert summary["training_zones"]["has_zones"] is False
+    assert any(flag["Area"] == "Severe aerobic incapacity" for flag in summary["clinical_review_flags"])
+    assert [row["Focus"] for row in summary["action_plan"]] == ["Safety handoff"]
+    assert {row["Metric"] for row in summary["retest_targets"]} == {
+        "Clinical-pattern signals",
+        "Comparability",
+    }
+
+
 def test_metabolic_profile_classifies_mfo_and_flags_high_rer():
     profile = build_metabolic_profile(
         {"fatmax_g_min": 0.53, "fatmax_hr_bpm": 86, "vt1_hr_bpm": 95, "peak_rer": 1.10}
