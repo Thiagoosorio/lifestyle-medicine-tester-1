@@ -212,6 +212,11 @@ def _migrate(conn):
     ]
     # Phase 6: ensure new tables exist for older DBs
     table_migrations = [
+        """CREATE TABLE IF NOT EXISTS app_runtime_state (
+            state_key TEXT PRIMARY KEY,
+            state_value TEXT NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )""",
         """CREATE TABLE IF NOT EXISTS body_metrics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL REFERENCES users(id),

@@ -6,7 +6,9 @@ load_dotenv(Path(__file__).resolve().parent / ".env")
 import streamlit as st
 from components.html_utils import escape_html
 from config.env_flags import is_demo_mode
+from config.runtime_config import RuntimeConfigError, load_admin_bootstrap_config
 from db.database import get_connection, init_db
+from services.admin_service import ensure_bootstrap_admin, reset_accounts_once
 
 st.set_page_config(
     page_title="Lifestyle Medicine Coach",
@@ -22,6 +24,35 @@ LOGGER = logging.getLogger(__name__)
 def _bootstrap_app_data() -> bool:
     """Initialize DB schema/migrations once per server process."""
     init_db()
+
+    try:
+        admin_config = load_admin_bootstrap_config()
+    except RuntimeConfigError:
+        LOGGER.exception("Invalid administrator bootstrap configuration")
+        admin_config = None
+
+    if admin_config is not None:
+        try:
+            admin_summary = ensure_bootstrap_admin(
+                admin_config.username,
+                admin_config.password,
+                admin_config.display_name,
+                revision=admin_config.bootstrap_revision,
+            )
+            LOGGER.info(
+                "Administrator bootstrap complete: created=%s role_updated=%s password_updated=%s",
+                admin_summary["created"],
+                admin_summary["role_updated"],
+                admin_summary["password_updated"],
+            )
+            if admin_config.account_reset_revision:
+                reset_summary = reset_accounts_once(
+                    admin_config.account_reset_revision,
+                    admin_config.username,
+                )
+                LOGGER.info("Account reset reconciliation: %s", reset_summary)
+        except Exception:
+            LOGGER.exception("Failed to provision the configured administrator")
 
     conn = get_connection()
     try:

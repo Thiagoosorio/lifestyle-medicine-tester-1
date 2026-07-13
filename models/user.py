@@ -26,7 +26,7 @@ def _validate_email(email: str | None) -> None:
         raise ValueError("Invalid email format")
 
 
-def _validate_password(password: str) -> str:
+def validate_password(password: str) -> str:
     value = password.strip()
     if len(value) < 8:
         raise ValueError("Password must be at least 8 characters")
@@ -77,7 +77,7 @@ def create_user(
         raise ValueError("Invalid account role")
     if email_norm is not None and email_norm == username_norm:
         raise sqlite3.IntegrityError("Username and email must be different")
-    password_value = _validate_password(password)
+    password_value = validate_password(password)
     pw_bytes = password_value.encode("utf-8")
     password_hash = bcrypt.hashpw(pw_bytes, bcrypt.gensalt()).decode("utf-8")
     conn = get_connection()
@@ -181,7 +181,7 @@ def update_user(user_id: int, display_name: str = None, email: str = None):
 
 
 def change_password(user_id: int, new_password: str):
-    password_value = _validate_password(new_password)
+    password_value = validate_password(new_password)
     password_hash = bcrypt.hashpw(password_value.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
     conn = get_connection()
     try:

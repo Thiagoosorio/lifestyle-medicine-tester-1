@@ -34,6 +34,14 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- Idempotency markers for deployment-time maintenance tasks. Values must never
+-- contain credentials or other secrets.
+CREATE TABLE IF NOT EXISTS app_runtime_state (
+    state_key       TEXT PRIMARY KEY,
+    state_value     TEXT NOT NULL,
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Keep username and email in one case-insensitive identity namespace. These
 -- guards can be installed safely even when a legacy database has duplicates.
 CREATE TRIGGER IF NOT EXISTS users_identity_insert_guard
