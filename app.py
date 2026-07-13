@@ -63,13 +63,19 @@ def _bootstrap_app_data() -> bool:
     finally:
         conn.close()
 
-    from seed_demo import (
-        EMAIL as DEMO_EMAIL,
-        ensure_demo_current_window,
-        ensure_demo_organ_score_prereqs,
-        ensure_demo_showcase_data,
-        main as seed_demo_main,
-    )
+    try:
+        from seed_demo import (
+            EMAIL as DEMO_EMAIL,
+            ensure_demo_current_window,
+            ensure_demo_organ_score_prereqs,
+            ensure_demo_showcase_data,
+            main as seed_demo_main,
+        )
+    except Exception:
+        # Demo maintenance must never make authentication unavailable. This
+        # also protects Streamlit hot reloads from mixed-version imports.
+        LOGGER.exception("Demo maintenance module could not be loaded")
+        return True
 
     # Only the genuinely seeded demo identity — matched by its email, not just
     # the guessable username — is eligible for the force-overwrite backfill, so
@@ -80,11 +86,11 @@ def _bootstrap_app_data() -> bool:
         else None
     )
 
-    if demo_row is None and is_demo_mode():
-        seed_demo_main()
-        LOGGER.info("Seeded demo account for DEMO_MODE session")
-    elif demo_exists:
-        try:
+    try:
+        if demo_row is None and is_demo_mode():
+            seed_demo_main()
+            LOGGER.info("Seeded demo account for DEMO_MODE session")
+        elif demo_exists:
             # Ensure wearable table exists before backfill
             from services.wearable_wheel_service import _ensure_wearable_measurements_schema
             _bconn = get_connection()
@@ -111,8 +117,8 @@ def _bootstrap_app_data() -> bool:
                 )
             LOGGER.info("Demo showcase synchronized: %s", showcase_summary)
             LOGGER.info("Demo current window synchronized: %s", current_summary)
-        except Exception:
-            LOGGER.exception("Failed to backfill demo prerequisites for existing Maria account")
+    except Exception:
+        LOGGER.exception("Failed to seed or backfill the demo account")
     return True
 
 

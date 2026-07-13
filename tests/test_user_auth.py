@@ -232,3 +232,8 @@ def test_change_password_enforces_strength(user_db):
         user_model.change_password(user_id, "short1")
     with pytest.raises(ValueError, match="include letters and numbers"):
         user_model.change_password(user_id, "abcdefgh")
+
+
+def test_legacy_password_validator_import_remains_compatible():
+    assert user_model._validate_password("Password123") == "Password123"
+    assert user_model.validate_password("Password123") == "Password123"

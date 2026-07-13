@@ -26,13 +26,18 @@ def _validate_email(email: str | None) -> None:
         raise ValueError("Invalid email format")
 
 
-def validate_password(password: str) -> str:
+def _validate_password(password: str) -> str:
     value = password.strip()
     if len(value) < 8:
         raise ValueError("Password must be at least 8 characters")
     if not any(ch.isalpha() for ch in value) or not any(ch.isdigit() for ch in value):
         raise ValueError("Password must include letters and numbers")
     return value
+
+
+def validate_password(password: str) -> str:
+    """Public password-policy entry point with legacy import compatibility."""
+    return _validate_password(password)
 
 
 def _ensure_identifier_available(

@@ -7,7 +7,7 @@ from typing import Any
 import bcrypt
 
 from db.database import get_connection
-from models.user import validate_password
+from models.user import _validate_password as validate_password
 
 
 _ACCOUNT_RESET_STATE_KEY = "account_reset_revision"
